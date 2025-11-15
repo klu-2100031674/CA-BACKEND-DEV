@@ -1,0 +1,1217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Financial Data Collection Form</title>
+<style>
+  * {
+    box-sizing: border-box;
+  }
+  
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    color: #2c3e50;
+    padding: 20px;
+    margin: 0;
+    min-height: 100vh;
+  }
+  
+  .card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 30px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    max-width: 1000px;
+    margin: 0 auto;
+    border: 1px solid #e1e8ed;
+  }
+  
+  h1 {
+    margin: 0 0 10px;
+    color: #2c3e50;
+    font-size: 28px;
+    font-weight: 700;
+  }
+  
+  h2 {
+    color: #34495e;
+    font-size: 22px;
+    margin: 0 0 20px;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 8px;
+  }
+  
+  .subtitle {
+    font-size: 14px;
+    color: #7f8c8d;
+    margin-bottom: 25px;
+  }
+  
+  .steps {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 25px;
+    flex-wrap: wrap;
+  }
+  
+  .step {
+    padding: 12px 18px;
+    border-radius: 25px;
+    background: #ecf0f1;
+    color: #7f8c8d;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+    font-size: 14px;
+  }
+  
+  .step:hover {
+    background: #d5dbdb;
+    transform: translateY(-2px);
+  }
+  
+  .step.active {
+    background: #3498db;
+    color: #fff;
+    border-color: #2980b9;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+  }
+  
+  .step.inactive {
+    background: #ecf0f1;
+    color: #95a5a6;
+  }
+  
+  .controls {
+    display: flex;
+    gap: 12px;
+    margin-top: 30px;
+    align-items: center;
+  }
+  
+  label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #2c3e50;
+    font-size: 14px;
+  }
+  
+  input, select, textarea {
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 2px solid #bdc3c7;
+    background: #fff;
+    min-width: 280px;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    font-family: inherit;
+  }
+  
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+  }
+  
+  textarea {
+    min-height: 80px;
+    resize: vertical;
+  }
+  
+  .field {
+    margin-bottom: 20px;
+  }
+  
+  .row {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  
+  .half {
+    flex: 1;
+    min-width: 250px;
+  }
+  
+  button {
+    background: #3498db;
+    color: #fff;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 600;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  
+  button:hover {
+    background: #2980b9;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+  }
+  
+  button:disabled {
+    background: #bdc3c7;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+  
+  button.ghost {
+    background: transparent;
+    border: 2px solid #bdc3c7;
+    color: #7f8c8d;
+  }
+  
+  button.ghost:hover {
+    background: #ecf0f1;
+    border-color: #95a5a6;
+  }
+  
+  button.success {
+    background: #27ae60;
+  }
+  
+  button.success:hover {
+    background: #229954;
+  }
+  
+  .small {
+    font-size: 13px;
+    color: #7f8c8d;
+  }
+  
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+    font-size: 14px;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  
+  th, td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #ecf0f1;
+  }
+  
+  th {
+    background: #34495e;
+    color: #fff;
+    font-weight: 600;
+  }
+  
+  .asset-row input {
+    width: 100%;
+    box-sizing: border-box;
+    min-width: auto;
+    padding: 8px 12px;
+  }
+  
+  .outputBox {
+    white-space: pre-wrap;
+    background: #2c3e50;
+    color: #ecf0f1;
+    padding: 20px;
+    border-radius: 8px;
+    margin-top: 20px;
+    font-size: 13px;
+    font-family: 'Courier New', monospace;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+  
+  .category-card {
+    border: 2px solid #ecf0f1;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    background: #f8f9fa;
+    transition: all 0.3s ease;
+  }
+  
+  .category-card:hover {
+    border-color: #3498db;
+    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.1);
+  }
+  
+  .category-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 15px;
+  }
+  
+  .category-total {
+    font-size: 16px;
+    font-weight: 700;
+    color: #27ae60;
+    margin-top: 12px;
+    padding: 8px 12px;
+    background: #d5f4e6;
+    border-radius: 6px;
+    display: inline-block;
+  }
+  
+  .add-item-section {
+    margin-top: 15px;
+    padding: 15px;
+    background: #fff;
+    border-radius: 8px;
+    border: 1px solid #e1e8ed;
+  }
+  
+  .computed-value {
+    background: #e8f5e8;
+    padding: 10px 15px;
+    border-radius: 6px;
+    font-weight: 600;
+    color: #27ae60;
+    border-left: 4px solid #27ae60;
+  }
+  
+  @media (max-width: 768px) {
+    .row {
+      flex-direction: column;
+    }
+    
+    input, select, textarea {
+      min-width: 100%;
+    }
+    
+    .steps {
+      flex-direction: column;
+    }
+    
+    .step {
+      text-align: center;
+    }
+    
+    .controls {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    
+    .card {
+      padding: 20px;
+    }
+    
+    /* Mobile responsive grid for salary section */
+    .salary-grid {
+      grid-template-columns: 1fr !important;
+      gap: 10px !important;
+    }
+    
+    .salary-grid > div {
+      text-align: left !important;
+      padding: 10px !important;
+    }
+    
+    .tabs {
+      flex-direction: column !important;
+    }
+    
+    .tab-links {
+      min-width: 100% !important;
+      flex-direction: row !important;
+      flex-wrap: wrap !important;
+    }
+    
+    .tab-link {
+      flex: 1 !important;
+      min-width: 120px !important;
+    }
+  }
+  
+  .progress-bar {
+    width: 100%;
+    height: 4px;
+    background: #ecf0f1;
+    border-radius: 2px;
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+  
+  .progress-fill {
+    height: 100%;
+    background: #3498db;
+    transition: width 0.3s ease;
+    border-radius: 2px;
+  }
+
+  /* Updated vertical tabs styling to match horizontal tabs */
+  .tabs {
+    display: flex;
+    width: 100%;
+    gap: 20px;
+  }
+  
+  .tab-links {
+    display: flex;
+    flex-direction: column;
+    min-width: 220px;
+    gap: 5px;
+  }
+  
+  .tab-link {
+    padding: 12px 18px;
+    border: 2px solid #bdc3c7;
+    text-align: left;
+    cursor: pointer;
+    background: #ecf0f1;
+    color: #7f8c8d;
+    font-weight: 600;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    font-size: 14px;
+  }
+  
+  .tab-link:hover {
+    background: #d5dbdb;
+    transform: translateY(-2px);
+  }
+  
+  .tab-link.active {
+    background: #3498db;
+    color: #fff;
+    border-color: #2980b9;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+  }
+  
+  .tab-content {
+    flex: 1;
+    padding: 20px;
+    border: 2px solid #bdc3c7;
+    border-radius: 8px;
+    background: #fff;
+  }
+  
+  .input-row {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 12px;
+    align-items: center;
+  }
+  
+  .input-row input {
+    flex: 1;
+    padding: 10px 12px;
+    min-width: auto;
+    border: 2px solid #bdc3c7;
+    border-radius: 6px;
+    font-size: 14px;
+  }
+  
+  .input-row input:focus {
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+  }
+  
+  .input-row input[type="text"] {
+    flex: 2;
+  }
+  
+  .input-row input[type="number"] {
+    flex: 1;
+  }
+</style>
+<script src="/wizard-plugin.js"></script>
+</head>
+<body>
+<div id="wizardCard" class="card">
+  <h1>Financial Data Collection Form</h1>
+  <div class="subtitle">Complete each section step by step. All data will be collected in JSON format for easy processing.</div>
+  
+  <!-- Test Data Button -->
+  <div style="text-align: center; margin: 15px 0;">
+    <button onclick="fillTestData()" style="
+      background: linear-gradient(135deg, #f39c12, #e67e22);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 8px rgba(243, 156, 18, 0.3);
+    " onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
+      🧪 Fill Test Data
+    </button>
+  </div>
+  
+  <div class="progress-bar">
+    <div id="progressFill" class="progress-fill" style="width: 16.67%"></div>
+  </div>
+  
+  <div id="stepper" class="steps"></div>
+  <div id="contentArea"></div>
+
+  <div class="controls">
+    <button id="prevBtn" class="ghost">← Previous</button>
+    <button id="nextBtn">Next →</button>
+    <div style="margin-left: auto">
+      <button id="submitBtn" class="success">Submit All Data</button>
+    </div>
+  </div>
+</div>
+
+<div id="resultScreen" class="card" style="display:none">
+  <h1>✅ Form Submitted Successfully</h1>
+  <div class="subtitle">Your data has been collected in JSON format below:</div>
+  <div id="finalOutput" class="outputBox"></div>
+  <div class="controls">
+    <button id="backToFormBtn" class="ghost">← Back to Form</button>
+    <button id="exportFinalBtn" class="success">📋 Copy JSON</button>
+  </div>
+</div>
+
+<script>
+// Configuration
+function financialYearOptions() {
+  const list = [];
+  for (let start = 2024; start <= 2033; start++) {
+    list.push(`${start} - ${start + 1}`);
+  }
+  return list;
+}
+
+const sections = [
+  {
+    key: 'general',
+    title: 'General Information',
+    fields: [
+      { id: 'R3C2', label: 'Name of Firm', type: 'text', required: true },
+      { id: 'R4C2', label: 'Proprietor / MP / MD Name', type: 'text', required: true },
+      { id: 'R5C2', label: 'Firm Address', type: 'textarea', required: true },
+      { id: 'R6C2', label: 'Sector', type: 'select', options: ['Manufacturing sector', 'Service sector (with stock)', 'Trading sector'], required: true },
+      { id: 'R7C2', label: 'Nature of Business', type: 'text', required: true }
+    ]
+  },
+  {
+    key: 'finance',
+    title: 'Means of Finance',
+    fields: [
+      { id: 'R9C2', label: 'Do you have working capital limit at present?', type: 'select', options: ['Yes', 'No'], required: true },
+      { id: 'R10C2', label: 'Working Capital Loan Requirement (₹)', type: 'number', min: 0 },
+      { id: 'R11C2', label: 'Working Capital Loan Interest (Annual %)', type: 'number', min: 0, max: 100, step: 0.01 },
+      { id: 'R12C2', label: 'Processing Fees (Including GST) (₹)', type: 'number', min: 0 },
+      { id: 'R13C2', label: 'Working Capital (% of Turnover)', type: 'number', min: 0, max: 100, step: 0.01 }
+    ]
+  },
+  {
+    key: 'years',
+    title: 'Financial Years',
+    fields: [
+      { id: 'R15C2', label: '1st Financial Year', type: 'select', options: financialYearOptions(), required: true },
+      { id: 'R16C2', label: '2nd Financial Year', type: 'select', options: financialYearOptions(), required: true },
+      { id: 'R17C2', label: '3rd Financial Year', type: 'select', options: financialYearOptions(), required: true },
+      { id: 'R18C2', label: '4th Financial Year', type: 'select', options: financialYearOptions(), required: true },
+      { id: 'R19C2', label: '5th Financial Year', type: 'select', options: financialYearOptions(), required: true }
+    ]
+  },
+  {
+    key: 'salaries',
+    title: 'Salaries & Wages',
+    fields: [
+      { id: 'R21C2_W', label: 'Skilled - Number of Workers', type: 'number', min: 0 },
+      { id: 'R21C2_S', label: 'Skilled - Salary per Worker (₹/month)', type: 'number', min: 0 },
+      { id: 'R23C2_W', label: 'Semi Skilled - Number of Workers', type: 'number', min: 0 },
+      { id: 'R23C2_S', label: 'Semi Skilled - Salary per Worker (₹/month)', type: 'number', min: 0 },
+      { id: 'R22C2_W', label: 'Unskilled - Number of Workers', type: 'number', min: 0 },
+      { id: 'R22C2_S', label: 'Unskilled - Salary per Worker (₹/month)', type: 'number', min: 0 },
+      { id: 'R25C2', label: 'Total Salaries and Wages per Month', type: 'computed' }
+    ]
+  },
+  {
+    key: 'assumptions',
+    title: 'Assumptions',
+    fields: [
+      { id: 'R26C2', label: 'Salaries Increment (Multiplier)', type: 'number', min: 1, step: 0.01 },
+      { id: 'R27C2', label: 'Rent per Month (₹)', type: 'number', min: 0 },
+      { id: 'R28C2', label: 'Rental Increment (Multiplier)', type: 'number', min: 1, step: 0.01 },
+      { id: 'R29C2', label: 'Power Charges per Month (₹)', type: 'number', min: 0 },
+      { id: 'R30C2', label: 'Power Charges Increment (Multiplier)', type: 'number', min: 1, step: 0.01 },
+      { id: 'R31C2', label: 'Sales Growth (Multiplier)', type: 'number', min: 1, step: 0.01 },
+      { id: 'R32C2', label: 'No of Months Interest Paid in First Year', type: 'number', min: 1, max: 12 },
+      { id: 'R33C2', label: 'No of Months Turnover Done in First Year', type: 'number', min: 1, max: 12 },
+      { id: 'R34C2', label: 'No of Months Interest paid in Second year', type: 'number', min: 1, max: 12 },
+      { id: 'R35C2', label: 'No of Months Interest paid in Second year', type: 'number', min: 1, max: 12 }
+    ]
+  },
+  {
+    key: 'fixed',
+    title: 'Fixed Assets Schedule',
+    categories: [
+      { idPrefix: 'R37C2', title: 'Furniture and Fittings', itemCount: 10, startIndex: 53, excelField: 'i38' },
+      { idPrefix: 'R56C2', title: 'Service Equipment', itemCount: 10, startIndex: 63, excelField: 'i39' },
+      { idPrefix: 'R60C2', title: 'Plant and Machinery', itemCount: 10, startIndex: 73, excelField: 'i40' },
+      { idPrefix: 'R40C2', title: 'Computers', itemCount: 10, startIndex: 83, excelField: 'i41' },
+      { idPrefix: 'R41C2', title: 'Land', itemCount: 3, startIndex: 93, excelField: 'i42' },
+      { idPrefix: 'R42C2', title: 'Shed, construction, civil works', itemCount: 10, startIndex: 96, excelField: 'i43' },
+      { idPrefix: 'R43C2', title: 'Electrical Items', itemCount: 10, startIndex: 106, excelField: 'i44' },
+      { idPrefix: 'R44C2', title: 'Electronics Items', itemCount: 10, startIndex: 116, excelField: 'i45' },
+      { idPrefix: 'R45C2', title: 'Vehicle', itemCount: 9, startIndex: 126, excelField: 'i46' },
+      { idPrefix: 'R46C2', title: 'Animals', itemCount: 10, startIndex: 135, excelField: 'i47' },
+      { idPrefix: 'R47C2', title: 'Other Assets', itemCount: 10, startIndex: 145, excelField: 'i48' }
+    ]
+  }
+];
+
+// Global state
+let currentStep = 0;
+let formData = {
+  "General Information": {},
+  "Means of Finance": {},
+  "Financial Years": {},
+  "Salaries & Wages": {
+    'R21C2_W': 0, 'R21C2_S': 0,
+    'R23C2_W': 0, 'R23C2_S': 0,
+    'R22C2_W': 0, 'R22C2_S': 0,
+    'R25C2': 0
+  },
+  "Assumptions": {},
+  "Fixed Assets Schedule": {}
+};
+
+// Global excelData variable
+let excelData = {};
+
+// DOM references
+const stepperEl = document.getElementById('stepper');
+const contentArea = document.getElementById('contentArea');
+const prevBtn = document.getElementById('prevBtn');
+const nextBtn = document.getElementById('nextBtn');
+const submitBtn = document.getElementById('submitBtn');
+const progressFill = document.getElementById('progressFill');
+
+// Function to update global excelData
+function updateExcelData() {
+  excelData = {
+    // General Information fields
+    i4: formData["General Information"]["R3C2"] || "",
+    i5: formData["General Information"]["R4C2"] || "",
+    i6: formData["General Information"]["R5C2"] || "",
+    i7: formData["General Information"]["R6C2"] || "",
+    i8: formData["General Information"]["R7C2"] || "",
+    
+    // Means of Finance fields
+    i10: formData["Means of Finance"]["R9C2"] || "",
+    i11: formData["Means of Finance"]["R10C2"] || 0,
+    i12: formData["Means of Finance"]["R11C2"] || 0,
+    i13: formData["Means of Finance"]["R12C2"] || 0,
+    i14: formData["Means of Finance"]["R13C2"] || 0,
+    
+    // Financial Years fields
+    i16: formData["Financial Years"]["R15C2"] || "",
+    i17: formData["Financial Years"]["R16C2"] || "",
+    i18: formData["Financial Years"]["R17C2"] || "",
+    i19: formData["Financial Years"]["R18C2"] || "",
+    i20: formData["Financial Years"]["R19C2"] || "",
+    
+    // Salaries & Wages fields
+    i22: formData["Salaries & Wages"]["R21C2_W"] || 0,
+    k22: formData["Salaries & Wages"]["R21C2_S"] || 0,
+    i23: formData["Salaries & Wages"]["R23C2_W"] || 0,
+    k23: formData["Salaries & Wages"]["R23C2_S"] || 0,
+    i24: formData["Salaries & Wages"]["R22C2_W"] || 0,
+    k24: formData["Salaries & Wages"]["R22C2_S"] || 0,
+    k26: formData["Salaries & Wages"]["R25C2"] || 0,
+    
+    // Assumptions fields
+    i27: formData["Assumptions"]["R26C2"] || 0,
+    i28: formData["Assumptions"]["R27C2"] || 0,
+    i29: formData["Assumptions"]["R28C2"] || 0,
+    i30: formData["Assumptions"]["R29C2"] || 0,
+    i31: formData["Assumptions"]["R30C2"] || 0,
+    i32: formData["Assumptions"]["R31C2"] || 0,
+    i33: formData["Assumptions"]["R32C2"] || 0,
+    i34: formData["Assumptions"]["R33C2"] || 0,
+    i35: formData["Assumptions"]["R34C2"] || 0,
+    i36: formData["Assumptions"]["R35C2"] || 0
+  };
+
+  // Add all d53/e53 fields to excelData
+  for (let i = 53; i <= 154; i++) {
+    if (formData[`d${i}`] !== undefined) {
+      excelData[`d${i}`] = formData[`d${i}`];
+    }
+    if (formData[`e${i}`] !== undefined) {
+      excelData[`e${i}`] = formData[`e${i}`];
+    }
+  }
+  
+
+}
+
+// Initialize stepper
+sections.forEach((s, idx) => {
+  const sp = document.createElement('div');
+  sp.className = 'step ' + (idx === 0 ? 'active' : 'inactive');
+  sp.textContent = `${idx + 1}. ${s.title}`;
+  sp.addEventListener('click', () => renderStep(idx));
+  stepperEl.appendChild(sp);
+});
+
+// Update progress bar
+function updateProgress() {
+  const progress = ((currentStep + 1) / sections.length) * 100;
+  progressFill.style.width = progress + '%';
+}
+
+// Render step function
+function renderStep(index) {
+  if (index < 0 || index >= sections.length) return;
+  
+  currentStep = index;
+  updateProgress();
+  
+  // Update stepper
+  Array.from(stepperEl.children).forEach((c, i) => {
+    c.className = 'step ' + (i === index ? 'active' : 'inactive');
+  });
+  
+  // Update navigation buttons
+  prevBtn.disabled = index === 0;
+  nextBtn.disabled = index === sections.length - 1;
+  
+  contentArea.innerHTML = '';
+  const s = sections[index];
+  
+  const header = document.createElement('h2');
+  header.textContent = s.title;
+  contentArea.appendChild(header);
+
+  if (s.key === 'fixed') {
+    renderFixedAssetsSection(s);
+    return;
+  }
+
+  renderNormalFields(s);
+}
+
+function renderFixedAssetsSection(s) {
+  // Build tabs container
+  const tabsContainer = document.createElement('div');
+  tabsContainer.className = 'tabs';
+
+  const linksContainer = document.createElement('div');
+  linksContainer.className = 'tab-links';
+  tabsContainer.appendChild(linksContainer);
+
+  const contentContainer = document.createElement('div');
+  contentContainer.className = 'tab-content';
+  tabsContainer.appendChild(contentContainer);
+
+  contentArea.appendChild(tabsContainer);
+
+  s.categories.forEach((cat, idx) => {
+    const btn = document.createElement('button');
+    btn.className = 'tab-link' + (idx === 0 ? ' active' : '');
+    btn.textContent = cat.title;
+    btn.dataset.idPrefix = cat.idPrefix;
+    btn.dataset.items = cat.itemCount;
+    btn.dataset.categoryTitle = cat.title;
+    btn.dataset.startIndex = cat.startIndex;
+    btn.dataset.excelField = cat.excelField; // Added excel field mapping
+    linksContainer.appendChild(btn);
+  });
+
+  function renderInputs(idPrefix, items, categoryTitle, startIndex, excelField) {
+    contentContainer.innerHTML = '';
+    
+    // Add category header with total display
+    const headerDiv = document.createElement('div');
+    headerDiv.style.marginBottom = '20px';
+    headerDiv.style.padding = '20px';
+    headerDiv.style.background = '#f8f9fa';
+    headerDiv.style.borderRadius = '8px';
+    headerDiv.style.border = '2px solid #e1e8ed';
+    
+    const titleDiv = document.createElement('div');
+    titleDiv.style.fontWeight = '700';
+    titleDiv.style.fontSize = '20px';
+    titleDiv.style.color = '#2c3e50';
+    titleDiv.style.marginBottom = '10px';
+    titleDiv.textContent = categoryTitle;
+    headerDiv.appendChild(titleDiv);
+    
+    const totalDiv = document.createElement('div');
+    totalDiv.id = `${idPrefix}_total`;
+    totalDiv.style.fontWeight = '700';
+    totalDiv.style.color = '#27ae60';
+    totalDiv.style.fontSize = '16px';
+    totalDiv.style.padding = '8px 12px';
+    totalDiv.style.background = '#d5f4e6';
+    totalDiv.style.borderRadius = '6px';
+    totalDiv.style.display = 'inline-block';
+    totalDiv.textContent = 'Total: ₹0';
+    headerDiv.appendChild(totalDiv);
+    
+    contentContainer.appendChild(headerDiv);
+    
+    // Add input section header
+    const inputHeaderDiv = document.createElement('div');
+    inputHeaderDiv.style.display = 'flex';
+    inputHeaderDiv.style.gap = '15px';
+    inputHeaderDiv.style.marginBottom = '15px';
+    inputHeaderDiv.style.padding = '12px';
+    inputHeaderDiv.style.background = '#34495e';
+    inputHeaderDiv.style.color = '#fff';
+    inputHeaderDiv.style.borderRadius = '6px';
+    inputHeaderDiv.style.fontWeight = '600';
+    
+    const descHeader = document.createElement('div');
+    descHeader.style.flex = '2';
+    descHeader.textContent = 'Item Description';
+    inputHeaderDiv.appendChild(descHeader);
+    
+    const amtHeader = document.createElement('div');
+    amtHeader.style.flex = '1';
+    amtHeader.textContent = 'Amount (₹)';
+    inputHeaderDiv.appendChild(amtHeader);
+    
+    contentContainer.appendChild(inputHeaderDiv);
+
+    // Get existing data for this category
+    const existingData = formData["Fixed Assets Schedule"][categoryTitle] || { items: [], total: 0 };
+    
+    for (let i = 1; i <= items; i++) {
+      const row = document.createElement('div');
+      row.className = 'input-row';
+
+      const desc = document.createElement('input');
+      desc.type = 'text';
+      desc.placeholder = `Item ${i} description`;
+      desc.name = `d${startIndex + i - 1}`;
+      desc.value = (existingData.items[i-1] && existingData.items[i-1].description) || '';
+
+      const amt = document.createElement('input');
+      amt.type = 'number';
+      amt.placeholder = 'Amount ₹';
+      amt.name = `e${startIndex + i - 1}`;
+      amt.value = (existingData.items[i-1] && existingData.items[i-1].amount) || '';
+      amt.min = '0';
+      amt.step = '0.01';
+
+      const updateData = () => {
+        if (!formData["Fixed Assets Schedule"]) formData["Fixed Assets Schedule"] = {};
+        if (!formData["Fixed Assets Schedule"][categoryTitle]) {
+          formData["Fixed Assets Schedule"][categoryTitle] = { items: [], total: 0 };
+        }
+        
+        // Ensure items array has enough elements
+        while (formData["Fixed Assets Schedule"][categoryTitle].items.length < items) {
+          formData["Fixed Assets Schedule"][categoryTitle].items.push({ description: '', amount: 0 });
+        }
+        
+        // Update the specific item with d53/e53 field names
+        formData["Fixed Assets Schedule"][categoryTitle].items[i-1] = {
+          description: desc.value,
+          amount: Number(amt.value) || 0,
+          descriptionField: `d${startIndex + i - 1}`,
+          amountField: `e${startIndex + i - 1}`
+        };
+        
+        // Also add to root level with d53/e53 format for easy access
+        formData[`d${startIndex + i - 1}`] = desc.value;
+        formData[`e${startIndex + i - 1}`] = Number(amt.value) || 0;
+        
+        // Calculate total for this category
+        let categoryTotal = 0;
+        formData["Fixed Assets Schedule"][categoryTitle].items.forEach(item => {
+          categoryTotal += item.amount || 0;
+        });
+        formData["Fixed Assets Schedule"][categoryTitle].total = categoryTotal;
+        
+        formData[excelField] = categoryTotal;
+        
+        // Update total display
+        const totalDisplay = document.getElementById(`${idPrefix}_total`);
+        if (totalDisplay) {
+          totalDisplay.textContent = `Total: ₹${categoryTotal.toLocaleString('en-IN')}`;
+        }
+        
+        console.log(`[v0] Updated ${categoryTitle} with d${startIndex + i - 1}/e${startIndex + i - 1} format, total in ${excelField}`);
+      };
+
+      desc.addEventListener('input', updateData);
+      amt.addEventListener('input', updateData);
+
+      row.appendChild(desc);
+      row.appendChild(amt);
+      contentContainer.appendChild(row);
+    }
+    
+    // Update total display on initial render
+    setTimeout(() => {
+      const totalDisplay = document.getElementById(`${idPrefix}_total`);
+      if (totalDisplay && existingData.total) {
+        totalDisplay.textContent = `Total: ₹${existingData.total.toLocaleString('en-IN')}`;
+      }
+    }, 0);
+  }
+
+  // Initial render with first category
+  renderInputs(s.categories[0].idPrefix, s.categories[0].itemCount, s.categories[0].title, s.categories[0].startIndex, s.categories[0].excelField);
+
+  // Tab switching
+  linksContainer.querySelectorAll('.tab-link').forEach((btn, index) => {
+    btn.addEventListener('click', () => {
+      linksContainer.querySelectorAll('.tab-link').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderInputs(btn.dataset.idPrefix, parseInt(btn.dataset.items), btn.dataset.categoryTitle, parseInt(btn.dataset.startIndex), btn.dataset.excelField);
+    });
+  });
+}
+
+// Render normal fields
+function renderNormalFields(s) {
+  const form = document.createElement('div');
+  form.style.marginTop = '10px';
+  
+  if (s.key === 'salaries') {
+    renderSalariesSection(s, form);
+  } else {
+    renderRegularFields(s, form);
+  }
+  
+  contentArea.appendChild(form);
+}
+
+// Render salaries section with grid layout
+function renderSalariesSection(s, form) {
+  const grid = document.createElement('div');
+  grid.className = 'salary-grid';
+  grid.style.display = 'grid';
+  grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
+  grid.style.gap = '20px';
+  grid.style.marginBottom = '20px';
+  
+  // Headers
+  const headers = ['Category', 'Number of Workers', 'Salary per Worker (₹/month)'];
+  headers.forEach(h => {
+    const header = document.createElement('div');
+    header.style.fontWeight = '700';
+    header.style.padding = '15px';
+    header.style.background = '#34495e';
+    header.style.color = '#fff';
+    header.style.textAlign = 'center';
+    header.style.borderRadius = '8px';
+    header.textContent = h;
+    grid.appendChild(header);
+  });
+  
+  // Salary categories
+  const categories = [
+    { label: 'Skilled', workerField: 'R21C2_W', salaryField: 'R21C2_S' },
+    { label: 'Semi Skilled', workerField: 'R23C2_W', salaryField: 'R23C2_S' },
+    { label: 'Unskilled', workerField: 'R22C2_W', salaryField: 'R22C2_S' }
+  ];
+  
+  categories.forEach(cat => {
+    // Category label
+    const label = document.createElement('div');
+    label.style.padding = '15px';
+    label.style.background = '#ecf0f1';
+    label.style.fontWeight = '600';
+    label.style.textAlign = 'center';
+    label.style.borderRadius = '8px';
+    label.textContent = cat.label;
+    grid.appendChild(label);
+    
+    // Workers input
+    const workersInput = document.createElement('input');
+    workersInput.type = 'number';
+    workersInput.min = '0';
+    workersInput.placeholder = 'Number of workers';
+    workersInput.value = formData["Salaries & Wages"][cat.workerField] || '';
+    workersInput.addEventListener('input', () => {
+      formData["Salaries & Wages"][cat.workerField] = Number(workersInput.value) || 0;
+      updateSalaryTotal();
+    });
+    grid.appendChild(workersInput);
+    
+    // Salary input
+    const salaryInput = document.createElement('input');
+    salaryInput.type = 'number';
+    salaryInput.min = '0';
+    salaryInput.placeholder = 'Salary per worker';
+    salaryInput.value = formData["Salaries & Wages"][cat.salaryField] || '';
+    salaryInput.addEventListener('input', () => {
+      formData["Salaries & Wages"][cat.salaryField] = Number(salaryInput.value) || 0;
+      updateSalaryTotal();
+    });
+    grid.appendChild(salaryInput);
+  });
+  
+  form.appendChild(grid);
+  
+  // Total display
+  const totalDiv = document.createElement('div');
+  totalDiv.className = 'computed-value';
+  totalDiv.style.marginTop = '20px';
+  totalDiv.id = 'salaryTotal';
+  totalDiv.textContent = `Total Salaries and Wages per Month: ₹${formData["Salaries & Wages"]['R25C2'] || 0}`;
+  form.appendChild(totalDiv);
+  
+  function updateSalaryTotal() {
+    const skilled = (formData["Salaries & Wages"]['R21C2_W'] || 0) * (formData["Salaries & Wages"]['R21C2_S'] || 0);
+    const semiSkilled = (formData["Salaries & Wages"]['R23C2_W'] || 0) * (formData["Salaries & Wages"]['R23C2_S'] || 0);
+    const unskilled = (formData["Salaries & Wages"]['R22C2_W'] || 0) * (formData["Salaries & Wages"]['R22C2_S'] || 0);
+    const total = skilled + semiSkilled + unskilled;
+    
+    formData["Salaries & Wages"]['R25C2'] = total;
+    
+    const totalDisplay = document.getElementById('salaryTotal');
+    if (totalDisplay) {
+      totalDisplay.textContent = `Total Salaries and Wages per Month: ₹${total.toLocaleString('en-IN')}`;
+    }
+  }
+}
+
+// Render regular fields
+function renderRegularFields(s, form) {
+  s.fields.forEach(field => {
+    const fieldDiv = document.createElement('div');
+    fieldDiv.className = 'field';
+    
+    const label = document.createElement('label');
+    label.textContent = field.label + (field.required ? ' *' : '');
+    fieldDiv.appendChild(label);
+    
+    let input;
+    if (field.type === 'select') {
+      input = document.createElement('select');
+      const defaultOption = document.createElement('option');
+      defaultOption.value = '';
+      defaultOption.textContent = 'Select...';
+      input.appendChild(defaultOption);
+      
+      field.options.forEach(opt => {
+        const option = document.createElement('option');
+        option.value = opt;
+        option.textContent = opt;
+        input.appendChild(option);
+      });
+    } else if (field.type === 'textarea') {
+      input = document.createElement('textarea');
+    } else if (field.type === 'computed') {
+      const computedDiv = document.createElement('div');
+      computedDiv.className = 'computed-value';
+      computedDiv.textContent = `${field.label}: ₹${formData[s.title][field.id] || 0}`;
+      fieldDiv.appendChild(computedDiv);
+      form.appendChild(fieldDiv);
+      return;
+    } else {
+      input = document.createElement('input');
+      input.type = field.type;
+      if (field.min !== undefined) input.min = field.min;
+      if (field.max !== undefined) input.max = field.max;
+      if (field.step !== undefined) input.step = field.step;
+    }
+    
+    input.placeholder = field.label;
+    input.value = formData[s.title][field.id] || '';
+    
+    input.addEventListener('input', () => {
+      if (field.type === 'number') {
+        formData[s.title][field.id] = Number(input.value) || 0;
+      } else {
+        formData[s.title][field.id] = input.value;
+      }
+    });
+    
+    fieldDiv.appendChild(input);
+    form.appendChild(fieldDiv);
+  });
+}
+
+// Navigation handlers
+prevBtn.addEventListener('click', () => {
+  if (currentStep > 0) {
+    renderStep(currentStep - 1);
+  }
+});
+
+nextBtn.addEventListener('click', () => {
+  if (currentStep < sections.length - 1) {
+    renderStep(currentStep + 1);
+  }
+});
+
+submitBtn.addEventListener('click', () => {
+  // Update global excelData
+  updateExcelData();
+
+  // Build AdditionalData with detailed Fixed Assets information
+  const additionalData = {
+    "Fixed Assets Schedule": formData["Fixed Assets Schedule"]
+  };
+
+  const finalJson = {
+    excelData: excelData,
+    AdditionalData: additionalData
+  };
+
+  document.getElementById('finalOutput').textContent = JSON.stringify(finalJson, null, 2);
+  document.getElementById('wizardCard').style.display = 'none';
+  document.getElementById('resultScreen').style.display = 'block';
+});
+
+// Result screen handlers
+document.getElementById('backToFormBtn').addEventListener('click', () => {
+  document.getElementById('resultScreen').style.display = 'none';
+  document.getElementById('wizardCard').style.display = 'block';
+});
+
+document.getElementById('exportFinalBtn').addEventListener('click', () => {
+  const output = document.getElementById('finalOutput').textContent;
+  navigator.clipboard.writeText(output).then(() => {
+    alert('JSON copied to clipboard!');
+  });
+});
+
+// Initialize first step
+renderStep(0);
+
+// Collect all form data using global excelData - super simple!
+function collectAllData() {
+    // Update global excelData with latest form data
+    updateExcelData();
+    
+    // Format data to match backend expected structure (like complete-form-data.js)
+    return {
+        formData: {
+            excelData: excelData,  // Use global excelData with cell mappings (i4, i5, etc.)
+            additionalData: {
+                formType: 'FRCC1 Complete Financial Form',
+                timestamp: new Date().toISOString()
+            }
+        }
+    };
+}
+
+// Custom fill function for our complex form structure
+function fillTestData() {
+    formData = {
+        "General Information": {
+            "R3C2": "Sample Firm Ltd",
+            "R4C2": "John Doe", 
+            "R5C2": "123 Business Street, City, State 12345",
+            "R6C2": "Manufacturing sector",
+            "R7C2": "Manufacturing of electronic components"
+        },
+        "Means of Finance": {
+            "R9C2": "No",
+            "R10C2": 10000000,
+            "R11C2": 12,
+            "R12C2": 1,
+            "R13C2": 20
+        },
+        "Financial Years": {
+            "R15C2": "2024 - 2025",
+            "R16C2": "2025 - 2026", 
+            "R17C2": "2026 - 2027",
+            "R18C2": "2027 - 2028",
+            "R19C2": "2028 - 2029"
+        },
+        "Salaries & Wages": {
+            'R21C2_W': 5,
+            'R21C2_S': 15000,
+            'R23C2_W': 10,
+            'R23C2_S': 12000,
+            'R22C2_W': 15,
+            'R22C2_S': 8000,
+            'R25C2': 0
+        },
+        "Assumptions": {
+            "R26C2": 5,
+            "R27C2": 10000,
+            "R28C2": 5,
+            "R29C2": 7500,
+            "R30C2": 102,
+            "R31C2": 110,
+            "R32C2": 6,
+            "R33C2": 6,
+            "R34C2": 12,
+            "R35C2": 12
+        },
+        "Fixed Assets Schedule": {
+            "Furniture and Fittings": {
+                items: [
+                    { label: "Office Desk", cost: 50000 },
+                    { label: "Chair", cost: 15000 }
+                ],
+                total: 0
+            },
+            "Service Equipment": {
+                items: [
+                    { label: "Printer", cost: 30000 }
+                ],
+                total: 0
+            },
+            "Plant and Machinery": {
+                items: [
+                    { label: "Assembly Line Machine", cost: 200000 }
+                ],
+                total: 0
+            },
+            "Computers": {
+                items: [
+                    { label: "Laptop", cost: 80000 },
+                    { label: "Desktop PC", cost: 50000 }
+                ],
+                total: 0
+            },
+            "Shed, construction, civil works": {
+                items: [
+                    { label: "Factory Shed", cost: 500000 }
+                ],
+                total: 0
+            },
+            "Vehicle": {
+                items: [
+                    { label: "Delivery Van", cost: 150000 }
+                ],
+                total: 0
+            },
+            "Other Assets": {
+                items: [
+                    { label: "Miscellaneous Tools", cost: 25000 }
+                ],
+                total: 0
+            }
+        }
+    };
+    
+    // Re-render current step to show filled data
+    renderStep(currentStep);
+}
+
+// Super Simple Wizard Plugin
+const wizard = new WizardPlugin({
+    templateId: 'frcc1-financial-form',
+    dataMapper: collectAllData  // Attach existing function directly
+});
+wizard.setup();
+
+// Add reset function for iframe context
+function resetToForm() {
+    document.getElementById('wizardCard').style.display = 'block';
+    document.getElementById('resultScreen').style.display = 'none';
+    renderStep(0);
+}
+</script>
+</body>
+</html>

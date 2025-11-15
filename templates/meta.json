@@ -1,0 +1,113 @@
+
+
+[
+{
+    "name": "Format CC1 Test",
+    "id": "Format CC1",
+    "description": "A test template for CC1",
+    "version": "1.0.0",
+    "author": "CA",
+    "initialHide": ["wc", "Assumptions.1", "plbs", "Coverpage", "RATIO", "MPBF ", "Nayak", "Depsch","FixedAssetSch"],
+    "initialRemoveFormulas": ["FinalWorkings"],
+
+    "afterGenerateRemoveFormulas": ["wc", "Assumptions.1", "plbs", "Coverpage", "RATIO", "MPBF ", "Nayak", "Depsch", "FinalWorkings","FixedAssetSch"],
+    "afterGenerateHide": ["Assumptions.1","wc"],
+    "afterGenerateLock": ["Coverpage"],
+    "lastModified": "2024-10-01T12:00:00Z",
+    "createdAt": "2023-10-01T12:00:00Z",
+    "properties": {
+        "No Of Years": 1,
+        "Type of Report": "CC"
+    }
+},
+{
+    "name": "Format CC2",
+    "id": "Format CC2",
+    "description": "Credit Card Application Format CC2",
+    "version": "1.0.0",
+    "author": "CA",
+    "initialHide": ["wp", "Assumptions.1", "PLBS", "coverpage", "RATIO", "MPBF ", "nayak", "Depsch"],
+    "initialRemoveFormulas": ["FinalWorkings"],
+    "afterGenerateRemoveFormulas": ["wp", "Assumptions.1", "PLBS", "coverpage", "RATIO", "MPBF ", "nayak", "Depsch", "FinalWorkings"],
+    "afterGenerateHide": ["Assumptions.1","wp"],
+    "afterGenerateLock": ["coverpage"],
+    "lastModified": "2024-11-10T12:00:00Z",
+    "createdAt": "2024-11-10T12:00:00Z",
+    "properties": {
+        "No Of Years": 1,
+        "Type of Report": "CC"
+    }
+},
+{
+    "name": "Format CC3",
+    "id": "frcc3",
+    "description": "Credit Card Application Format CC3",
+    "version": "1.0.0",
+    "author": "CA",
+    "initialHide": ["wp", "Assumptions.1", "PLBS", "coverpage", "RATIO", "MPBF ", "nayak", "Depsch"],
+    "initialRemoveFormulas": ["Finalworkings"],
+    "afterGenerateRemoveFormulas": ["wp", "Assumptions.1", "PLBS", "coverpage", "RATIO", "MPBF ", "nayak", "Depsch", "Finalworkings"],
+    "afterGenerateHide": ["Assumptions.1","wp"],
+    "afterGenerateLock": ["coverpage"],
+    "lastModified": "2024-11-10T12:00:00Z",
+    "createdAt": "2024-11-10T12:00:00Z",
+    "properties": {
+        "No Of Years": 1,
+        "Type of Report": "CC"
+    }
+},
+{
+    "name": "Format CC4",
+    "id": "frcc4",
+    "description": "Credit Card Application Format CC4",
+    "version": "1.0.0",
+    "author": "CA",
+    "initialHide": ["wp", "Assumptions.1", "PLBS", "coverpage", "RATIO", "MPBF ", "nayak", "Depsch"],
+    "initialRemoveFormulas": ["Finalworkings"],
+    "afterGenerateRemoveFormulas": ["wp", "Assumptions.1", "PLBS", "coverpage", "RATIO", "MPBF ", "nayak", "Depsch", "Finalworkings"],
+    "afterGenerateHide": ["Assumptions.1","wp"],
+    "afterGenerateLock": ["coverpage"],
+    "lastModified": "2024-11-10T12:00:00Z",
+    "createdAt": "2024-11-10T12:00:00Z",
+    "properties": {
+        "No Of Years": 1,
+        "Type of Report": "CC"
+    }
+},
+{
+    "name": "Format CC5",
+    "id": "frcc5",
+    "description": "Credit Card Application Format CC5",
+    "version": "1.0.0",
+    "author": "CA",
+    "initialHide": ["wp", "Assumptions.1", "PLBS", "coverpage", "RATIO", "MPBF ", "nayak", "Depsch"],
+    "initialRemoveFormulas": ["FinalWorkings"],
+    "afterGenerateRemoveFormulas": ["wp", "Assumptions.1", "PLBS", "coverpage", "RATIO", "MPBF ", "nayak", "Depsch", "FinalWorkings"],
+    "afterGenerateHide": ["Assumptions.1","wp"],
+    "afterGenerateLock": ["coverpage"],
+    "lastModified": "2024-11-10T12:00:00Z",
+    "createdAt": "2024-11-10T12:00:00Z",
+    "properties": {
+        "No Of Years": 1,
+        "Type of Report": "CC"
+    }
+},
+{
+    "name": "Format CC6",
+    "id": "frcc6",
+    "description": "Credit Card Application Format CC6 (Advanced)",
+    "version": "1.0.0",
+    "author": "CA",
+    "initialHide": ["Assumptions 1", "Working for PL & BS", "Workings for PLBS", "cover page", "PLBS", "RATIO", "CF's", "MPBF ", "Nayak Committee Recommandation", "nayak", "Dep sch", "Sheet3", "Sheet2", "Loan Sch", "Repayment sch"],
+    "initialRemoveFormulas": ["Final workings"],
+    "afterGenerateRemoveFormulas": ["Assumptions 1", "Working for PL & BS", "Workings for PLBS", "cover page", "PLBS", "RATIO", "CF's", "MPBF ", "Nayak Committee Recommandation", "nayak", "Dep sch", "Final workings", "Sheet3", "Sheet2", "Loan Sch", "Repayment sch"],
+    "afterGenerateHide": ["Assumptions.1", "Assumptions 1"],
+    "afterGenerateLock": ["cover page"],
+    "lastModified": "2024-11-10T12:00:00Z",
+    "createdAt": "2024-11-10T12:00:00Z",
+    "properties": {
+        "No Of Years": 1,
+        "Type of Report": "CC"
+    }
+}
+]

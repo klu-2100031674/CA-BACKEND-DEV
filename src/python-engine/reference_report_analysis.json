@@ -1,0 +1,1924 @@
+{
+  "analysis": {
+    "metadata": {
+      "total_pages": 44,
+      "title": "N/A",
+      "author": "N/A",
+      "creator": "N/A"
+    },
+    "pages": [
+      {
+        "page_number": 1,
+        "width": 612,
+        "height": 792,
+        "text_length": 431,
+        "table_count": 1,
+        "headings": [
+          "DETAILED PROJECT REPORT",
+          "OF",
+          "UNIT ADDRESS :",
+          "REQUIREMENT:",
+          "PREPARED BY",
+          "FINVOIS OPEN BUSINESS SOLUTIONS LLP"
+        ],
+        "content_type": "table_heavy"
+      },
+      {
+        "page_number": 2,
+        "width": 612,
+        "height": 792,
+        "text_length": 1028,
+        "table_count": 1,
+        "headings": [
+          "INDEX",
+          "1 PROJECT PROFILE OVERVIEW",
+          "2 FIRM CONSTITUTION , PROPRIETOR PROFILE & BACKGROUND",
+          "3 INTRODUCTION AND FEATURES OF RAW MATERIAL AND FINISHED PRODUCT, DEMAND",
+          "SUPPLY AND ITS MARKETABILITY, SWOT ANALYSIS,STATUTORY GOVERNMENT",
+          "APPROVALS,POWER REQUIREMENTS.",
+          "3 PROJECT COST AND MEANS OF FINANCE",
+          "4 PROJECTED PROFIT AND LOSS ACCOUNT & BALANCE SHEET",
+          "5 RATIO ANALYSIS & LEVERAGE RATIOS",
+          "6 DEPRECIATION SCHEDULE",
+          "7 TERM LOAN SCHEDULE",
+          "8 CALCULATION OF MAXIMUM PERMISSABLE BANK FINANCE LIMIT",
+          "9 PRINCIPAL REPAYMENT SCHEDULE",
+          "10 CASH FLOW STATEMENT",
+          "11 FUNDS FLOW STATEMENT",
+          "12 INTERNAL RATE OF RETURN (IRR)",
+          "13 MODIFIED INTERNAL RATE OF RETURN (MIRR)"
+        ],
+        "content_type": "table_heavy"
+      },
+      {
+        "page_number": 3,
+        "width": 612,
+        "height": 792,
+        "text_length": 622,
+        "table_count": 0,
+        "headings": [
+          "SIMHADRI INFRA METALS",
+          "PROJECT PROFILE AT A GLANCE"
+        ],
+        "content_type": "mixed"
+      },
+      {
+        "page_number": 4,
+        "width": 612,
+        "height": 792,
+        "text_length": 1210,
+        "table_count": 0,
+        "headings": [
+          "REQUIREMENT:",
+          "DISCLAIMER :"
+        ],
+        "content_type": "text_heavy"
+      },
+      {
+        "page_number": 5,
+        "width": 612,
+        "height": 792,
+        "text_length": 1722,
+        "table_count": 1,
+        "headings": [
+          "1. Constitution of the Firm",
+          "2. Proprietor’s Background"
+        ],
+        "content_type": "table_heavy"
+      },
+      {
+        "page_number": 6,
+        "width": 612,
+        "height": 792,
+        "text_length": 1462,
+        "table_count": 1,
+        "headings": [
+          "4. Key Characteristics of the Product Manufactured",
+          "5. Marketing Techniques"
+        ],
+        "content_type": "table_heavy"
+      },
+      {
+        "page_number": 7,
+        "width": 612,
+        "height": 792,
+        "text_length": 1257,
+        "table_count": 1,
+        "headings": [
+          "6. SWOT Analysis of Product Manufactured"
+        ],
+        "content_type": "table_heavy"
+      },
+      {
+        "page_number": 8,
+        "width": 612,
+        "height": 792,
+        "text_length": 1704,
+        "table_count": 1,
+        "headings": [
+          "7. Flowchart of Manufacturing Process",
+          "1. Raw Material Procurement: Sourcing iron and other materials from suppliers like",
+          "2. Material Inspection: Quality checks to ensure raw materials meet industry standards.",
+          "3. Processing: Cutting, shaping, and forming materials using imported machinery from",
+          "4. Assembly: Combining processed materials into finished products as per specifications.",
+          "5. Quality Control: Final inspection to ensure product quality and compliance.",
+          "6. Packaging and Storage: Packing finished products for distribution and storing in",
+          "7. Distribution: Transporting products to customers via hired vehicles.",
+          "8. Power Requirements",
+          "9. Statutory Government Approvals"
+        ],
+        "content_type": "table_heavy"
+      },
+      {
+        "page_number": 9,
+        "width": 612,
+        "height": 792,
+        "text_length": 1120,
+        "table_count": 1,
+        "headings": [
+          "10. Plant and Machinery",
+          "11. Raw Materials"
+        ],
+        "content_type": "table_heavy"
+      },
+      {
+        "page_number": 10,
+        "width": 612,
+        "height": 792,
+        "text_length": 1028,
+        "table_count": 4,
+        "headings": [
+          "12.Inventory Details",
+          "13.Production Capacity"
+        ],
+        "content_type": "table_heavy"
+      },
+      {
+        "page_number": 11,
+        "width": 612,
+        "height": 792,
+        "text_length": 1181,
+        "table_count": 3,
+        "headings": [
+          "14.Transportation",
+          "15. Manpower"
+        ],
+        "content_type": "table_heavy"
+      },
+      {
+        "page_number": 12,
+        "width": 612,
+        "height": 792,
+        "text_length": 1646,
+        "table_count": 3,
+        "headings": [
+          "16. Justification of Land Requirements",
+          "17. Implementation Timeline"
+        ],
+        "content_type": "table_heavy"
+      },
+      {
+        "page_number": 13,
+        "width": 612,
+        "height": 792,
+        "text_length": 442,
+        "table_count": 0,
+        "headings": [
+          "SIMHADRI INFRA METALS",
+          "PROJECT COST AND MEANS OF FINANCE",
+          "A. COST OF THE PROJECT",
+          "B. MEANS OF FINANCE"
+        ],
+        "content_type": "mixed"
+      },
+      {
+        "page_number": 14,
+        "width": 612,
+        "height": 792,
+        "text_length": 245,
+        "table_count": 0,
+        "headings": [
+          "SIMHADRI INFRA METALS",
+          "SCHEDULES TO FIXED ASSETS",
+          "TOTAL 35.00"
+        ],
+        "content_type": "mixed"
+      },
+      {
+        "page_number": 15,
+        "width": 612,
+        "height": 792,
+        "text_length": 380,
+        "table_count": 0,
+        "headings": [
+          "SIMHADRI INFRA METALS"
+        ],
+        "content_type": "mixed"
+      },
+      {
+        "page_number": 16,
+        "width": 612,
+        "height": 792,
+        "text_length": 1321,
+        "table_count": 0,
+        "headings": [
+          "SIMHADRI INFRA METALS",
+          "PROFIT & LOSS ACCOUNT FOR YEAR ENDED",
+          "Less:",
+          "EBDIT 856406 1876500 1970325 2064150 2157975 2251800 2345625 2439450"
+        ],
+        "content_type": "text_heavy"
+      },
+      {
+        "page_number": 17,
+        "width": 612,
+        "height": 792,
+        "text_length": 1149,
+        "table_count": 0,
+        "headings": [
+          "SIMHADRI INFRA METALS",
+          "BALANCE SHEET AS ON",
+          "SOURCES OF FUNDS:",
+          "TERM LOANS : 2475000 2025000 1575000 1125000 675000 225000 0 0",
+          "CURRENT LIABILITIES :",
+          "APPLICATION OF FUNDS:",
+          "FIXED ASSETS 3237500 2751875 2339094 1988230 1689995 1436496 1221022 1037868",
+          "CURRENT ASSETS :"
+        ],
+        "content_type": "text_heavy"
+      },
+      {
+        "page_number": 18,
+        "width": 612,
+        "height": 792,
+        "text_length": 780,
+        "table_count": 0,
+        "headings": [],
+        "content_type": "mixed"
+      },
+      {
+        "page_number": 19,
+        "width": 612,
+        "height": 792,
+        "text_length": 0,
+        "table_count": 0,
+        "headings": [],
+        "content_type": "unknown"
+      },
+      {
+        "page_number": 20,
+        "width": 612,
+        "height": 792,
+        "text_length": 1518,
+        "table_count": 0,
+        "headings": [
+          "SIMHADRI INFRA METALS",
+          "RATIO ANALYSIS",
+          "A . DEBT SERVICE COVERAGE RATIO",
+          "DSCR ( A / B ) 1.75 2.00 2.23 2.48 2.77 3.10 3.49 6.10",
+          "B .CURRENT ASSETS RATIO"
+        ],
+        "content_type": "text_heavy"
+      },
+      {
+        "page_number": 21,
+        "width": 612,
+        "height": 792,
+        "text_length": 1466,
+        "table_count": 1,
+        "headings": [
+          "D . NETPROFIT RATIO",
+          "E . DEBTORS / RECIEVABLES TURNOVER RATIO",
+          "DEBTORS COLLECTION PERIOD : 33 37 40 44 47 51 55 58",
+          "F . TOTAL OUTSIDE LIABILITIES TO TOTAL NETWORTH",
+          "TOL / TW 2.78 0.76 0.53 0.40 0.29 0.21 0.15 0.11"
+        ],
+        "content_type": "table_heavy"
+      },
+      {
+        "page_number": 22,
+        "width": 612,
+        "height": 792,
+        "text_length": 844,
+        "table_count": 0,
+        "headings": [
+          "I . PROPRIETORY RATIO",
+          "J . RETURN ON ASSETS",
+          "K . INTEREST COVERAGE RATIO",
+          "EBI 593906 1390875 1557544 1713286 1859741 1998301 2130151 2256297"
+        ],
+        "content_type": "mixed"
+      },
+      {
+        "page_number": 23,
+        "width": 612,
+        "height": 792,
+        "text_length": 1060,
+        "table_count": 0,
+        "headings": [
+          "SIMHADRI INFRA METALS",
+          "CALCULATION OF DEPRECIATION AS PER INCOME TAX ACT",
+          "15.00%",
+          "Less: Depreciation 2.63 2.63",
+          "Less: Depreciation 4.86 4.86"
+        ],
+        "content_type": "text_heavy"
+      },
+      {
+        "page_number": 24,
+        "width": 612,
+        "height": 792,
+        "text_length": 524,
+        "table_count": 0,
+        "headings": [
+          "Less: Depreciation 2.53 2.53",
+          "Less: Depreciation 2.15 2.15",
+          "Less: Depreciation 1.83 1.83"
+        ],
+        "content_type": "mixed"
+      },
+      {
+        "page_number": 25,
+        "width": 612,
+        "height": 792,
+        "text_length": 988,
+        "table_count": 2,
+        "headings": [
+          "SIMHADRI INFRA METALS",
+          "EMI STATEMENT",
+          "LOAN AMOUNT 3,150,000",
+          "RATE OF INTEREST PER",
+          "ANNUM 12.00%",
+          "RATE OF INTEREST PER",
+          "MONTH 1.000%",
+          "NO OF INSTALLMENT 84",
+          "CALCULATION OF DETAILS OF EMI",
+          "PRINCIPAL OUTSTANDING",
+          "MONTHS EMI INTEREST REPAYMENT PRINCIPAL"
+        ],
+        "content_type": "table_heavy"
+      },
+      {
+        "page_number": 26,
+        "width": 612,
+        "height": 792,
+        "text_length": 1248,
+        "table_count": 1,
+        "headings": [],
+        "content_type": "table_heavy"
+      },
+      {
+        "page_number": 27,
+        "width": 612,
+        "height": 792,
+        "text_length": 578,
+        "table_count": 1,
+        "headings": [],
+        "content_type": "table_heavy"
+      },
+      {
+        "page_number": 28,
+        "width": 612,
+        "height": 792,
+        "text_length": 969,
+        "table_count": 1,
+        "headings": [
+          "SIMHADRI INFRA METALS"
+        ],
+        "content_type": "table_heavy"
+      },
+      {
+        "page_number": 29,
+        "width": 612,
+        "height": 792,
+        "text_length": 1082,
+        "table_count": 0,
+        "headings": [
+          "SIMHADRI INFRA METALS",
+          "CALCULATION OF MAXIMUM PERMISSIBLE BANK FINANCE",
+          "1. Total current assets 2577172 6125625 7354547 8242477 9176874 10158152 11186739 12263070",
+          "2. Other current liabilities 450000 450000 450000 450000 450000 450000 225000 0",
+          "3. Working capital gap 2127172 5675625 6904547 7792477 8726874 9708152 10961739 12263070",
+          "4. Min. stipulated Networking capital",
+          "5. Actual/projected net working capital 777172 4325625 5554547 6442477 7376874 8358152 9611739 10913070",
+          "6.Item 3 minus item 4 1595379 4256719 5178411 5844358 6545155 7281114 8221304 9197303",
+          "7.Item 3 minus item 5 1350000 1350000 1350000 1350000 1350000 1350000 1350000 1350000",
+          "8. Maximum permissible bank 1350000 1350000 1350000 1350000 1350000 1350000 1350000 1350000"
+        ],
+        "content_type": "text_heavy"
+      },
+      {
+        "page_number": 30,
+        "width": 612,
+        "height": 792,
+        "text_length": 987,
+        "table_count": 0,
+        "headings": [
+          "CALCULATION OF MAXIMUM PERMISSIBLE BANK FINANCE",
+          "1. Total current assets 2577172 6125625 7354547 8242477 9176874 10158152 11186739 12263070",
+          "2. Other current liabilities 450000 450000 450000 450000 450000 450000 225000 0",
+          "3. Working capital gap 2127172 5675625 6904547 7792477 8726874 9708152 10961739 12263070",
+          "4. Min. stipulated Networking capital",
+          "5. Actual/projected net working capital 777172 4325625 5554547 6442477 7376874 8358152 9611739 10913070",
+          "6.Item 3 minus item 4 1482879 4144219 5065911 5731858 6432655 7168614 8165054 9197303",
+          "7.Item 3 minus item 5 1350000 1350000 1350000 1350000 1350000 1350000 1350000 1350000",
+          "8. Maximum permissible bank 1350000 1350000 1350000 1350000 1350000 1350000 1350000 1350000"
+        ],
+        "content_type": "mixed"
+      },
+      {
+        "page_number": 31,
+        "width": 612,
+        "height": 792,
+        "text_length": 798,
+        "table_count": 0,
+        "headings": [
+          "SIMHADRI INFRA METALS",
+          "WORKING CAPITAL ASSESSMENT - TURNOVER METHOD",
+          "1. Maximum Working capital Limit Must not exceed Drawing power .",
+          "2. Four Operating cycles per Annum is Assumed."
+        ],
+        "content_type": "mixed"
+      },
+      {
+        "page_number": 32,
+        "width": 612,
+        "height": 792,
+        "text_length": 1529,
+        "table_count": 0,
+        "headings": [
+          "PROJECTED CASH FLOW STATEMENTS",
+          "Outflows:"
+        ],
+        "content_type": "text_heavy"
+      },
+      {
+        "page_number": 33,
+        "width": 612,
+        "height": 792,
+        "text_length": 1028,
+        "table_count": 2,
+        "headings": [
+          "FUNDS FLOW STATEMENT",
+          "CURRENT ASSETS :",
+          "CURRENT LIABILITIES :",
+          "NET WORKING CAPITAL (A-B) 777172 4325625",
+          "CURRENT ASSETS :"
+        ],
+        "content_type": "table_heavy"
+      },
+      {
+        "page_number": 34,
+        "width": 612,
+        "height": 792,
+        "text_length": 951,
+        "table_count": 2,
+        "headings": [
+          "CURRENT ASSETS :",
+          "CURRENT LIABILITIES :",
+          "NET WORKING CAPITAL (A-B) 5554547 6442477",
+          "CURRENT ASSETS :"
+        ],
+        "content_type": "table_heavy"
+      },
+      {
+        "page_number": 35,
+        "width": 612,
+        "height": 792,
+        "text_length": 965,
+        "table_count": 2,
+        "headings": [
+          "CURRENT ASSETS :",
+          "CURRENT LIABILITIES :",
+          "NET WORKING CAPITAL (A-B) 7376874 8358152",
+          "CURRENT ASSETS :"
+        ],
+        "content_type": "table_heavy"
+      },
+      {
+        "page_number": 36,
+        "width": 612,
+        "height": 792,
+        "text_length": 481,
+        "table_count": 1,
+        "headings": [
+          "CURRENT LIABILITIES : 11186739 12263070 1076331",
+          "NET WORKING CAPITAL (A-B) 9611739 10913070"
+        ],
+        "content_type": "table_heavy"
+      },
+      {
+        "page_number": 37,
+        "width": 612,
+        "height": 792,
+        "text_length": 347,
+        "table_count": 1,
+        "headings": [
+          "SIMHADRI INFRA METALS",
+          "INTERNAL RATE OF RETURN",
+          "CASH OUTFLOWS -5,000,000",
+          "CASH INFLOWS",
+          "INTERNAL RATE OF RETURN (IRR) 15.63%"
+        ],
+        "content_type": "table_heavy"
+      },
+      {
+        "page_number": 38,
+        "width": 612,
+        "height": 792,
+        "text_length": 438,
+        "table_count": 1,
+        "headings": [
+          "SIMHADRI INFRA METALS",
+          "MODIFIED INTERNAL RATE OF RETURN",
+          "CASH OUTFLOWS -5,000,000",
+          "CASH INFLOWS",
+          "MODIFIED INTERNAL RATE OF RETURN (MIRR) 13.46%",
+          "Note:"
+        ],
+        "content_type": "table_heavy"
+      },
+      {
+        "page_number": 39,
+        "width": 612,
+        "height": 792,
+        "text_length": 424,
+        "table_count": 1,
+        "headings": [
+          "SIMHADRI INFRA METALS",
+          "PROFITABILITY INDEX",
+          "CASH OUTFLOWS -5,000,000",
+          "CASH INFLOWS",
+          "PROFITABILITY INDEX 1.11"
+        ],
+        "content_type": "table_heavy"
+      },
+      {
+        "page_number": 40,
+        "width": 612,
+        "height": 792,
+        "text_length": 464,
+        "table_count": 0,
+        "headings": [
+          "SIMHADRI INFRA METALS",
+          "PRESENT VALUE OF FUTURE CASH FLOWS & NET",
+          "PRESENT VALUE",
+          "CASH INFLOWS",
+          "PRESENT VALUE OF FUTURE CASH FLOWS 5 ,545,138",
+          "CASH OUTFLOWS 5,000,000",
+          "NET PRESENT VALUE 545,138"
+        ],
+        "content_type": "mixed"
+      },
+      {
+        "page_number": 41,
+        "width": 612,
+        "height": 792,
+        "text_length": 447,
+        "table_count": 1,
+        "headings": [
+          "SIMHADRI INFRA METALS",
+          "INVESTMENT PAYBACK PERIOD",
+          "CASH OUTFLOWS -5,000,000",
+          "CASH INFLOWS"
+        ],
+        "content_type": "table_heavy"
+      },
+      {
+        "page_number": 42,
+        "width": 612,
+        "height": 792,
+        "text_length": 407,
+        "table_count": 0,
+        "headings": [
+          "SIMHADRI INFRA METALS",
+          "SENSITIVITY ANALYSIS",
+          "EARNINGS BEFORE TAX"
+        ],
+        "content_type": "mixed"
+      },
+      {
+        "page_number": 43,
+        "width": 612,
+        "height": 792,
+        "text_length": 1546,
+        "table_count": 0,
+        "headings": [
+          "SIMHADRI INFRA METALS",
+          "CALCULATION OF BREAK EVEN POINT",
+          "CALCULATION OF MARGIN OF SAFETY (MOS)"
+        ],
+        "content_type": "text_heavy"
+      },
+      {
+        "page_number": 44,
+        "width": 612,
+        "height": 792,
+        "text_length": 1266,
+        "table_count": 0,
+        "headings": [
+          "SIMHADRI INFRA METALS",
+          "CALCULATION OF ALTMAN Z SCORE",
+          "EBIT 593906 1390875 1557544 1713286 1859741 1998301 2130151 2256297"
+        ],
+        "content_type": "text_heavy"
+      }
+    ],
+    "sections": [],
+    "tables": [
+      {
+        "page": 1,
+        "table_index": 1,
+        "rows": 5,
+        "columns": 3,
+        "preview": [
+          [
+            "",
+            null,
+            null
+          ],
+          [
+            "",
+            "DETAILED PROJECT REPORT\nOF\nFirm Name : SIMHADRI INFRA METALS\nProprietor Name: Chintoti Sirisha",
+            ""
+          ],
+          [
+            "Line of Activity : Manufacturing of Building Material",
+            null,
+            null
+          ]
+        ]
+      },
+      {
+        "page": 2,
+        "table_index": 1,
+        "rows": 3,
+        "columns": 3,
+        "preview": [
+          [
+            "",
+            null,
+            null
+          ],
+          [
+            "",
+            "INDEX\n1 PROJECT PROFILE OVERVIEW\n2 FIRM CONSTITUTION , PROPRIETOR PROFILE & BACKGROUND\n3 INTRODUCTION AND FEATURES OF RAW MATERIAL AND FINISHED PRODUCT, DEMAND\nSUPPLY AND ITS MARKETABILITY, SWOT ANALYSIS,STATUTORY GOVERNMENT\nAPPROVALS,POWER REQUIREMENTS.\n3 PROJECT COST AND MEANS OF FINANCE\n4 PROJECTED PROFIT AND LOSS ACCOUNT & BALANCE SHEET\n5 RATIO ANALYSIS & LEVERAGE RATIOS\n6 DEPRECIATION SCHEDULE\n7 TERM LOAN SCHEDULE\n8 CALCULATION OF MAXIMUM PERMISSABLE BANK FINANCE LIMIT\na) Method 1 - Working Capital Method\nb) Method 2 - Total Current Assets Method\nc) Method 3 - Nayak Committee Recommandation Method\n9 PRINCIPAL REPAYMENT SCHEDULE\n10 CASH FLOW STATEMENT\n11 FUNDS FLOW STATEMENT\n12 INTERNAL RATE OF RETURN (IRR)\n13 MODIFIED INTERNAL RATE OF RETURN (MIRR)\n14 WEIGHTED AVERAGE COST OF CAPITAL (WACC)\n14 PROFITABILITY INDEX (PI)\n15 NET PRESENT VALUE (NPV)\n16 INVESTMENT PAYBACK PERIOD - SIMPLE METHOD & DISCOUNTED CASHFLOW METHOD\n17 SENSITIVITY ANALYSIS\n18 BREAK EVEN POINT (BEP) & MARGIN OF SAFETY (MOS)\n19 ALTMAN Z SCORE",
+            ""
+          ],
+          [
+            "",
+            null,
+            null
+          ]
+        ]
+      },
+      {
+        "page": 5,
+        "table_index": 1,
+        "rows": 3,
+        "columns": 4,
+        "preview": [
+          [
+            "",
+            "Detailed Project Report on Manufacturing of Building Materials",
+            "",
+            ""
+          ],
+          [
+            null,
+            "Veladi Village,",
+            null,
+            null
+          ],
+          [
+            null,
+            "NTR District , Andhrapradesh",
+            null,
+            null
+          ]
+        ]
+      },
+      {
+        "page": 6,
+        "table_index": 1,
+        "rows": 3,
+        "columns": 4,
+        "preview": [
+          [
+            "",
+            "Detailed Project Report on Manufacturing of Building Materials",
+            "",
+            ""
+          ],
+          [
+            null,
+            "Veladi Village,",
+            null,
+            null
+          ],
+          [
+            null,
+            "NTR District , Andhrapradesh",
+            null,
+            null
+          ]
+        ]
+      },
+      {
+        "page": 7,
+        "table_index": 1,
+        "rows": 3,
+        "columns": 4,
+        "preview": [
+          [
+            "",
+            "Detailed Project Report on Manufacturing of Building Materials",
+            "",
+            ""
+          ],
+          [
+            null,
+            "Veladi Village,",
+            null,
+            null
+          ],
+          [
+            null,
+            "NTR District , Andhrapradesh",
+            null,
+            null
+          ]
+        ]
+      },
+      {
+        "page": 8,
+        "table_index": 1,
+        "rows": 3,
+        "columns": 4,
+        "preview": [
+          [
+            "",
+            "Detailed Project Report on Manufacturing of Building Materials",
+            "",
+            ""
+          ],
+          [
+            null,
+            "Veladi Village,",
+            null,
+            null
+          ],
+          [
+            null,
+            "NTR District , Andhrapradesh",
+            null,
+            null
+          ]
+        ]
+      },
+      {
+        "page": 9,
+        "table_index": 1,
+        "rows": 3,
+        "columns": 4,
+        "preview": [
+          [
+            "",
+            "Detailed Project Report on Manufacturing of Building Materials",
+            "",
+            ""
+          ],
+          [
+            null,
+            "Veladi Village,",
+            null,
+            null
+          ],
+          [
+            null,
+            "NTR District , Andhrapradesh",
+            null,
+            null
+          ]
+        ]
+      },
+      {
+        "page": 10,
+        "table_index": 1,
+        "rows": 3,
+        "columns": 4,
+        "preview": [
+          [
+            "",
+            "Detailed Project Report on Manufacturing of Building Materials",
+            "",
+            ""
+          ],
+          [
+            null,
+            "Veladi Village,",
+            null,
+            null
+          ],
+          [
+            null,
+            "NTR District , Andhrapradesh",
+            null,
+            null
+          ]
+        ]
+      },
+      {
+        "page": 10,
+        "table_index": 2,
+        "rows": 5,
+        "columns": 11,
+        "preview": [
+          [
+            "Type of Material",
+            "",
+            "Quantity to be",
+            "",
+            "",
+            "Quantity to be",
+            null,
+            null,
+            "",
+            "No of days of\nStock",
+            "Justification"
+          ],
+          [
+            null,
+            null,
+            "manufactured",
+            null,
+            null,
+            "stor",
+            "e",
+            "d per",
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            "per month",
+            null,
+            null,
+            "month",
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        ]
+      },
+      {
+        "page": 10,
+        "table_index": 3,
+        "rows": 2,
+        "columns": 1,
+        "preview": [
+          [
+            "No of days of"
+          ],
+          [
+            "Stock"
+          ]
+        ]
+      },
+      {
+        "page": 10,
+        "table_index": 4,
+        "rows": 12,
+        "columns": 5,
+        "preview": [
+          [
+            "Sl.No",
+            "Product Name",
+            "",
+            "Production capacity per",
+            ""
+          ],
+          [
+            null,
+            null,
+            null,
+            "Annum(Specify the capacity",
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            "along with units of",
+            null
+          ]
+        ]
+      },
+      {
+        "page": 11,
+        "table_index": 1,
+        "rows": 3,
+        "columns": 4,
+        "preview": [
+          [
+            "",
+            "Detailed Project Report on Manufacturing of Building Materials",
+            "",
+            ""
+          ],
+          [
+            null,
+            "Veladi Village,",
+            null,
+            null
+          ],
+          [
+            null,
+            "NTR District , Andhrapradesh",
+            null,
+            null
+          ]
+        ]
+      },
+      {
+        "page": 11,
+        "table_index": 2,
+        "rows": 5,
+        "columns": 6,
+        "preview": [
+          [
+            "",
+            "Direct and Indirect Employment",
+            null,
+            null,
+            null,
+            ""
+          ],
+          [
+            "Sl.no",
+            "Sl.no",
+            "Employment",
+            "",
+            "No of Employees",
+            ""
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            "",
+            null
+          ]
+        ]
+      },
+      {
+        "page": 11,
+        "table_index": 3,
+        "rows": 8,
+        "columns": 6,
+        "preview": [
+          [
+            "",
+            "Employment details (Direct)",
+            null,
+            null,
+            null,
+            ""
+          ],
+          [
+            "Sl.no",
+            "Sl.no",
+            "Category of employment",
+            "",
+            "No of employees",
+            ""
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            "",
+            null
+          ]
+        ]
+      },
+      {
+        "page": 12,
+        "table_index": 1,
+        "rows": 3,
+        "columns": 4,
+        "preview": [
+          [
+            "",
+            "Detailed Project Report on Manufacturing of Building Materials",
+            "",
+            ""
+          ],
+          [
+            null,
+            "Veladi Village,",
+            null,
+            null
+          ],
+          [
+            null,
+            "NTR District , Andhrapradesh",
+            null,
+            null
+          ]
+        ]
+      },
+      {
+        "page": 12,
+        "table_index": 2,
+        "rows": 8,
+        "columns": 3,
+        "preview": [
+          [
+            "",
+            "",
+            ""
+          ],
+          [
+            null,
+            null,
+            "Area (Square"
+          ],
+          [
+            "S.No",
+            "Land Requirement Details",
+            null
+          ]
+        ]
+      },
+      {
+        "page": 12,
+        "table_index": 3,
+        "rows": 7,
+        "columns": 4,
+        "preview": [
+          [
+            "",
+            "",
+            "",
+            "End Date"
+          ],
+          [
+            "Sl.No",
+            "Description",
+            "Start Date",
+            null
+          ],
+          [
+            "",
+            "",
+            "",
+            ""
+          ]
+        ]
+      },
+      {
+        "page": 21,
+        "table_index": 1,
+        "rows": 2,
+        "columns": 1,
+        "preview": [
+          [
+            "E . DEBTORS / RECIEVABLES TU"
+          ],
+          [
+            "2025-26\nParticulars Sep to Mar 2026-27 2027-28 2028-29 2029-30 2030-31 2031-32 2032-33"
+          ]
+        ]
+      },
+      {
+        "page": 25,
+        "table_index": 1,
+        "rows": 4,
+        "columns": 2,
+        "preview": [
+          [
+            "LOAN AMOUNT",
+            "3,150,000"
+          ],
+          [
+            "RATE OF INTEREST PER\nANNUM",
+            "12.00%"
+          ],
+          [
+            "RATE OF INTEREST PER\nMONTH",
+            "1.000%"
+          ]
+        ]
+      },
+      {
+        "page": 25,
+        "table_index": 2,
+        "rows": 23,
+        "columns": 5,
+        "preview": [
+          [
+            "MONTHS",
+            "EMI",
+            "INTEREST",
+            "PRINCIPAL\nREPAYMENT",
+            "OUTSTANDING\nPRINCIPAL"
+          ],
+          [
+            "0",
+            "",
+            "",
+            "",
+            "3,150,000"
+          ],
+          [
+            "1",
+            "69,000",
+            "31500",
+            "37500",
+            "3112500"
+          ]
+        ]
+      },
+      {
+        "page": 26,
+        "table_index": 1,
+        "rows": 42,
+        "columns": 5,
+        "preview": [
+          [
+            "22",
+            "61,125",
+            "23625",
+            "37500",
+            "2325000"
+          ],
+          [
+            "23",
+            "60,750",
+            "23250",
+            "37500",
+            "2287500"
+          ],
+          [
+            "24",
+            "60,375",
+            "22875",
+            "37500",
+            "2250000"
+          ]
+        ]
+      },
+      {
+        "page": 27,
+        "table_index": 1,
+        "rows": 21,
+        "columns": 5,
+        "preview": [
+          [
+            "64",
+            "45,375",
+            "7875",
+            "37500",
+            "750000"
+          ],
+          [
+            "65",
+            "45,000",
+            "7500",
+            "37500",
+            "712500"
+          ],
+          [
+            "66",
+            "44,625",
+            "7125",
+            "37500",
+            "675000"
+          ]
+        ]
+      },
+      {
+        "page": 28,
+        "table_index": 1,
+        "rows": 15,
+        "columns": 9,
+        "preview": [
+          [
+            "Particulars",
+            "2025-26\nSep to Mar",
+            "2026-27",
+            "2027-28",
+            "2028-29",
+            "2029-30",
+            "2030-31",
+            "2031-32",
+            "2032-33"
+          ],
+          [
+            "April",
+            "0",
+            "37500",
+            "37500",
+            "37500",
+            "37500",
+            "37500",
+            "37500",
+            "37500"
+          ],
+          [
+            "May",
+            "0",
+            "37500",
+            "37500",
+            "37500",
+            "37500",
+            "37500",
+            "37500",
+            "37500"
+          ]
+        ]
+      },
+      {
+        "page": 33,
+        "table_index": 1,
+        "rows": 3,
+        "columns": 2,
+        "preview": [
+          [
+            "2025-26\nPARTICULARS Sep to Mar 2026-27",
+            "Changes in Working\ncapital"
+          ],
+          [
+            null,
+            "877500\n579018\n2091935\n0\n3548453\n0\n0\n0"
+          ],
+          [
+            "Increase in Working capital 3548453",
+            "3548453"
+          ]
+        ]
+      },
+      {
+        "page": 33,
+        "table_index": 2,
+        "rows": 3,
+        "columns": 2,
+        "preview": [
+          [
+            "PARTICULARS 2026-27 2027-28",
+            "Changes in Working\ncapital"
+          ],
+          [
+            null,
+            "17550\n232710\n978662\n0\n1228922\n0\n0\n0"
+          ],
+          [
+            "Increase in Working capital 1228922",
+            "1228922"
+          ]
+        ]
+      },
+      {
+        "page": 34,
+        "table_index": 1,
+        "rows": 3,
+        "columns": 2,
+        "preview": [
+          [
+            "PARTICULARS 2027-28 2028-29",
+            "Changes in Working\ncapital"
+          ],
+          [
+            null,
+            "17726\n154398\n715806\n0\n887930\n0\n0\n0"
+          ],
+          [
+            "Increase in Working capital 887930",
+            "887930"
+          ]
+        ]
+      },
+      {
+        "page": 34,
+        "table_index": 2,
+        "rows": 3,
+        "columns": 2,
+        "preview": [
+          [
+            "PARTICULARS 2028-29 2029-30",
+            "Changes in Working\ncapital"
+          ],
+          [
+            null,
+            "17903\n162166\n754328\n934397\n0\n0\n0"
+          ],
+          [
+            "Increase in Working capital 934397",
+            "934397"
+          ]
+        ]
+      },
+      {
+        "page": 35,
+        "table_index": 1,
+        "rows": 3,
+        "columns": 2,
+        "preview": [
+          [
+            "PARTICULARS 2029-30 2030-31",
+            "Changes in Working\ncapital"
+          ],
+          [
+            null,
+            "18082\n170004\n793193\n981279\n0\n0\n0"
+          ],
+          [
+            "Increase in Working capital 981279",
+            "981279"
+          ]
+        ]
+      },
+      {
+        "page": 35,
+        "table_index": 2,
+        "rows": 3,
+        "columns": 2,
+        "preview": [
+          [
+            "PARTICULARS 2030-31 2031-32",
+            "Changes in Working\ncapital"
+          ],
+          [
+            null,
+            "18263\n177914\n832410\n1028587\n0\n225000\n225000"
+          ],
+          [
+            "Increase in Working capital 1253587",
+            "1253587"
+          ]
+        ]
+      },
+      {
+        "page": 36,
+        "table_index": 1,
+        "rows": 3,
+        "columns": 2,
+        "preview": [
+          [
+            "PARTICULARS 2031-32 2032-33",
+            "Changes in Working\ncapital"
+          ],
+          [
+            null,
+            "18445\n185898\n871988\n1076331\n0\n225000\n225000"
+          ],
+          [
+            "Increase in Working capital 1301331",
+            "1301331"
+          ]
+        ]
+      },
+      {
+        "page": 37,
+        "table_index": 1,
+        "rows": 1,
+        "columns": 2,
+        "preview": [
+          [
+            "INTERNAL RATE OF RETURN (IRR)",
+            "15.63%"
+          ]
+        ]
+      },
+      {
+        "page": 38,
+        "table_index": 1,
+        "rows": 1,
+        "columns": 2,
+        "preview": [
+          [
+            "MODIFIED INTERNAL RATE OF RETURN (MIRR)",
+            "13.46%"
+          ]
+        ]
+      },
+      {
+        "page": 39,
+        "table_index": 1,
+        "rows": 1,
+        "columns": 2,
+        "preview": [
+          [
+            "PROFITABILITY INDEX",
+            "1.11"
+          ]
+        ]
+      },
+      {
+        "page": 41,
+        "table_index": 1,
+        "rows": 1,
+        "columns": 2,
+        "preview": [
+          [
+            "Payback Period (In years)",
+            "4.87"
+          ]
+        ]
+      }
+    ],
+    "text_blocks": [],
+    "summary": {
+      "total_tables": 34,
+      "text_heavy_pages": 9,
+      "table_heavy_pages": 23,
+      "mixed_pages": 12
+    }
+  },
+  "full_text_by_page": [
+    {
+      "page": 1,
+      "text": "DETAILED PROJECT REPORT\nOF\nFirm Name : SIMHADRI INFRA METALS\nProprietor Name: Chintoti Sirisha\nLine of Activity : Manufacturing of Building Material\nUNIT ADDRESS :\nPlot No 110,111,Jaggaiyyapeta,NTR District\nREQUIREMENT:\nTerm Loan 31.50 Lacs\nWorking capital Loan 13.50 Lacs\nEquity Capital (Margin) 5.00 Lacs\nTotal Project cost 50.00 Lacs\nPREPARED BY\nFINVOIS OPEN BUSINESS SOLUTIONS LLP\nMSME & DPR Consultants\nContact No : 9618221011",
+      "char_count": 431
+    },
+    {
+      "page": 2,
+      "text": "INDEX\n1 PROJECT PROFILE OVERVIEW\n2 FIRM CONSTITUTION , PROPRIETOR PROFILE & BACKGROUND\n3 INTRODUCTION AND FEATURES OF RAW MATERIAL AND FINISHED PRODUCT, DEMAND\nSUPPLY AND ITS MARKETABILITY, SWOT ANALYSIS,STATUTORY GOVERNMENT\nAPPROVALS,POWER REQUIREMENTS.\n3 PROJECT COST AND MEANS OF FINANCE\n4 PROJECTED PROFIT AND LOSS ACCOUNT & BALANCE SHEET\n5 RATIO ANALYSIS & LEVERAGE RATIOS\n6 DEPRECIATION SCHEDULE\n7 TERM LOAN SCHEDULE\n8 CALCULATION OF MAXIMUM PERMISSABLE BANK FINANCE LIMIT\na) Method 1 - Working Capital Method\nb) Method 2 - Total Current Assets Method\nc) Method 3 - Nayak Committee Recommandation Method\n9 PRINCIPAL REPAYMENT SCHEDULE\n10 CASH FLOW STATEMENT\n11 FUNDS FLOW STATEMENT\n12 INTERNAL RATE OF RETURN (IRR)\n13 MODIFIED INTERNAL RATE OF RETURN (MIRR)\n14 WEIGHTED AVERAGE COST OF CAPITAL (WACC)\n14 PROFITABILITY INDEX (PI)\n15 NET PRESENT VALUE (NPV)\n16 INVESTMENT PAYBACK PERIOD - SIMPLE METHOD & DISCOUNTED CASHFLOW METHOD\n17 SENSITIVITY ANALYSIS\n18 BREAK EVEN POINT (BEP) & MARGIN OF SAFETY (MOS)\n19 ALTMAN Z SCORE",
+      "char_count": 1028
+    },
+    {
+      "page": 3,
+      "text": "SIMHADRI INFRA METALS\nChintoti Sirisha\nPlot No 110,111,Jaggaiyyapeta,NTR District\nPROJECT PROFILE AT A GLANCE\nFirm Name : SIMHADRI INFRA METALS\nName of the proprietor : Chintoti Sirisha\nAddress Unit : Plot No 110,111,Jaggaiyyapeta,NTR\nDistrict\nLocation of Unit Rural\nManufacturing / Service / Trading Concern : Manufacturing Sector\nLine of Activity : : Manufacturing of Building Material\nConstitution : Sole proprietorship\nAverage DSCR : 3.00\nExpected Employment Generation\nSkilled employees : 3\nSemi Skilled Employees : 5\nUnskiled Employees : 10\nAge of Proprietor : 46 years\nGender : Female\nCaste : SC\nPan No : AOUPRxxxxQ",
+      "char_count": 622
+    },
+    {
+      "page": 4,
+      "text": "Adhar No : 3489 xxx 6905\nMobile No : 929xxxx1509\nREQUIREMENT:\nTerm Loan : 31.50 Lacs\nCapital : 5.00 Lacs\nTotal Project cost : 50.00 Lacs\nDISCLAIMER :\nThe views expressed in this Project Report are advisory in nature. We assume no\nfinancial liability to anyone using the content for any purpose. All the materials\nand content contained in Project report is for educational purpose and reflect the\nviews of the industry which are drawn from various research material sources from\ninternet, experts, suppliers and various other sources. The actual cost of the\nproject or industry will have to be taken on case to case basis considering\nspecific requirement of the project, capacity and type of plant and other specific\nfactors/cost directly related to the implementation of project. It is intended for\ngeneral guidance only and must not be considered a substitute for a competent\nlegal advice provided by a licensed industry professional. We hereby disclaims\nany and all liability to any party for any direct, indirect, implied, punitive, special,\nincidental or other consequential damages arising directly or indirectly from any\nuse of the Project Report Content, which is provided as is, and without warranties.",
+      "char_count": 1210
+    },
+    {
+      "page": 5,
+      "text": "Detailed Project Report on Manufacturing of Building Materials\nVeladi Village,\nNTR District , Andhrapradesh\n1. Constitution of the Firm\nM/s Simhadri Infra Metals is a sole proprietorship concern established to manufacture building\nmaterials. The firm is owned and managed by the proprietor, Ms. Chinthoti Sirisha.\n Firm Name : M/s Simhadri Infra Metals\n Type of Organisation : Sole Proprietorship\n Proprietor Name : Chinthoti Sirisha\n PAN No. : BQHPC5503L\n Aadhar No. : 5603 9102 7969\n Caste : OC\n Residential Address : Veladi, NTR District, Andhra Pradesh\n2. Proprietor’s Background\nMs. Chinthoti Sirisha is a dynamic and capable entrepreneur with a strong background in the\nconstruction material industry. She has been a managing partner in a construction material\nsupplying company for the past five years, gaining valuable experience in the same line of\nbusiness. Her expertise in managing operations, understanding market demands, and securing\ncontracts makes her well-suited to successfully run the proposed manufacturing unit.\n Education Background: Graduate\n Experience: 5 years as a managing partner in a construction material supplying\ncompany\n Key Attributes: Dynamic leadership, industry knowledge, and proven ability to\nmanage operations effectively\n3. Introduction to Product Manufactured\nM/s Simhadri Infra Metals specializes in the manufacturing of high-quality building materials\ntailored to meet the demands of the construction industry. The products are designed to\ncater to both urban and rural markets, with production schedules aligned to seasonal\ndemands and supply conditions. The firm aims to deliver durable, reliable, and cost-effective\nmaterials to support infrastructure development.",
+      "char_count": 1722
+    },
+    {
+      "page": 6,
+      "text": "Detailed Project Report on Manufacturing of Building Materials\nVeladi Village,\nNTR District , Andhrapradesh\n4. Key Characteristics of the Product Manufactured\n Customization: Products are manufactured based on specific customer requirements\nand seasonal demands.\n Quality: Use of high-grade raw materials from reputed suppliers like Tata, Jindal, and\nNalco ensures durability and compliance with industry standards.\n Versatility: Suitable for a wide range of construction applications, including\nresidential, commercial, and infrastructure projects.\n Sustainability: Emphasis on efficient production processes to minimize waste and\nenvironmental impact.\n5. Marketing Techniques\nMs. Chinthoti Sirisha’s prior experience as a managing partner in a construction material\nsupplying company provides a strong foundation for effective marketing strategies. The firm\nwill leverage the following approaches:\n Online Marketing: Establishing a digital presence through a company website, social\nmedia platforms, and e-commerce marketplaces to reach a broader customer base.\n Government Contracts: Securing purchase orders and work orders from government\nbodies for infrastructure projects, leveraging the proprietor’s experience in this\ndomain.\n Networking: Utilizing existing industry contacts and partnerships to promote products\nand secure bulk orders.\n Branding: Focusing on quality and reliability to build a trusted brand in the\nconstruction material market.",
+      "char_count": 1462
+    },
+    {
+      "page": 7,
+      "text": "Detailed Project Report on Manufacturing of Building Materials\nVeladi Village,\nNTR District , Andhrapradesh\n6. SWOT Analysis of Product Manufactured\nStrengths\n High-quality raw materials sourced from reputed suppliers (Tata, Jindal, Nalco).\n Experienced proprietor with a proven track record in the industry.\n Flexible production tailored to demand and seasonal variations.\n Strategic marketing through online platforms and government contracts.\nWeaknesses\n Initial dependence on imported machinery, which may involve logistical challenges.\n Limited initial market reach due to the firm being a new entrant in manufacturing.\n High initial capital investment for plant setup and machinery.\nOpportunities\n Growing demand for building materials due to rapid urbanization and infrastructure\ndevelopment.\n Potential to secure long-term government contracts for consistent revenue.\n Expansion into new markets through online marketing and partnerships.\n Support from government initiatives promoting rural employment and manufacturing.\nThreats\n Competition from established manufacturers in the building material sector.\n Fluctuations in raw material prices affecting production costs.\n Regulatory changes or delays in obtaining statutory approvals.",
+      "char_count": 1257
+    },
+    {
+      "page": 8,
+      "text": "Detailed Project Report on Manufacturing of Building Materials\nVeladi Village,\nNTR District , Andhrapradesh\n7. Flowchart of Manufacturing Process\nThe manufacturing process for building materials at M/s Simhadri Infra Metals involves the\nfollowing steps:\n1. Raw Material Procurement: Sourcing iron and other materials from suppliers like\nTata, Jindal, and Nalco.\n2. Material Inspection: Quality checks to ensure raw materials meet industry standards.\n3. Processing: Cutting, shaping, and forming materials using imported machinery from\nElumatec (Germany).\n4. Assembly: Combining processed materials into finished products as per specifications.\n5. Quality Control: Final inspection to ensure product quality and compliance.\n6. Packaging and Storage: Packing finished products for distribution and storing in\nwarehouses.\n7. Distribution: Transporting products to customers via hired vehicles.\n8. Power Requirements\nThe manufacturing unit requires a power supply of 50 kV to operate machinery and support\nproduction activities efficiently.\n9. Statutory Government Approvals\nThe following approvals are required to establish and operate the manufacturing unit:\n GST Registration: For tax compliance and invoicing.\n Pollution License (CFE and CFO): Consent for Establishment (CFE) and Consent for\nOperation (CFO) from the State Pollution Control Board to ensure environmental\ncompliance.\n Factory License: From the Department of Factories for operating the manufacturing\nunit.\n Fire Safety Clearance: From the local fire department to ensure safety compliance.\n Municipal Approvals: For construction and operation of the factory premises.\n UDYAM Registration: For MSME benefits and government subsidies.",
+      "char_count": 1704
+    },
+    {
+      "page": 9,
+      "text": "Detailed Project Report on Manufacturing of Building Materials\nVeladi Village,\nNTR District , Andhrapradesh\n10. Plant and Machinery\nThe manufacturing unit will use advanced machinery imported from Elumatec, Germany,\nthrough their Bangalore office. The machinery is designed for precision and efficiency in\nproducing building materials.\n Supplier: Elumatec, Bangalore (Third-party importer from Germany)\n Cost: ₹150 Lakhs\n Purpose: Cutting, shaping, and assembling building materials with high precision.\n11. Raw Materials\nDescription of Raw Materials\nThe primary raw material is iron, sourced from reputed suppliers such as Tata, Jindal, and\nNalco. These materials are selected for their quality, durability, and compliance with industry\nstandards.\nDemand and Supply Availability\n Demand: Driven by the construction industry’s growth, particularly in Andhra Pradesh\nand surrounding regions.\n Supply: Reliable supply chain established with Tata, Jindal, and Nalco, ensuring\nconsistent availability.\n Procurement Strategy: Long-term contracts with suppliers to mitigate price\nfluctuations and ensure timely delivery.",
+      "char_count": 1120
+    },
+    {
+      "page": 10,
+      "text": "Detailed Project Report on Manufacturing of Building Materials\nVeladi Village,\nNTR District , Andhrapradesh\n12.Inventory Details\nType of Material Quantity to be Quantity to be No of days of Justification\nmanufactured stored per Stock\nper month month\nRaw Material 7 tonnes 6 to 7 tonnes 30 days\nFinished Product 5.95 tonnes 5 to 6 tonnes 30 days\n13.Production Capacity\nSl.No Product Name Production capacity per\nAnnum(Specify the capacity\nalong with units of\nmeasurement)\n1 U bolts - 20MM to 300MM 10-15 tonnes per year\n2 U Clamps - 20MM to 300MM 5-7 tonnes per year\n3 Anchor fasteners - 8MM to 20 MM 5 to 7 lacs Nos per year\n4 Treaded rods - 8MM to 20 MM 10 tonnes per year\n5 Slotted channels - thickness - 1MM to 5 MM(as per 30000 to 40000 meters per\ncustomer requirement also) year\n6 Cable trays - 1 MM to 5 MM (as per customer 7000 to 8000 meters per year\nrequirement also)\n7 GI brackets - (as per customer requirement also) 40000 Nos per year\n8 Power coating products - (as per customer 300000 Nos per year\nrequirement also)",
+      "char_count": 1028
+    },
+    {
+      "page": 11,
+      "text": "Detailed Project Report on Manufacturing of Building Materials\nVeladi Village,\nNTR District , Andhrapradesh\n14.Transportation\nRaw materials will be transported to the manufacturing unit using hired vehicles, ensuring\ncost-effective and timely delivery.\n15. Manpower\nThe project will generate employment for 34 individuals, contributing to rural employment\ngeneration in line with government objectives. The workforce composition is as follows:\n Skilled Workers: 5 (Experienced in manufacturing and machinery operation)\n Semi-Skilled Workers: 5 (Support roles in production and quality control)\n Unskilled Workers: 24 (General labor and material handling)\n Source: Predominantly from rural areas, with skilled and semi-skilled workers readily\navailable in the surrounding region.\n Experience: The promoters have already identified skilled workers with experience in\nthe same line of activity.\nDirect and Indirect Employment\nSl.no Employment No of Employees\n1 Direct 34\n2 Indirect 15\n\nEmployment details (Direct)\nSl.no Category of employment No of employees\n1 Managerial staff 2\n2 Engineering staff 1\n3 Technical staff 1\n4 Administrative staff 1\n5 Semi Skilled and Unskilled 29",
+      "char_count": 1181
+    },
+    {
+      "page": 12,
+      "text": "Detailed Project Report on Manufacturing of Building Materials\nVeladi Village,\nNTR District , Andhrapradesh\n16. Justification of Land Requirements\nThe proposed project requires a well-planned layout to accommodate the manufacturing unit,\nadministrative offices, and storage facilities. The land requirements are justified as follows:\nArea (Square\nS.No Land Requirement Details\nMeters)\n1 Plant, Administration, Factory, Storage, and Warehousing Buildings 557.42 (6000 SFT)\n2 Open Areas and Greenery As per norms\n Plant and Factory: Space for machinery installation and production activities.\n Administration: Office space for management and operational staff.\n Storage and Warehousing: Dedicated area for raw materials and finished products.\n Open Areas and Greenery: Compliance with environmental norms and aesthetic\nenhancement.\n17. Implementation Timeline\nThe project implementation is planned as follows:\nEnd Date\nSl.No Description Start Date\n1 Construction 15/10/2025 30/04/2026\n2 Machinery Erection 01/07/2026 31/07/2026\n3 Trial Run Production 01/08/2026 31/08/2026\n4 Commercial Production 01/09/2026\n18. Conclusion\nM/s Simhadri Infra Metals, under the leadership of Ms. Chinthoti Sirisha, is well-positioned to\nestablish a successful manufacturing unit for building materials. With a clear focus on quality,\nstrategic marketing, and efficient operations, the firm aims to meet the growing demand for\nconstruction materials while contributing to rural employment and regional development. The\nproject’s robust financial planning, experienced management, and adherence to statutory\nrequirements ensure its viability and long-term success.",
+      "char_count": 1646
+    },
+    {
+      "page": 13,
+      "text": "SIMHADRI INFRA METALS\nChintoti Sirisha\nPlot No 110,111,Jaggaiyyapeta,NTR District\nPROJECT COST AND MEANS OF FINANCE\nNature of Business : Manufacturing of Building Material\nA. COST OF THE PROJECT\nRs in Lakhs\nParticulars Amount\nQuotation\nPlant and Machinery attached 35.00\nWorking capital Requirement 15.00\nTotal 50.00\nB. MEANS OF FINANCE\nRs in Lakhs\nParticulars Amount\nEquity Capital 5.00\nTerm Loan 31.50\nWorking capital Loan 13.50\nTotal 50.00",
+      "char_count": 442
+    },
+    {
+      "page": 14,
+      "text": "SIMHADRI INFRA METALS\nChintoti Sirirsha\nPlot No 110,111, Jaggaiyyapeta,NTR District\nSCHEDULES TO FIXED ASSETS\nRs in Lacs\nParticulars Amount (Rs) Amount (Rs)\nPlant and Machinery 35.00\nCFW k Machinery 10.00\n100w Builder Machinery 25.00\nTOTAL 35.00",
+      "char_count": 245
+    },
+    {
+      "page": 15,
+      "text": "SIMHADRI INFRA METALS\nChintoti Sirirsha\nPlot No 110,111, Jaggaiyyapeta,NTR District\nCalculation of Weighted Average Cost of Capital (WACC)\nSources of\nFunds\nParticulars (Rs in Lacs) Portion % Cost WACC\nEquity Capital 5.00 10% 10% 1.00%\nTerm Loan 31.50 63% 12% 5.29%\nWorking capital Loan 13.50 27% 12% 2.27%\nTotal 50.00 8.56%\nWACC (Minimum Return Required or Cost of Money) is 8.56%",
+      "char_count": 380
+    },
+    {
+      "page": 16,
+      "text": "SIMHADRI INFRA METALS\nChintoti Sirisha\nPlot No 110,111,Jaggaiyyapeta,NTR District\nPROFIT & LOSS ACCOUNT FOR YEAR ENDED\nEstimated Projected Projected Projected Projected Projected Projected Projected\nPARTICULARS Sch 2025-26\n2026-27 2027-28 2028-29 2029-30 2030-31 2031-32 2032-33\nSep to Mar\nGross reciepts\nGross Revenue 4358132 9712500 10945093 11319652 11696342 12075206 12456288 12839633\nLess : Cost of Goods Sold / Operating Expenses\nOpening Stock 0 877500 1755000 1772550 1790276 1808178 1826260 1844523\nDirect Material/Expenses 3403161 6883500 7125718 7369295 7614259 7860637 8108458 8357751\nClosing stock 877500 1755000 1772550 1790276 1808178 1826260 1844523 1862968\nOperating Expenses 2525661 6006000 7108168 7351570 7596356 7842556 8090196 8339305\nGross profit 1832471 3706500 3836925 3968082 4099986 4232651 4366093 4500327\nLess:\nAdministrative and\nSelling Expenses Sch 1 976065 1830000 1866600 1903932 1942011 1980851 2020468 2060877\nEBDIT 856406 1876500 1970325 2064150 2157975 2251800 2345625 2439450\nLess : Depreciation 262500 485625 412781 350864 298234 253499 215474 183153\nEBIT 593906 1390875 1557544 1713286 1859741 1998301 2130151 2256297\nLess: Interest Sch 2 264375 488250 435060 381874 328692 275514 222341 174796\nEarnings before Tax (EBT) 329531 902625 1122484 1331412 1531048 1722786 1907810 2081501",
+      "char_count": 1321
+    },
+    {
+      "page": 17,
+      "text": "SIMHADRI INFRA METALS\nChintoti Sirisha\nPlot No 110,111,Jaggaiyyapeta,NTR District\nBALANCE SHEET AS ON\nEstimated Projected Projected Projected Projected Projected Projected Projected\nParticulars Sch 2025-26\n2026-27 2027-28 2028-29 2029-30 2030-31 2031-32 2032-33\nSep to Mar\nSOURCES OF FUNDS:\nNet Capital 1539672 5052500 6318641 7305707 8391869 9569648 10832761 11950939\n(Opening capital +Net profit-Drawings)\nTERM LOANS : 2475000 2025000 1575000 1125000 675000 225000 0 0\nCURRENT LIABILITIES :\nWorking capital Loan 1350000 1350000 1350000 1350000 1350000 1350000 1350000 1350000\nShort Term Loan 450000 450000 450000 450000 450000 450000 225000 0\n5814672 8877500 9693641 10230707 10866869 11594648 12407761 13300939\nAPPLICATION OF FUNDS:\nFIXED ASSETS 3237500 2751875 2339094 1988230 1689995 1436496 1221022 1037868\nCURRENT ASSETS :\nClosing stock 877500 1755000 1772550 1790276 1808178 1826260 1844523 1862968\nRecievables / Debtors 392232 971250 1203960 1358358 1520524 1690529 1868443 2054341\nCash and Cash Equivalents 1307440 3399375 4378037 5093843 5848171 6641364 7473773 8345761\n5814672 8877500 9693641 10230707 10866869 11594648 12407761 13300939",
+      "char_count": 1149
+    },
+    {
+      "page": 18,
+      "text": "Schedule 1 - Explanation for Administrative & Selling Expenses\n2025-26\n2026-27 2027-28 2028-29 2029-30 2030-31 2031-32 2032-33\nSep to Mar\nSalaries and Wages 705000 1410000 1438200 1466964 1496303 1526229 1556754 1587889\nOther expenses 150000 300000 306000 312120 318362 324730 331224 337849\nProcessing fees 61065 0 0 0 0 0 0 0\nMiscellenious expenses 60000 120000 122400 124848 127345 129892 132490 135139\n976065 1830000 1866600 1903932 1942011 1980851 2020468 2060877\nSchedule 2 - Interest Statement\n2025-26\n2026-27 2027-28 2028-29 2029-30 2030-31 2031-32 2032-33\nSep to Mar\nInterest on Term Loan 183375 326250 272250 218250 164250 110250 56250 7875\nInterest on CC Loan 81000 162000 162810 163624 164442 165264 166091 166921\n264375 488250 435060 381874 328692 275514 222341 174796",
+      "char_count": 780
+    },
+    {
+      "page": 19,
+      "text": "",
+      "char_count": 0
+    },
+    {
+      "page": 20,
+      "text": "SIMHADRI INFRA METALS\nChintoti Sirisha\nPlot No 110,111,Jaggaiyyapeta,NTR District\nRATIO ANALYSIS\nA . DEBT SERVICE COVERAGE RATIO\nIDEAL RATIO - 1.75 TO 3 Times\n2025-26\nPartiiculars Sep to Mar 2026-27 2027-28 2028-29 2029-30 2030-31 2031-32 2032-33\nDSCR ( A / B ) 1.75 2.00 2.23 2.48 2.77 3.10 3.49 6.10\nEarnings before Interest,Depreciation\nInterest and Installment\nA .Earnings Before Interest\n,Depreciation 856406 1876500 1970325 2064150 2157975 2251800 2345625 2439450\nB .Interest and Installment\nTotal Interest (CC & TL) 264375 488250 435060 381874 328692 275514 222341 174796\nInstallment 225000 450000 450000 450000 450000 450000 450000 225000\n489375 938250 885060 831874 778692 725514 672341 399796\nNOTE : Indicates extent of current Earnings Available for meeting commitments towards interest and Instalment .\nB .CURRENT ASSETS RATIO\n2025-26\nParticulars Sep to Mar 2026-27 2027-28 2028-29 2029-30 2030-31 2031-32 2032-33\nCurrent Ratio 1.43 3.40 4.09 4.58 5.10 5.64 7.10 9.08\nCurrent Assets 2577172 6125625 7354547 8242477 9176874 10158152 11186739 12263070\nCurrent Liabilities 1800000 1800000 1800000 1800000 1800000 1800000 1575000 1350000\nNet Current Assets 777172 4325625 5554547 6442477 7376874 8358152 9611739 10913070\nNOTE : Indicates Net Income on Average Assets .\nC . GROSS PROFIT RATIO\n2025-26\nParticulars Sep to Mar 2026-27 2027-28 2028-29 2029-30 2030-31 2031-32 2032-33\nGross Profit / Sales * 100 42.05 38.16 35.06 35.05 35.05 35.05 35.05 35.05\nNOTES : Indicates overall Profitability of the Business.",
+      "char_count": 1518
+    },
+    {
+      "page": 21,
+      "text": "D . NETPROFIT RATIO\n2025-26\nParticulars Sep to Mar 2026-27 2027-28 2028-29 2029-30 2030-31 2031-32 2032-33\nNetprofit / Sales * 100 7.56 9.29 10.26 11.76 13.09 14.27 15.32 16.21\nNOTES : Indicates overall Profitability of the Business.\nE . DEBTORS / RECIEVABLES TURNOVER RATIO\n2025-26\nParticulars Sep to Mar 2026-27 2027-28 2028-29 2029-30 2030-31 2031-32 2032-33\nCredit sales / Average debtors 11.11 10.00 9.09 8.33 7.69 7.14 6.67 6.25\n*Sales assumed as credit sales\nNOTES : It indicates velocity of debt collection. Higer the DTR indicates good vellocity of debt\ncollection.\nDEBTORS COLLECTION PERIOD : 33 37 40 44 47 51 55 58\n(No of days/debtor turnover ratio)\n* No. of Days Assumed as 365\nF . TOTAL OUTSIDE LIABILITIES TO TOTAL NETWORTH\n2025-26\nParticulars Sep to Mar 2026-27 2027-28 2028-29 2029-30 2030-31 2031-32 2032-33\nTOL / TW 2.78 0.76 0.53 0.40 0.29 0.21 0.15 0.11\nNOTES : Indicates Extent of own funds used in business.\nG. RETURN ON CAPITAL EMPLOYED\n2025-26\nParticulars Sep to Mar 2026-27 2027-28 2028-29 2029-30 2030-31 2031-32 2032-33\nPAT / (Capital+Long Term loan) 0.08 0.13 0.14 0.16 0.17 0.18 0.18 0.17\nNOTE : Indicates overall profitability of Business for capital employed .\nH. FIXED ASSETS TO LONGTERM FUND RATIO\n2025-26\nParticulars Sep to Mar 2026-27 2027-28 2028-29 2029-30 2030-31 2031-32 2032-33\nFixed Assets / Long Term Funds 1.31 1.36 1.49 1.77 2.50 6.38 #DIV/0! #DIV/0!\nNOTES : Shows proportion of Fixed Assets Financed by Long Term funds .",
+      "char_count": 1466
+    },
+    {
+      "page": 22,
+      "text": "I . PROPRIETORY RATIO\n2025-26\nParticulars Sep to Mar 2026-27 2027-28 2028-29 2029-30 2030-31 2031-32 2032-33\nCapital / Total Assets 0.48 1.84 2.70 3.67 4.97 6.66 8.87 11.51\nNOTES : Shows extent of Owners funds utilised in financing assets .\nJ . RETURN ON ASSETS\n2025-26\nParticulars Sep to Mar 2026-27 2027-28 2028-29 2029-30 2030-31 2031-32 2032-33\nPAT / Average total assets 0.06 0.10 0.12 0.13 0.14 0.15 0.15 0.16\nNOTE : Indicates Net Income on Average Assets .\nK . INTEREST COVERAGE RATIO\n2025-26\nPartiiculars Sep to Mar 2026-27 2027-28 2028-29 2029-30 2030-31 2031-32 2032-33\nE B I / Interest 2.25 2.85 3.58 4.49 5.66 7.25 9.58 12.91\nEBI 593906 1390875 1557544 1713286 1859741 1998301 2130151 2256297\nInterest 264375 488250 435060 381874 328692 275514 222341 174796\nNOTE : Indicates ability to meet Interest Obligation of the current year .",
+      "char_count": 844
+    },
+    {
+      "page": 23,
+      "text": "SIMHADRI INFRA METALS\nChintoti Sirisha\nPlot No 110,111,Jaggaiyyapeta,NTR District\nCALCULATION OF DEPRECIATION AS PER INCOME TAX ACT\nRs in lacs\nPlant and\nMachinery Total\n15.00%\n2025-26 Sep to Mar\nWDV in the beginning of year 1 0.00 0.00\nAdd : Additions during year 35.00 35.00\nTotal 35.00 35.00\nLess: Depreciation 2.63 2.63\nWDV at the end of 1st Year 32.38 32.38\n2026-27\nWDV in the beginning of year 1 32.38 32.38\nAdd : Additions during year 0.00 0.00\nTotal 32.38 32.38\nLess: Depreciation 4.86 4.86\nWDV at the end of 2nd Year 27.52 27.52\n2027-28\nWDV in the beginning of year 1 27.52 27.52\nAdd : Additions during year 0.00 0.00\nTotal 27.52 27.52\nLess: Depreciation 4.13 4.13\nWDV at the end of 3rd Year 23.39 23.39\n2028-29\nWDV in the beginning of year 1 23.39 23.39\nAdd : Additions during year 0.00 0.00\nTotal 23.39 23.39\nLess: Depreciation 3.51 3.51\nWDVat the end of 4th Year 19.88 19.88\n2029-30\nWDV in the beginning of year 1 19.88 19.88\nAdd : Additions during year 0.00 0.00\nTotal 19.88 19.88\nLess: Depreciation 2.98 2.98\nWDV at the end of 5th Year 16.90 16.90",
+      "char_count": 1060
+    },
+    {
+      "page": 24,
+      "text": "2030-31\nWDV in the beginning of year 1 16.90 16.90\nAdd : Additions during year 0.00 0.00\nTotal 16.90 16.90\nLess: Depreciation 2.53 2.53\nWDV at the end of 6th Year 14.36 14.36\n2031-32\nWDV in the beginning of year 1 14.36 14.36\nAdd : Additions during year 0.00 0.00\nTotal 14.36 14.36\nLess: Depreciation 2.15 2.15\nWDV at the end of 7th Year 12.21 12.21\n2032-33\nWDV in the beginning of year 1 12.21 12.21\nAdd : Additions during year 0.00 0.00\nTotal 12.21 12.21\nLess: Depreciation 1.83 1.83\nWDV at the end of 8th Year 10.38 10.38",
+      "char_count": 524
+    },
+    {
+      "page": 25,
+      "text": "SIMHADRI INFRA METALS\nChintoti Sirisha\nPlot No 110,111,Jaggaiyyapeta,NTR District\nEMI STATEMENT\nLOAN AMOUNT 3,150,000\nRATE OF INTEREST PER\nANNUM 12.00%\nRATE OF INTEREST PER\nMONTH 1.000%\nNO OF INSTALLMENT 84\n62\nPrincipal amount shared equally over loan Term period\nCALCULATION OF DETAILS OF EMI\nPRINCIPAL OUTSTANDING\nMONTHS EMI INTEREST REPAYMENT PRINCIPAL\n0 3,150,000\n1 69,000 31500 37500 3112500\n2 68,625 31125 37500 3075000\n3 68,250 30750 37500 3037500\n4 67,875 30375 37500 3000000\n5 67,500 30000 37500 2962500\n6 67,125 29625 37500 2925000\n7 66,750 29250 37500 2887500\n8 66,375 28875 37500 2850000\n9 66,000 28500 37500 2812500\n10 65,625 28125 37500 2775000\n11 65,250 27750 37500 2737500\n12 64,875 27375 37500 2700000\n13 64,500 27000 37500 2662500\n14 64,125 26625 37500 2625000\n15 63,750 26250 37500 2587500\n16 63,375 25875 37500 2550000\n17 63,000 25500 37500 2512500\n18 62,625 25125 37500 2475000\n19 62,250 24750 37500 2437500\n20 61,875 24375 37500 2400000\n21 61,500 24000 37500 2362500",
+      "char_count": 988
+    },
+    {
+      "page": 26,
+      "text": "22 61,125 23625 37500 2325000\n23 60,750 23250 37500 2287500\n24 60,375 22875 37500 2250000\n25 60,000 22500 37500 2212500\n26 59,625 22125 37500 2175000\n27 59,250 21750 37500 2137500\n28 58,875 21375 37500 2100000\n29 58,500 21000 37500 2062500\n30 58,125 20625 37500 2025000\n31 57,750 20250 37500 1987500\n32 57,375 19875 37500 1950000\n33 57,000 19500 37500 1912500\n34 56,625 19125 37500 1875000\n35 56,250 18750 37500 1837500\n36 55,875 18375 37500 1800000\n37 55,500 18000 37500 1762500\n38 55,125 17625 37500 1725000\n39 54,750 17250 37500 1687500\n40 54,375 16875 37500 1650000\n41 54,000 16500 37500 1612500\n42 53,625 16125 37500 1575000\n43 53,250 15750 37500 1537500\n44 52,875 15375 37500 1500000\n45 52,500 15000 37500 1462500\n46 52,125 14625 37500 1425000\n47 51,750 14250 37500 1387500\n48 51,375 13875 37500 1350000\n49 51,000 13500 37500 1312500\n50 50,625 13125 37500 1275000\n51 50,250 12750 37500 1237500\n52 49,875 12375 37500 1200000\n53 49,500 12000 37500 1162500\n54 49,125 11625 37500 1125000\n55 48,750 11250 37500 1087500\n56 48,375 10875 37500 1050000\n57 48,000 10500 37500 1012500\n58 47,625 10125 37500 975000\n59 47,250 9750 37500 937500\n60 46,875 9375 37500 900000\n61 46,500 9000 37500 862500\n62 46,125 8625 37500 825000\n63 45,750 8250 37500 787500",
+      "char_count": 1248
+    },
+    {
+      "page": 27,
+      "text": "64 45,375 7875 37500 750000\n65 45,000 7500 37500 712500\n66 44,625 7125 37500 675000\n67 44,250 6750 37500 637500\n68 43,875 6375 37500 600000\n69 43,500 6000 37500 562500\n70 43,125 5625 37500 525000\n71 42,750 5250 37500 487500\n72 42,375 4875 37500 450000\n73 42,000 4500 37500 412500\n74 41,625 4125 37500 375000\n75 41,250 3750 37500 337500\n76 40,875 3375 37500 300000\n77 40,500 3000 37500 262500\n78 40,125 2625 37500 225000\n79 39,750 2250 37500 187500\n80 39,375 1875 37500 150000\n81 39,000 1500 37500 112500\n82 38,625 1125 37500 75000\n83 38,250 750 37500 37500\n84 37,875 375 37500 0",
+      "char_count": 578
+    },
+    {
+      "page": 28,
+      "text": "SIMHADRI INFRA METALS\nChintoti Sirisha\nPlot No 110,111,Jaggaiyyapeta,NTR District\nRepayment Schedule - Term Loan\n2025-26\n2026-27 2027-28 2028-29 2029-30 2030-31 2031-32 2032-33\nSep to Mar\nParticulars\nApril 0 37500 37500 37500 37500 37500 37500 37500\nMay 0 37500 37500 37500 37500 37500 37500 37500\nJune 0 37500 37500 37500 37500 37500 37500 37500\nJuly 0 37500 37500 37500 37500 37500 37500 37500\nAugust 0 37500 37500 37500 37500 37500 37500 37500\nSeptember 0 37500 37500 37500 37500 37500 37500 37500\nOctober 37500 37500 37500 37500 37500 37500 37500 0\nNovember 37500 37500 37500 37500 37500 37500 37500 0\nDecember 37500 37500 37500 37500 37500 37500 37500 0\nJanuary 37500 37500 37500 37500 37500 37500 37500 0\nFebruary 37500 37500 37500 37500 37500 37500 37500 0\nMarch 37500 37500 37500 37500 37500 37500 37500 0\nTotal Term Loan\nPaid 225000 450000 450000 450000 450000 450000 450000 225000\nShort Term Loan\nOutstanding 450000 450000 450000 450000 450000 450000 225000 0",
+      "char_count": 969
+    },
+    {
+      "page": 29,
+      "text": "SIMHADRI INFRA METALS\nChintoti Sirisha\nPlot No 110,111,Jaggaiyyapeta,NTR District\nCALCULATION OF MAXIMUM PERMISSIBLE BANK FINANCE\nMethod 1 : Working Capital method\n2025-26\n2026-27 2027-28 2028-29 2029-30 2030-31 2031-32 2032-33\nSep to Mar\nParticulars\n1. Total current assets 2577172 6125625 7354547 8242477 9176874 10158152 11186739 12263070\n2. Other current liabilities 450000 450000 450000 450000 450000 450000 225000 0\n(Other than Working capital Loan )\n3. Working capital gap 2127172 5675625 6904547 7792477 8726874 9708152 10961739 12263070\n4. Min. stipulated Networking capital\n(25% of WCG excluding export 531793 1418906 1726137 1948119 2181718 2427038 2740435 3065768\nreceivables)\n5. Actual/projected net working capital 777172 4325625 5554547 6442477 7376874 8358152 9611739 10913070\n6.Item 3 minus item 4 1595379 4256719 5178411 5844358 6545155 7281114 8221304 9197303\n7.Item 3 minus item 5 1350000 1350000 1350000 1350000 1350000 1350000 1350000 1350000\n8. Maximum permissible bank 1350000 1350000 1350000 1350000 1350000 1350000 1350000 1350000\nfinance(lower of 6 or 7 )",
+      "char_count": 1082
+    },
+    {
+      "page": 30,
+      "text": "CALCULATION OF MAXIMUM PERMISSIBLE BANK FINANCE\nMethod 2 : Total Current Assets Method\n2025-26\n2026-27 2027-28 2028-29 2029-30 2030-31 2031-32 2032-33\nParticulars Sep to Mar\n1. Total current assets 2577172 6125625 7354547 8242477 9176874 10158152 11186739 12263070\n2. Other current liabilities 450000 450000 450000 450000 450000 450000 225000 0\n(Other than Working capital Loan )\n3. Working capital gap 2127172 5675625 6904547 7792477 8726874 9708152 10961739 12263070\n4. Min. stipulated Networking capital\n(25% of Current Assets) 644293 1531406 1838637 2060619 2294218 2539538 2796685 3065768\n5. Actual/projected net working capital 777172 4325625 5554547 6442477 7376874 8358152 9611739 10913070\n6.Item 3 minus item 4 1482879 4144219 5065911 5731858 6432655 7168614 8165054 9197303\n7.Item 3 minus item 5 1350000 1350000 1350000 1350000 1350000 1350000 1350000 1350000\n8. Maximum permissible bank 1350000 1350000 1350000 1350000 1350000 1350000 1350000 1350000\nfinance(lower of 6 or 7 )",
+      "char_count": 987
+    },
+    {
+      "page": 31,
+      "text": "SIMHADRI INFRA METALS\nChintoti Sirisha\nPlot No 110,111,Jaggaiyyapeta,NTR District\nWORKING CAPITAL ASSESSMENT - TURNOVER METHOD\nNAYAK COMMITTEE RECOMONDATIONS ( Working Capital Assessement)\n2025-26\nPARTICULARS Sep to Mar 2026-27 2027-28 2028-29 2029-30 2030-31 2031-32\nTurnover 4358132 9712500 10945093 11319652 11696342 12075206 12456288\nWorking Capital Requirment 1089533 2428125 2736273 2829913 2924085 3018802 3114072\n(25% of Turnover)\nMinimum WC Limit 871626 1942500 2189019 2263930 2339268 2415041 2491258\n(80%of WC Requirment)\nDrawing Power 1350000 1350000 1350000 1350000 1350000 1350000 1350000\nMaximum Bank CC Loan 871626 1350000 1350000 1350000 1350000 1350000 1350000\nNotes :\n1. Maximum Working capital Limit Must not exceed Drawing power .\n2. Four Operating cycles per Annum is Assumed.",
+      "char_count": 798
+    },
+    {
+      "page": 32,
+      "text": "PROJECTED CASH FLOW STATEMENTS\n2025-26\nParticulars Sep to Mar 2026-27 2027-28 2028-29 2029-30 2030-31 2031-32 2032-33\nIn flows:\nProfit before Bank Interest & Tax\nbut after depreciation 593906 1390875 1557544 1713286 1859741 1998301 2130151 2256297\nIncrease in Depreciation 262500 485625 412781 350864 298234 253499 215474 183153\nIncrease in Term Loan 3150000 0 0 0 0 0 0 0\nIncrease in working capital loan 1350000 0 0 0 0 0 0 0\nIncrease In Capital 500000 0 0 0 0 0 0 0\nIncrease in Capital during the year 710140 2610203 143657 0 0 0 0 0\n6566547 4486703 2113982 2064150 2157975 2251800 2345625 2439450\nOutflows:\nIncrease in Capital expenditure 3500000 0 0 0 0 0 0 0\nIncrease in Term Loan interest 183375 326250 272250 218250 164250 110250 56250 7875\nIncrease in CC Loan interest 81000 162000 162810 163624 164442 165264 166091 166921\nDecrease in Term Loan 225000 450000 450000 450000 450000 450000 450000 225000\nIncrease in Recievables 392232 579018 232710 154398 162166 170004 177914 185898\nIncrease in Stock 877500 877500 17550 17726 17903 18082 18263 18445\n5259107 2394768 1135320 1003998 958761 913601 868518 604139\nGross Surplus during the year 1307440 2091935 978662 1060152 1199214 1338199 1477107 1835311\nIncrease in Drawings 0 0 0 344346 444886 545007 644698 963323\nOpening balance of cash 0 1307440 3399375 4378037 5093843 5848171 6641364 7473773\nNet Surplus during the year 1307440 2091935 978662 715806 754328 793193 832410 871988\nClosing balance of cash 1307440 3399375 4378037 5093843 5848171 6641364 7473773 8345761",
+      "char_count": 1529
+    },
+    {
+      "page": 33,
+      "text": "FUNDS FLOW STATEMENT\nStatement of Changes in Working capital\n2025-26 Changes in Working\nPARTICULARS Sep to Mar 2026-27 capital\nCURRENT ASSETS :\nClosing stock 877500 1755000 877500\nRecievables / Debtors 392232 971250 579018\nCash and Cash Equivalents 1307440 3399375 2091935\n0\nGross Current Assets (A) 2577172 6125625 3548453\nCURRENT LIABILITIES :\nWorking capital Loan 1350000 1350000 0\nShort Term Loan 450000 450000 0\nTotal Current Liabilities (B) 1800000 1800000 0\nNET WORKING CAPITAL (A-B) 777172 4325625\nIncrease in Working capital 3548453 3548453\nChanges in Working\nPARTICULARS 2026-27 2027-28 capital\nCURRENT ASSETS :\nClosing stock 1755000 1772550 17550\nRecievables / Debtors 971250 1203960 232710\nCash and Cash Equivalents 3399375 4378037 978662\n0\nGross Current Assets (A) 6125625 7354547 1228922\nCURRENT LIABILITIES :\nWorking capital Loan 1350000 1350000 0\nShort Term Loan 450000 450000 0\nTotal Current Liabilities (B) 1800000 1800000 0\nNET WORKING CAPITAL (A-B) 4325625 5554547\nIncrease in Working capital 1228922 1228922",
+      "char_count": 1028
+    },
+    {
+      "page": 34,
+      "text": "Changes in Working\nPARTICULARS 2027-28 2028-29 capital\nCURRENT ASSETS :\nClosing stock 1772550 1790276 17726\nRecievables / Debtors 1203960 1358358 154398\nCash and Cash Equivalents 4378037 5093843 715806\n0\nGross Current Assets (A) 7354547 8242477 887930\nCURRENT LIABILITIES :\nWorking capital Loan 1350000 1350000 0\nShort Term Loan 450000 450000 0\nTotal Current Liabilities (B) 1800000 1800000 0\nNET WORKING CAPITAL (A-B) 5554547 6442477\nIncrease in Working capital 887930 887930\nChanges in Working\nPARTICULARS 2028-29 2029-30 capital\nCURRENT ASSETS :\nClosing stock 1790276 1808178 17903\nRecievables / Debtors 1358358 1520524 162166\nCash and Cash Equivalents 5093843 5848171 754328\nGross Current Assets (A) 8242477 9176874 934397\nCURRENT LIABILITIES :\nWorking capital Loan 1350000 1350000 0\nShort Term Loan 450000 450000 0\nTotal Current Liabilities (B) 1800000 1800000 0\nNET WORKING CAPITAL (A-B) 6442477 7376874\nIncrease in Working capital 934397 934397",
+      "char_count": 951
+    },
+    {
+      "page": 35,
+      "text": "Changes in Working\nPARTICULARS 2029-30 2030-31 capital\nCURRENT ASSETS :\nClosing stock 1808178 1826260 18082\nRecievables / Debtors 1520524 1690529 170004\nCash and Cash Equivalents 5848171 6641364 793193\nGross Current Assets (A) 9176874 10158152 981279\nCURRENT LIABILITIES :\nWorking capital Loan 1350000 1350000 0\nShort Term Loan 450000 450000 0\nTotal Current Liabilities (B) 1800000 1800000 0\nNET WORKING CAPITAL (A-B) 7376874 8358152\nIncrease in Working capital 981279 981279\nChanges in Working\nPARTICULARS 2030-31 2031-32 capital\nCURRENT ASSETS :\nClosing stock 1826260 1844523 18263\nRecievables / Debtors 1690529 1868443 177914\nCash and Cash Equivalents 6641364 7473773 832410\nGross Current Assets (A) 10158152 11186739 1028587\nCURRENT LIABILITIES :\nWorking capital Loan 1350000 1350000 0\nShort Term Loan 450000 225000 225000\nTotal Current Liabilities (B) 1800000 1575000 225000\nNET WORKING CAPITAL (A-B) 8358152 9611739\nIncrease in Working capital 1253587 1253587",
+      "char_count": 965
+    },
+    {
+      "page": 36,
+      "text": "Changes in Working\nPARTICULARS 2031-32 2032-33 capital\nRecievables / Debtors\nClosing stock 1844523 1862968 18445\nRecievables / Debtors 1868443 2054341 185898\nCash and Cash Equivalents 7473773 8345761 871988\nCURRENT LIABILITIES : 11186739 12263070 1076331\nShort Term Loan\nWorking capital Loan 1350000 1350000 0\nShort Term Loan 225000 0 225000\nTotal Current Liabilities (B) 1575000 1350000 225000\nNET WORKING CAPITAL (A-B) 9611739 10913070\nIncrease in Working capital 1301331 1301331",
+      "char_count": 481
+    },
+    {
+      "page": 37,
+      "text": "SIMHADRI INFRA METALS\nChintoti Sirisha\nPlot No 110,111,Jaggaiyyapeta,NTR District\nINTERNAL RATE OF RETURN\nPARTICULARS Amount (Rs)\nCASH OUTFLOWS -5,000,000\nCASH INFLOWS\n2025-26 Sep to Mar 1,307,440\n2026-27 2,091,935\n2027-28 978,662\n2028-29 715,806\n2029-30 754,328\n2030-31 793,193\n2031-32 832,410\n2032-33 871,988\nINTERNAL RATE OF RETURN (IRR) 15.63%",
+      "char_count": 347
+    },
+    {
+      "page": 38,
+      "text": "SIMHADRI INFRA METALS\nChintoti Sirisha\nPlot No 110,111,Jaggaiyyapeta,NTR District\nMODIFIED INTERNAL RATE OF RETURN\nPARTICULARS Amount (Rs)\nCASH OUTFLOWS -5,000,000\nCASH INFLOWS\n2025-26 Sep to Mar 1,307,440\n2026-27 2,091,935\n2027-28 978,662\n2028-29 715,806\n2029-30 754,328\n2030-31 793,193\n2031-32 832,410\n2032-33 871,988\nMODIFIED INTERNAL RATE OF RETURN (MIRR) 13.46%\nNote:\nReinvestment done at Risk free Rate (i.e) Bank Fixed deposit Rate",
+      "char_count": 438
+    },
+    {
+      "page": 39,
+      "text": "SIMHADRI INFRA METALS\nChintoti Sirisha\nPlot No 110,111,Jaggaiyyapeta,NTR District\nPROFITABILITY INDEX\nPARTICULARS Amount (Rs)\nCASH OUTFLOWS -5,000,000\nCASH INFLOWS\n2025-26 Sep to Mar 1,307,440\n2026-27 2,091,935\n2027-28 978,662\n2028-29 715,806\n2029-30 754,328\n2030-31 793,193\n2031-32 832,410\n2032-33 871,988\nPROFITABILITY INDEX 1.11\nFrom the above PI arived , Every 1 Rs invested in this project creates 0.11 Additional Value",
+      "char_count": 424
+    },
+    {
+      "page": 40,
+      "text": "SIMHADRI INFRA METALS\nChintoti Sirisha\nPlot No 110,111,Jaggaiyyapeta,NTR District\nPRESENT VALUE OF FUTURE CASH FLOWS & NET\nPRESENT VALUE\nPARTICULARS Amount (Rs)\nCASH INFLOWS\n2025-26 Sep to Mar 1,307,440\n2026-27 2,091,935\n2027-28 978,662\n2028-29 715,806\n2029-30 754,328\n2030-31 793,193\n2031-32 832,410\n2032-33 871,988\nPRESENT VALUE OF FUTURE CASH FLOWS 5 ,545,138\nCASH OUTFLOWS 5,000,000\nNET PRESENT VALUE 545,138\nNote :\nCash flows Discounted at Bank Interest Rate.",
+      "char_count": 464
+    },
+    {
+      "page": 41,
+      "text": "SIMHADRI INFRA METALS\nChintoti Sirisha\nPlot No 110,111,Jaggaiyyapeta,NTR District\nINVESTMENT PAYBACK PERIOD\nCummulative\nPARTICULARS Amount (Rs)\nCash flows (Rs)\nCASH OUTFLOWS -5,000,000\n2025-26 Sep to Mar 1,307,440 -3,692,560\n2026-27 2,091,935 -1,600,625\n2027-28 978,662 -621,963\n2028-29 715,806 93,843\nCASH INFLOWS\n2029-30 754,328 848,171\n2030-31 793,193 1,641,364\n2031-32 832,410 2,473,773\n2032-33 871,988 3,345,761\nPayback Period (In years) 4.87",
+      "char_count": 447
+    },
+    {
+      "page": 42,
+      "text": "SIMHADRI INFRA METALS\nChintoti Sirisha\nPlot No 110,111,Jaggaiyyapeta,NTR District\nSENSITIVITY ANALYSIS\nEARNINGS BEFORE TAX\nIf Direct\nIf Selling Price Expenses\nYears decrease by increase by\n10% 10%\n2025-26 Sep to Mar (106,282) ( 10,785)\n2026-27 (68,625) 214,275\n2027-28 27,974 409,912\n2028-29 199,447 594,482\n2029-30 361,414 769,622\n2030-31 515,266 936,723\n2031-32 662,181 1,096,964\n2032-33 797,537 1,245,726",
+      "char_count": 407
+    },
+    {
+      "page": 43,
+      "text": "SIMHADRI INFRA METALS\nChintoti Sirirsha\nPlot No 110,111, Jaggaiyyapeta,NTR District\nCALCULATION OF BREAK EVEN POINT\n2025-26\nParticulars Sep to Mar 2026-27 2027-28 2028-29 2029-30 2030-31 2031-32 2032-33\nGross Revenue 4358132 9712500 10945093 11319652 11696342 12075206 12456288 12839633\nLess : Cost of Goods Sold / Direct Costs 2525661 6006000 7108168 7351570 7596356 7842556 8090196 8339305\nContribution 1832471 3706500 3836925 3968082 4099986 4232651 4366093 4500327\nSelling price per 120.00 120.00 124.00 124.00 126.00 126.00 128.00 128.00\nQuantity Manufactured in KGs 36318 80938 88267 91288 92828 95835 97315 100310\nContribution per KG 50 46 43 43 44 44 45 45\nFixed Costs 1502940 2803875 2714441 2636670 2568937 2509865 2458283 2418827\nBREAK EVEN POINT in KGs 29787 61227 62445 60658 58164 56828 54792 53914\nPlant Installed capacity in KGs 100000 100000 100000 100000 100000 100000 100000 100000\nPlant Operating capacity in KGs 36318 80938 88267 91288 92828 95835 97315 100310\nOperating capacity (%) 72.64 80.94 88.27 91.29 92.83 95.83 97.31 100.31\nCALCULATION OF MARGIN OF SAFETY (MOS)\n2025-26\nParticulars Sep to Mar 2026-27 2027-28 2028-29 2029-30 2030-31 2031-32 2032-33\nActual Sales 4358132 9712500 10945093 11319652 11696342 12075206 12456288 12839633\nBreak even Sales 3574414 7347265 7743131 7521565 7328603 7160319 7013383 6901019\nMARGIN OF SAFETY:\nMOS Value 783718 2365235 3201962 3798087 4367739 4914887 5442905 5938613\nMOS Ratio 0.18 0.24 0.29 0.34 0.37 0.41 0.44 0.46\nMOS Percentage 17.98 24.35 29.25 33.55 37.34 40.70 43.70 46.25",
+      "char_count": 1546
+    },
+    {
+      "page": 44,
+      "text": "SIMHADRI INFRA METALS\nChintoti Sirirsha\nPlot No 110,111, Jaggaiyyapeta,NTR District\nCALCULATION OF ALTMAN Z SCORE\n(To Determine the Financial Health of a Company)\n2025-26\nParticulars Sep to Mar 2026-27 2027-28 2028-29 2029-30 2030-31 2031-32 2032-33\nNet Working capital 777172 4325625 5554547 6442477 7376874 8358152 9611739 10913070\nTotal Assets 5814672 8877500 9693641 10230707 10866869 11594648 12407761 13300939\nEarning before Tax 329531 902625 1122484 1331412 1531048 1722786 1907810 2081501\nEBIT 593906 1390875 1557544 1713286 1859741 1998301 2130151 2256297\nNet Equity (Net Capital) 1539672 5052500 6318641 7305707 8391869 9569648 10832761 11950939\nTotal Liabilities 4275000 3825000 3375000 2925000 2475000 2025000 1575000 1350000\nSales 4358132 9712500 10945093 11319652 11696342 12075206 12456288 12839633\nA.Working capital / Total Assets 0.13 0.49 0.57 0.63 0.68 0.72 0.77 0.82\nB.Earning / Total Assets 0.06 0.10 0.12 0.13 0.14 0.15 0.15 0.16\nC.EBIT / Total Assets 0.10 0.16 0.16 0.17 0.17 0.17 0.17 0.17\nD.Equity Capital / Total Liabilities 0.36 1.32 1.87 2.50 3.39 4.73 6.88 8.85\nE.Sales / Total Assets 0.75 1.09 1.13 1.11 1.08 1.04 1.00 0.97\nAltman Z Score Formulae 1.54 3.13 3.63 4.10 4.69 5.52 6.84 8.04\n(To Determine the financial health of a Company)",
+      "char_count": 1266
+    }
+  ],
+  "section_classification": {
+    "excel_derived": [
+      {
+        "page": 1,
+        "reason": "Contains 1 table(s), minimal text",
+        "tables": 1
+      },
+      {
+        "page": 36,
+        "reason": "Contains 1 table(s), minimal text",
+        "tables": 1
+      },
+      {
+        "page": 37,
+        "reason": "Contains 1 table(s), minimal text",
+        "tables": 1
+      },
+      {
+        "page": 38,
+        "reason": "Contains 1 table(s), minimal text",
+        "tables": 1
+      },
+      {
+        "page": 39,
+        "reason": "Contains 1 table(s), minimal text",
+        "tables": 1
+      },
+      {
+        "page": 41,
+        "reason": "Contains 1 table(s), minimal text",
+        "tables": 1
+      }
+    ],
+    "ai_generated": [
+      {
+        "page": 4,
+        "reason": "Text-heavy (1210 chars), no tables",
+        "text_length": 1210
+      },
+      {
+        "page": 16,
+        "reason": "Text-heavy (1321 chars), no tables",
+        "text_length": 1321
+      },
+      {
+        "page": 17,
+        "reason": "Text-heavy (1149 chars), no tables",
+        "text_length": 1149
+      },
+      {
+        "page": 20,
+        "reason": "Text-heavy (1518 chars), no tables",
+        "text_length": 1518
+      },
+      {
+        "page": 23,
+        "reason": "Text-heavy (1060 chars), no tables",
+        "text_length": 1060
+      },
+      {
+        "page": 29,
+        "reason": "Text-heavy (1082 chars), no tables",
+        "text_length": 1082
+      },
+      {
+        "page": 32,
+        "reason": "Text-heavy (1529 chars), no tables",
+        "text_length": 1529
+      },
+      {
+        "page": 43,
+        "reason": "Text-heavy (1546 chars), no tables",
+        "text_length": 1546
+      },
+      {
+        "page": 44,
+        "reason": "Text-heavy (1266 chars), no tables",
+        "text_length": 1266
+      }
+    ],
+    "hybrid": [
+      {
+        "page": 2,
+        "reason": "Mixed content (Tables: 1, Text: 1028)",
+        "tables": 1,
+        "text_length": 1028
+      },
+      {
+        "page": 3,
+        "reason": "Mixed content (Tables: 0, Text: 622)",
+        "tables": 0,
+        "text_length": 622
+      },
+      {
+        "page": 5,
+        "reason": "Mixed content (Tables: 1, Text: 1722)",
+        "tables": 1,
+        "text_length": 1722
+      },
+      {
+        "page": 6,
+        "reason": "Mixed content (Tables: 1, Text: 1462)",
+        "tables": 1,
+        "text_length": 1462
+      },
+      {
+        "page": 7,
+        "reason": "Mixed content (Tables: 1, Text: 1257)",
+        "tables": 1,
+        "text_length": 1257
+      },
+      {
+        "page": 8,
+        "reason": "Mixed content (Tables: 1, Text: 1704)",
+        "tables": 1,
+        "text_length": 1704
+      },
+      {
+        "page": 9,
+        "reason": "Mixed content (Tables: 1, Text: 1120)",
+        "tables": 1,
+        "text_length": 1120
+      },
+      {
+        "page": 10,
+        "reason": "Mixed content (Tables: 4, Text: 1028)",
+        "tables": 4,
+        "text_length": 1028
+      },
+      {
+        "page": 11,
+        "reason": "Mixed content (Tables: 3, Text: 1181)",
+        "tables": 3,
+        "text_length": 1181
+      },
+      {
+        "page": 12,
+        "reason": "Mixed content (Tables: 3, Text: 1646)",
+        "tables": 3,
+        "text_length": 1646
+      },
+      {
+        "page": 13,
+        "reason": "Mixed content (Tables: 0, Text: 442)",
+        "tables": 0,
+        "text_length": 442
+      },
+      {
+        "page": 14,
+        "reason": "Mixed content (Tables: 0, Text: 245)",
+        "tables": 0,
+        "text_length": 245
+      },
+      {
+        "page": 15,
+        "reason": "Mixed content (Tables: 0, Text: 380)",
+        "tables": 0,
+        "text_length": 380
+      },
+      {
+        "page": 18,
+        "reason": "Mixed content (Tables: 0, Text: 780)",
+        "tables": 0,
+        "text_length": 780
+      },
+      {
+        "page": 19,
+        "reason": "Mixed content (Tables: 0, Text: 0)",
+        "tables": 0,
+        "text_length": 0
+      },
+      {
+        "page": 21,
+        "reason": "Mixed content (Tables: 1, Text: 1466)",
+        "tables": 1,
+        "text_length": 1466
+      },
+      {
+        "page": 22,
+        "reason": "Mixed content (Tables: 0, Text: 844)",
+        "tables": 0,
+        "text_length": 844
+      },
+      {
+        "page": 24,
+        "reason": "Mixed content (Tables: 0, Text: 524)",
+        "tables": 0,
+        "text_length": 524
+      },
+      {
+        "page": 25,
+        "reason": "Mixed content (Tables: 2, Text: 988)",
+        "tables": 2,
+        "text_length": 988
+      },
+      {
+        "page": 26,
+        "reason": "Mixed content (Tables: 1, Text: 1248)",
+        "tables": 1,
+        "text_length": 1248
+      },
+      {
+        "page": 27,
+        "reason": "Mixed content (Tables: 1, Text: 578)",
+        "tables": 1,
+        "text_length": 578
+      },
+      {
+        "page": 28,
+        "reason": "Mixed content (Tables: 1, Text: 969)",
+        "tables": 1,
+        "text_length": 969
+      },
+      {
+        "page": 30,
+        "reason": "Mixed content (Tables: 0, Text: 987)",
+        "tables": 0,
+        "text_length": 987
+      },
+      {
+        "page": 31,
+        "reason": "Mixed content (Tables: 0, Text: 798)",
+        "tables": 0,
+        "text_length": 798
+      },
+      {
+        "page": 33,
+        "reason": "Mixed content (Tables: 2, Text: 1028)",
+        "tables": 2,
+        "text_length": 1028
+      },
+      {
+        "page": 34,
+        "reason": "Mixed content (Tables: 2, Text: 951)",
+        "tables": 2,
+        "text_length": 951
+      },
+      {
+        "page": 35,
+        "reason": "Mixed content (Tables: 2, Text: 965)",
+        "tables": 2,
+        "text_length": 965
+      },
+      {
+        "page": 40,
+        "reason": "Mixed content (Tables: 0, Text: 464)",
+        "tables": 0,
+        "text_length": 464
+      },
+      {
+        "page": 42,
+        "reason": "Mixed content (Tables: 0, Text: 407)",
+        "tables": 0,
+        "text_length": 407
+      }
+    ]
+  }
+}

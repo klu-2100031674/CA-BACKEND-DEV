@@ -4,7 +4,6 @@ numpy
 formulas
 python-json-logger
 fpdf2
-pywin32
 PyPDF2
 pdfplumber
 openai

@@ -75,7 +75,10 @@ def generate_pdf_from_excel_sheet(excel_path: str, sheet_name: str, output_path:
             try:
                 print(f"[PDF Generator] Initializing Excel COM...", file=sys.stderr)
                 excel = win32com.client.Dispatch("Excel.Application")
-                excel.Visible = False
+                try:
+                    excel.Visible = False
+                except Exception as e:
+                    print(f"[PDF Generator] Warning: Could not set Excel.Visible to False: {e}", file=sys.stderr)
                 excel.DisplayAlerts = False
                 print(f"[PDF Generator] Excel COM initialized successfully", file=sys.stderr)
                 
@@ -241,7 +244,10 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str) -> Dict[str, 
         # Open workbook with Excel COM
         print(f"[Multi-PDF Generator] Opening workbook: {excel_path}", file=sys.stderr)
         excel = win32com.client.Dispatch("Excel.Application")
-        excel.Visible = False
+        try:
+            excel.Visible = False
+        except Exception as e:
+            print(f"[Multi-PDF Generator] Warning: Could not set Excel.Visible to False: {e}", file=sys.stderr)
         excel.DisplayAlerts = False
         
         workbook = excel.Workbooks.Open(os.path.abspath(excel_path))
@@ -362,7 +368,10 @@ def generate_html_from_excel_com(excel_path: str, sheet_name: str) -> tuple:
         print(f"[HTML COM Generator] Starting HTML generation using Excel COM", file=sys.stderr)
         
         excel = win32com.client.Dispatch("Excel.Application")
-        excel.Visible = False
+        try:
+            excel.Visible = False
+        except Exception as e:
+            print(f"[HTML COM Generator] Warning: Could not set Excel.Visible to False: {e}", file=sys.stderr)
         excel.DisplayAlerts = False
         
         wb = excel.Workbooks.Open(os.path.abspath(excel_path))
@@ -1230,16 +1239,19 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
             print(f"Error generating JSON data: {json_error}", file=sys.stderr)
             json_output = []  # Fallback to empty array
 
-        # Generate PDF for FinalWorkings sheet directly from Excel
+        # Determine sheet name based on template
+        final_sheet_name = 'Final workings' if 'CC6' in template_name else 'Finalworkings'
+
+        # Generate PDF for Final workings sheet directly from Excel
         pdf_base64 = None
         pdf_file_name = None
         try:
-            pdf_output_path = os.path.join(output_dir, f'{template_name}-FinalWorkings-{timestamp}.pdf')
-            if generate_pdf_from_excel_sheet(output_path, 'Finalworkings', pdf_output_path):
+            pdf_output_path = os.path.join(output_dir, f'{template_name}-{final_sheet_name}-{timestamp}.pdf')
+            if generate_pdf_from_excel_sheet(output_path, final_sheet_name, pdf_output_path):
                 with open(pdf_output_path, 'rb') as f:
                     pdf_bytes = f.read()
                 pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
-                pdf_file_name = f'{template_name}-FinalWorkings-{timestamp}.pdf'
+                pdf_file_name = f'{template_name}-{final_sheet_name}-{timestamp}.pdf'
                 print(f"PDF generated successfully: {pdf_file_name}", file=sys.stderr)
                 # Clean up PDF file after encoding
                 os.unlink(pdf_output_path)
@@ -1248,11 +1260,11 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
         except Exception as pdf_error:
             print(f"Error generating PDF: {pdf_error}", file=sys.stderr)
 
-        # Generate HTML for FinalWorkings sheet with exact formatting
+        # Generate HTML for Final workings sheet with exact formatting
         html_content = None
         html_json_data = {}
         try:
-            result_tuple = generate_html_from_excel_sheet(output_path, 'Finalworkings')
+            result_tuple = generate_html_from_excel_sheet(output_path, final_sheet_name)
             # Handle both old return (str) and new return (tuple) for backward compatibility
             if isinstance(result_tuple, tuple):
                 html_content, html_json_data = result_tuple
@@ -1327,7 +1339,8 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
                 report_result = ai_generator.generate_full_report(
                     excel_pdfs_dir=pdfs_dir,
                     excel_data=excel_data,
-                    output_path=full_report_path
+                    output_path=full_report_path,
+                    template_name=template_name
                 )
                 
                 if report_result['success']:

@@ -146,19 +146,18 @@ class ExcelCalculationService {
     
     if (!categoryRowMapping || Object.keys(categoryRowMapping).length === 0) {
       console.warn('⚠️  [ExcelCalculationService] No fixed assets mapping found for template, using defaults');
-      // Fallback to CC1 mapping
+      // Fallback to CC6 mapping
       categoryRowMapping = {
-        "plant_machinery": 100,
-        "service_equipment": 110,
-        "shed_civil": 120,
-        "land": 130,
-        "electrical": 133,
-        "electronic": 142,
-        "furniture": 152,
-        "vehicles": 162,
-        "computers": 172,
-        "other_assets": 181,
-        "capital_wip": 191
+        "plant_machinery": 135,
+        "service_equipment": 145,
+        "shed_civil": 155,
+        "land": 165,
+        "electrical": 168,
+        "electronic": 178,
+        "furniture": 188,
+        "vehicles": 198,
+        "other_assets": 208,
+        "capital_wip": 217
       };
     }
     
@@ -168,16 +167,14 @@ class ExcelCalculationService {
     const categoryNameMap = {
       "Plant and Machinery": "plant_machinery",
       "Service Equipment": "service_equipment",
-      "Shed and Civil Works": "shed_civil",
+      "Civil works & Shed Construction": "shed_civil",
       "Land": "land",
-      "Electrical Items": "electrical",
+      "Electrical Items & fittings": "electrical",
       "Electronic Items": "electronic",
       "Furniture and Fittings": "furniture",
       "Vehicles": "vehicles",
-      "Computers": "computers",
-      "Live Stock": "computers", // Map to computers row for now
-      "Other Assets": "other_assets",
-      "Other Assets (Nil Depreciation)": "capital_wip"
+      "Live stock": "other_assets",
+      "Other Assets": "capital_wip"
     };
     
     for (const [categoryName, categoryData] of Object.entries(fixedAssetsSchedule)) {

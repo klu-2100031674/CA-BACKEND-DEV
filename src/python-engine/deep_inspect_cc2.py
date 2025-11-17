@@ -162,13 +162,14 @@ else:
     print("❌ Assumptions.1 sheet not found!")
     print("Available sheets:", wb.sheetnames)
 
-# Check FinalWorkings sheet to see what it references
-if 'Finalworkings' in wb.sheetnames:
+# Check Final workings sheet to see what it references
+if 'Final workings' in wb.sheetnames or 'Finalworkings' in wb.sheetnames:
     print("\n" + "=" * 100)
-    print("FINALWORKINGS SHEET - Sample cells to understand structure")
+    print("FINAL WORKINGS SHEET - Sample cells to understand structure")
     print("=" * 100)
     
-    ws_final = wb['Finalworkings']
+    final_sheet_name = 'Final workings' if 'Final workings' in wb.sheetnames else 'Finalworkings'
+    ws_final = wb[final_sheet_name]
     
     # Check where Sector and Nature of Business are coming from
     print("\nChecking cells that display in the output report:")

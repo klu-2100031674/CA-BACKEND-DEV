@@ -154,6 +154,17 @@
       "input_rows": [90, 91, 92, 93, 94, 95, 96, 98, 99, 102, 103, 104, 105, 106, 118],
       "formula_rows": [97, 100, 101, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130]
     },
-    "fixed_assets": {}
+    "fixed_assets": {
+      "plant_machinery": 135,
+      "service_equipment": 145,
+      "shed_civil": 155,
+      "land": 165,
+      "electrical": 168,
+      "electronic": 178,
+      "furniture": 188,
+      "vehicles": 198,
+      "other_assets": 208,
+      "capital_wip": 217
+    }
   }
 }

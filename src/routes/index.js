@@ -12,6 +12,7 @@ const walletRoutes = require('./wallets');
 const orderRoutes = require('./orders');
 const reportRoutes = require('./reports'); // Changed from reportRoutes to reports
 const commissionRoutes = require('./commissions');
+const schemeEligibilityRoutes = require('./schemeEligibility');
 // const adminRoutes = require('./admin');
 
 // API health check
@@ -30,6 +31,7 @@ router.use('/wallets', walletRoutes);
 router.use('/orders', orderRoutes);
 router.use('/reports', reportRoutes);
 router.use('/commissions', commissionRoutes);
+router.use('/scheme-eligibility', schemeEligibilityRoutes);
 // router.use('/admin', adminRoutes);
 
 module.exports = router;

@@ -958,7 +958,7 @@ Minimum 600 words.
             return False
     
     def generate_full_report(self, excel_pdfs_dir: str, excel_data: Dict[str, Any], 
-                           output_path: str, reference_analysis: Dict = None) -> Dict[str, Any]:
+                           output_path: str, reference_analysis: Dict = None, template_name: str = 'CC1') -> Dict[str, Any]:
         """
         Generate the complete report by combining Excel PDFs and AI-generated content.
         Follows reference report structure with proper sheet ordering and interspersed AI analysis.
@@ -990,9 +990,10 @@ Minimum 600 words.
             
             # Define proper sheet order based on reference PDF structure
             # Sheet names map: (sheet_index_prefix, sheet_name_in_file, display_order)
+            final_sheet_name = 'Final workings' if 'CC6' in template_name else 'Finalworkings'
             SHEET_ORDER = [
                 ('sheet_4', 'coverpage', 1),           # ALWAYS FIRST
-                ('sheet_3', 'Finalworkings', 2),       # Project Cost & Summary
+                ('sheet_3', final_sheet_name, 2),       # Project Cost & Summary
                 ('sheet_5', 'PLBS', 3),                # Balance Sheet (P&L)
                 ('sheet_6', 'RATIO', 4),               # Ratio Analysis
                 ('sheet_9', 'Depsch', 5),              # Depreciation Schedule
@@ -1295,6 +1296,7 @@ if __name__ == "__main__":
     parser.add_argument('--excel-pdfs-dir', required=True, help='Directory with Excel sheet PDFs')
     parser.add_argument('--output', required=True, help='Output PDF path')
     parser.add_argument('--excel-data', help='JSON file with Excel computed data')
+    parser.add_argument('--template-name', default='CC1', help='Template name (e.g., CC6)')
     
     args = parser.parse_args()
     
@@ -1309,7 +1311,8 @@ if __name__ == "__main__":
     result = generator.generate_full_report(
         excel_pdfs_dir=args.excel_pdfs_dir,
         excel_data=excel_data,
-        output_path=args.output
+        output_path=args.output,
+        template_name=args.template_name
     )
     
     print(json.dumps(result, indent=2))

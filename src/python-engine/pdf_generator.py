@@ -155,7 +155,7 @@ class ExcelReportPDF(FPDF):
         if 'approach' in meta_data:
             self.cell(0, 8, f'Calculation Engine: {meta_data["approach"]}', 0, 1, 'L')
 
-def generate_pdf(json_data, output_path):
+def generate_pdf(json_data, output_path, template_name='CC1'):
     """
     Generates a comprehensive PDF from the Excel data JSON.
     """
@@ -170,7 +170,8 @@ def generate_pdf(json_data, output_path):
             pdf.add_summary_section(data['meta'])
 
         # Process each sheet
-        important_sheets = ['Assumptions.1', 'Finalworkings', 'PLBS', 'RATIO']
+        final_sheet_name = 'Final workings' if 'CC6' in template_name else 'Finalworkings'
+        important_sheets = ['Assumptions.1', final_sheet_name, 'PLBS', 'RATIO']
         other_sheets = []
         
         # Track which sheets have been processed
@@ -231,8 +232,9 @@ def generate_pdf(json_data, output_path):
 if __name__ == '__main__':
     json_input_string = sys.argv[1]
     output_file_path = sys.argv[2]
+    template_name = sys.argv[3] if len(sys.argv) > 3 else 'CC1'
     
-    success = generate_pdf(json_input_string, output_file_path)
+    success = generate_pdf(json_input_string, output_file_path, template_name)
     if success:
         print("PDF generated successfully")
     else:

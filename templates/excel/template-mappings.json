@@ -98,19 +98,7 @@
       "input_rows": [80],
       "formula_rows": [81]
     },
-    "fixed_assets": {
-      "plant_machinery": 82,
-      "service_equipment": 92,
-      "shed_civil": 102,
-      "land": 112,
-      "electrical": 115,
-      "electronic": 124,
-      "furniture": 134,
-      "vehicles": 144,
-      "computers": 154,
-      "other_assets": 163,
-      "capital_wip": 173
-    }
+    "fixed_assets": {}
   },
   "CC5": {
     "template_file": "format CC5.xlsx",
@@ -136,19 +124,7 @@
       "input_rows": [91, 92, 93, 94],
       "formula_rows": [86, 87, 88, 89]
     },
-    "fixed_assets": {
-      "plant_machinery": 95,
-      "service_equipment": 105,
-      "shed_civil": 115,
-      "land": 125,
-      "electrical": 128,
-      "electronic": 137,
-      "furniture": 147,
-      "vehicles": 157,
-      "computers": 167,
-      "other_assets": 176,
-      "capital_wip": 186
-    }
+    "fixed_assets": {}
   },
   "CC6": {
     "template_file": "format CC6.xlsx",
@@ -178,18 +154,6 @@
       "input_rows": [90, 91, 92, 93, 94, 95, 96, 98, 99, 102, 103, 104, 105, 106, 118],
       "formula_rows": [97, 100, 101, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130]
     },
-    "fixed_assets": {
-      "plant_machinery": 131,
-      "service_equipment": 141,
-      "shed_civil": 151,
-      "land": 161,
-      "electrical": 164,
-      "electronic": 173,
-      "furniture": 183,
-      "vehicles": 193,
-      "computers": 203,
-      "other_assets": 212,
-      "capital_wip": 222
-    }
+    "fixed_assets": {}
   }
 }

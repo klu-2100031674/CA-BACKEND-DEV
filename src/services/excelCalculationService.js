@@ -67,9 +67,9 @@ class ExcelCalculationService {
       'CC1': /^[b-eh-j]\d+$/,  // b,d,e for fixed assets + h,i,j for main sections
       'CC2': /^[b-eh-j]\d+$/,  // b,d,e for fixed assets + h,i,j for main sections
       'CC3': /^[b-eh-j]\d+$/,  // b,d,e for fixed assets + h,i,j for main sections
-      'CC4': /^[h-j]\d+$/,  // h,i,j columns
-      'CC5': /^[h-j]\d+$/,  // h,i,j columns
-      'CC6': /^[h-j]\d+$/   // h,i,j columns
+      'CC4': /^[d-eh-j]\d+$/,  // d,e for fixed assets + h,i,j for main sections
+      'CC5': /^[d-eh-j]\d+$/,  // d,e for fixed assets + h,i,j for main sections
+      'CC6': /^[d-eh-j]\d+$/   // d,e for fixed assets + h,i,j for main sections
     };
 
     const allowedPattern = templateColumnRules[normalizedTemplateId] || /^[h-j]\d+$/; // Default to h-j for unknown templates

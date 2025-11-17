@@ -8,4 +8,4 @@ PyPDF2
 pdfplumber
 openai
 pillow
-reportlab
+pywin32

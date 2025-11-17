@@ -70,7 +70,7 @@ Do not include any other text, explanations, or markdown. Only the JSON object.`
   const response = await fetch('https://api.x.ai/v1/chat/completions', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer xai-kcNWolgJzFMXSvBOvC1dTqhd9A3swLx7IX16hQ0QC8RSshizZy7RxiL48NZ8HnHyyoLoGWKPgaupqDDH`,
+      'Authorization': `Bearer ${process.env.XAI_API_KEY}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({

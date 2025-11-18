@@ -1148,7 +1148,9 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
         workbook = openpyxl.load_workbook(excel_path)
         applied_updates = _collect_updates(workbook, input_data.get('updates', []))
 
-        output_dir = os.path.join(os.path.dirname(__file__), '../../temp')
+        # Use TEMP_DIR environment variable, fallback to system temp directory
+        import tempfile
+        output_dir = os.getenv('TEMP_DIR', tempfile.gettempdir())
         os.makedirs(output_dir, exist_ok=True)
 
         timestamp = datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')

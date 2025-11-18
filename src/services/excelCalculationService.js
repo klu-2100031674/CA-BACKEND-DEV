@@ -27,7 +27,7 @@ class ExcelCalculationService {
     this.pythonExecutable = fs.existsSync(venvPythonPath) ? venvPythonPath : 'python';
     
     console.log(`[ExcelCalculationService] Python executable path: ${this.pythonExecutable}`);
-    this.tempDir = process.env.TEMP_DIR;
+    this.tempDir = process.env.TEMP_DIR || path.join(__dirname, '../../temp');
     console.log(`[ExcelCalculationService] Temp directory: ${this.tempDir}`);
   }
 
@@ -465,7 +465,8 @@ class ExcelCalculationService {
   runPythonScript(scriptPath, args) {
     return new Promise((resolve, reject) => {
       console.log(`[runPythonScript] Executing: ${this.pythonExecutable} ${scriptPath} ${args.join(' ')}`);
-      const pythonProcess = spawn(this.pythonExecutable, [scriptPath, ...args]);
+      const env = { ...process.env, TEMP_DIR: this.tempDir };
+      const pythonProcess = spawn(this.pythonExecutable, [scriptPath, ...args], { env });
 
       let stdout = '';
       let stderr = '';

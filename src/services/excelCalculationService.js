@@ -27,7 +27,8 @@ class ExcelCalculationService {
     this.pythonExecutable = fs.existsSync(venvPythonPath) ? venvPythonPath : 'python';
     
     console.log(`[ExcelCalculationService] Python executable path: ${this.pythonExecutable}`);
-    this.tempDir = path.join(__dirname, '../../temp');
+    this.tempDir = process.env.TEMP_DIR || path.join(__dirname, '../../temp');
+    console.log(`[ExcelCalculationService] Temp directory: ${this.tempDir}`);
   }
 
   // Extract cell mapping from various payload formats

@@ -21,7 +21,12 @@ class ExcelCalculationService {
     // Use virtual environment Python where openai is installed
     const venvDir = process.platform === 'win32' ? 'Scripts' : 'bin';
     const pythonExe = process.platform === 'win32' ? 'python.exe' : 'python';
-    this.pythonExecutable = path.join(this.pythonEnginePath, '.venv', venvDir, pythonExe);
+    const venvPythonPath = path.join(this.pythonEnginePath, '.venv', venvDir, pythonExe);
+    
+    // Check if virtual environment Python exists; otherwise, use system Python
+    this.pythonExecutable = fs.existsSync(venvPythonPath) ? venvPythonPath : 'python';
+    
+    console.log(`[ExcelCalculationService] Python executable path: ${this.pythonExecutable}`);
     this.tempDir = path.join(__dirname, '../../temp');
   }
 
@@ -210,27 +215,33 @@ class ExcelCalculationService {
 
       // Extract cell data from the payload (with template-specific filtering)
       const cellData = this.extractFormData(formDataPayload, templateId);
+      console.log(`[ExcelCalculationService] Extracted cell data: ${Object.keys(cellData).length} cells`);
 
       const updates = [];
       for (const [cell, value] of Object.entries(cellData)) {
         updates.push({ sheet: 'Assumptions.1', cell, value });
       }
+      console.log(`[ExcelCalculationService] Added ${updates.length} cell updates`);
       
       // Extract and add Fixed Assets Schedule items (pass templateId for correct mapping)
       const fixedAssetsUpdates = this.extractFixedAssetsSchedule(formDataPayload, templateId);
       updates.push(...fixedAssetsUpdates);
+      console.log(`[ExcelCalculationService] Added ${fixedAssetsUpdates.length} fixed assets updates`);
       
       const inputData = {
         updates,
         recalculate: false, // Let Excel handle automatic calculation
       };
+      console.log(`[ExcelCalculationService] Total updates: ${updates.length}`);
 
       // Resolve template path (handle different naming conventions)
       const templatePath = this.resolveTemplatePath(templateId);
       console.log(`[ExcelCalculationService] Using template path: ${templatePath}`);
       
       const scriptPath = path.join(this.pythonEnginePath, 'excel_calculator.py');
+      console.log(`[ExcelCalculationService] Using script path: ${scriptPath}`);
       
+      console.log(`[ExcelCalculationService] Running Python script with executable: ${this.pythonExecutable}`);
       const result = await this.runPythonScript(scriptPath, [templatePath, JSON.stringify(inputData)]);
       
       console.log(`[ExcelCalculationService] Python script finished.`);
@@ -452,6 +463,7 @@ class ExcelCalculationService {
   //  Utility to run a Python script and get its output
   runPythonScript(scriptPath, args) {
     return new Promise((resolve, reject) => {
+      console.log(`[runPythonScript] Executing: ${this.pythonExecutable} ${scriptPath} ${args.join(' ')}`);
       const pythonProcess = spawn(this.pythonExecutable, [scriptPath, ...args]);
 
       let stdout = '';

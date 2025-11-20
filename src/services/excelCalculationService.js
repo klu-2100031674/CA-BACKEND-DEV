@@ -113,8 +113,8 @@ class ExcelCalculationService {
     const normalizedTemplateId = templateId ? templateMappingService.normalizeTemplateId(templateId) : null;
     console.log(`🔧 [ExcelCalculationService] Normalized template ID: ${normalizedTemplateId}`);
 
-    // CC1, CC2, and CC3 now use cell mappings instead of row mappings, so skip this extraction
-    if (normalizedTemplateId === 'CC1' || normalizedTemplateId === 'CC2' || normalizedTemplateId === 'CC3') {
+    // CC1, CC2, CC3, CC4, CC5, and CC6 now use cell mappings instead of row mappings, so skip this extraction
+    if (normalizedTemplateId === 'CC1' || normalizedTemplateId === 'CC2' || normalizedTemplateId === 'CC3' || normalizedTemplateId === 'CC4' || normalizedTemplateId === 'CC5' || normalizedTemplateId === 'CC6') {
       console.log(`✅ [ExcelCalculationService] Skipping fixed assets extraction for ${templateId} (normalized: ${normalizedTemplateId}) (uses cell mappings)`);
       return [];
     }
@@ -486,7 +486,7 @@ class ExcelCalculationService {
         if (code !== 0) {
           console.error(`Python script exited with code ${code}`);
           console.error(`stderr: ${stderr}`);
-          return reject(new Error(`Python script failed with code ${code}`));
+          return reject(new Error(`Python script failed with code ${code}: ${stderr}`));
         }
         resolve(stdout);
       });

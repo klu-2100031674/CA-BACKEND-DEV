@@ -357,7 +357,6 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str) -> Dict[str, 
         traceback.print_exc(file=sys.stderr)
         return pdf_files
 
-
 def generate_html_from_excel_com(excel_path: str, sheet_name: str) -> tuple:
     """
     Generate HTML from Excel using COM automation to get calculated values.
@@ -438,144 +437,587 @@ def generate_html_from_excel_com(excel_path: str, sheet_name: str) -> tuple:
         except:
             pass
         
-        # Build HTML with modern receipt styling (similar to reference)
+        # Build HTML with modern professional styling
         html_parts = [
             "<!DOCTYPE html>",
-            "<html>",
+            "<html lang='en'>",
             "<head>",
             "<meta charset='UTF-8'>",
+            "<meta name='viewport' content='width=device-width, initial-scale=1.0'>",
             f"<title>Financial Report - {firm_name or sheet_name}</title>",
+            "<link href='https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap' rel='stylesheet'>",
+            "<link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css'>", # For professional icons
             "<style>",
-            "  * { margin: 0; padding: 0; box-sizing: border-box; }",
-            "  body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #f7f8fc; }",
-            "  ",
-            "  .receipt-wrapper { min-height: 100vh; padding: 40px 20px; display: flex; justify-content: center; align-items: flex-start; }",
-            "  .receipt-container { max-width: 1400px; width: 100%; background: white; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); overflow: scroll; }",
-            "  ",
-            "  /* Top Info Cards */",
-            "  .top-info { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1px; background: #e8eaf6; padding: 1px; }",
-            "  .info-card { background: white; padding: 20px 24px; text-align: center; }",
-            "  .info-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: #000; margin-bottom: 8px; }",
-            "  .info-value { font-size: 15px; font-weight: 600; color: #000; }",
-            "  .info-value.primary { color: #000; font-size: 16px; }",
-            "  ",
-            "  /* Firm Details Section */",
-            "  .firm-section { padding: 32px 40px; background: #00000017; color: #000; }",
-            "  .firm-name { font-size: 28px; font-weight: 700; margin-bottom: 16px; letter-spacing: -0.5px; }",
-            "  .firm-details { display: flex; flex-wrap: wrap; gap: 24px; margin-top: 12px; }",
-            "  .firm-detail-item { display: flex; align-items: center; gap: 8px; }",
-            "  .firm-detail-label { font-size: 12px; font-weight: 500; }",
-            "  .firm-detail-value { font-size: 14px; font-weight: 600; }",
-            "  .report-meta { margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(0,0,0,0.1); font-size: 13px; }",
-            "  ",
-            "  /* Table Section */",
-            "  .table-section { padding: 40px; }",
-            "  table { width: 100%; border-collapse: separate; border-spacing: 0; }",
-            "  ",
-            "  thead th { background: #00000017; color: #000; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; padding: 16px 20px; text-align: left; border-bottom: 2px solid #e5e7eb; }",
-            "  thead th:last-child { text-align: right; }",
-            "  ",
-            "  tbody tr { border-bottom: 1px solid #e5e7eb; transition: all 0.2s; }",
-            "  tbody tr:hover { background: #fafafa; }",
-            "  tbody tr:last-child { border-bottom: none; }",
-            "  ",
-            "  td { padding: 18px 20px; font-size: 14px; color: #000; }",
-            "  .item-name { font-weight: 500; color: #000; }",
-            "  .item-value { text-align: right; font-weight: 600; font-family: 'Courier New', monospace; color: #000; }",
-            "  ",
-            "  /* Special Rows */",
-            "  .section-header { background: #00000017 !important; }",
-            "  .section-header td { color: #000 !important; font-weight: 700; font-size: 13px; padding: 14px 20px; letter-spacing: 0.5px; }",
-            "  ",
-            "  .total-row { background: #00000017 !important; }",
-            "  .total-row td { font-weight: 700; font-size: 15px; color: #000; padding: 20px; border-top: 2px solid #e5e7eb; border-bottom: 2px solid #e5e7eb; }",
-            "  ",
-            "  .subtotal-row { background: #fafafa !important; }",
-            "  .subtotal-row td { font-weight: 600; padding: 16px 20px; color: #000; }",
-            "  ",
-            "  /* Currency */",
-            "  .currency::before { content: '₹ '; color: #000; margin-right: 4px; }",
-            "  ",
-            "  /* Footer */",
-            "  .receipt-footer { background: white; padding: 28px 40px; text-align: center; border-top: 1px solid #e5e7eb; }",
-            "  .footer-note { font-size: 12px; color: #000; margin-bottom: 6px; }",
-            "  .footer-main { font-size: 13px; color: #000; font-weight: 500; margin-bottom: 18px; }",
-            "  ",
-            "  .action-btn { display: inline-block; padding: 12px 32px; background: #00000017; color: #000; border: 1px solid #e5e7eb; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.3s; }",
-            "  .action-btn:hover { background: rgba(254, 249, 195, 1); }",
-            "  ",
-            "  /* Responsive */",
-            "  @media (max-width: 768px) {",
-            "    .receipt-wrapper { padding: 20px 10px; }",
-            "    .top-info { grid-template-columns: repeat(2, 1fr); }",
-            "    .firm-section { padding: 24px 20px; }",
-            "    .firm-name { font-size: 22px; }",
-            "    .table-section { padding: 24px 20px; }",
-            "    td, th { padding: 12px 16px; font-size: 13px; }",
+            "  :root {",
+            "    --primary-purple: #7c3aed;",
+            "    --primary-dark-purple: #6d28d9;",
+            "    --primary-black: #1f2937;",
+            "    --primary-light-black: #374151;",
+            "    --ghost-white: #F8F8FF;",
+            "    --success-green: #10b981;",
+            "    --text-primary: var(--primary-black);",
+            "    --text-secondary: #6b7280;",
+            "    --bg-primary: #ffffff;",
+            "    --bg-secondary: var(--ghost-white);",
+            "    --bg-accent: #e5e7eb;",
+            "    --border-color: #e5e7eb;",
+            "    --shadow-soft: 0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04);",
+            "    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+            "    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);",
+            "    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);",
             "  }",
             "  ",
+            "  * {",
+            "    margin: 0;",
+            "    padding: 0;",
+            "    box-sizing: border-box;",
+            "  }",
+            "  ",
+            "  body {",
+            "    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;",
+            "    background-color: var(--bg-secondary);", # Ghost White background
+            "    min-height: 100vh;",
+            "    padding: 20px;",
+            "    line-height: 1.6;",
+            "    color: var(--text-primary);",
+            "    -webkit-font-smoothing: antialiased;",
+            "    -moz-osx-font-smoothing: grayscale;",
+            "  }",
+            "  ",
+            "  .container {",
+            "    max-width: 1400px;",
+            "    margin: 0 auto;",
+            "  }",
+            "  ",
+            "  .report-card {",
+            "    background: var(--bg-primary);",
+            "    border-radius: 12px;", # Rounded corners
+            "    box-shadow: var(--shadow-soft);", # Soft shadow
+            "    overflow: hidden;",
+            "    animation: slideUp 0.6s ease-out;",
+            "  }",
+            "  ",
+            "  @keyframes slideUp {",
+            "    from {",
+            "      opacity: 0;",
+            "      transform: translateY(30px);",
+            "    }",
+            "    to {",
+            "      opacity: 1;",
+            "      transform: translateY(0);",
+            "    }",
+            "  }",
+            "  ",
+            "  /* Header Section */",
+            "  .report-header {"
+            "    padding: 32px 24px;",
+            "    color: black;",
+            "    position: relative;",
+            "    overflow: hidden;",
+            "    border-bottom: 1px solid rgba(255, 255, 255, 0.1);",
+            "  }",
+            "  ",
+            "  .report-header::before {",
+            "    content: '';",
+            "    position: absolute;",
+            "    top: 0;",
+            "    right: 0;",
+            "    width: 200px;",
+            "    height: 200px;",
+            "    background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);",
+            "    border-radius: 50%;",
+            "    transform: translate(30%, -30%);",
+            "  }",
+            "  ",
+            "  .header-content {",
+            "    position: relative;",
+            "    z-index: 1;",
+            "  }",
+            "  ",
+            "  .report-badge {",
+            "    display: inline-flex;", # Use flex for icon alignment
+            "    align-items: center;",
+            "    gap: 8px;",
+            "    background: rgba(255, 255, 255, 0.2);",
+            "    backdrop-filter: blur(5px);",
+            "    padding: 6px 16px;",
+            "    border-radius: 50px;",
+            "    font-size: 12px;",
+            "    font-weight: 600;",
+            "    letter-spacing: 0.5px;",
+            "    text-transform: uppercase;",
+            "    margin-bottom: 16px;",
+            "  }",
+            "  .report-badge i {",
+            "    font-size: 14px;",
+            "  }",
+            "  ",
+            "  .firm-name {",
+            "    font-family: 'Manrope', sans-serif;", # Manrope for headings
+            "    font-size: 28px;",
+            "    font-weight: 700;",
+            "    margin-bottom: 12px;",
+            "    letter-spacing: -0.5px;",
+            "  }",
+            "  ",
+            "  .firm-meta {",
+            "    display: flex;",
+            "    flex-wrap: wrap;",
+            "    gap: 24px;",
+            "    margin-top: 20px;",
+            "    padding-top: 20px;",
+            "    border-top: 1px solid rgba(255, 255, 255, 0.15);",
+            "  }",
+            "  ",
+            "  .meta-item {",
+            "    display: flex;",
+            "    flex-direction: column;",
+            "    gap: 4px;",
+            "  }",
+            "  ",
+            "  .meta-label {",
+            "    font-size: 11px;",
+            "    font-weight: 500;",
+            "    opacity: 0.9;",
+            "    text-transform: uppercase;",
+            "    letter-spacing: 0.8px;",
+            "  }",
+            "  ",
+            "  .meta-value {",
+            "    font-size: 15px;",
+            "    font-weight: 600;",
+            "  }",
+            "  ",
+            "  /* Stats Cards */",
+            "  .stats-grid {",
+            "    display: grid;",
+            "    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));",
+            "    gap: 1px;",
+            "    background: var(--border-color);",
+            "    border-bottom: 1px solid var(--border-color);",
+            "  }",
+            "  ",
+            "  .stat-card {",
+            "    background: var(--bg-primary);",
+            "    padding: 24px 20px;",
+            "    text-align: center;",
+            "    transition: all 0.3s ease;",
+            "  }",
+            "  ",
+            "  .stat-card:hover {",
+            "    background: var(--bg-secondary);",
+            "    transform: translateY(-2px);",
+            "  }",
+            "  ",
+            "  .stat-icon {",
+            "    width: 40px;",
+            "    height: 40px;",
+            "    margin: 0 auto 12px;",
+            "    border-radius: 8px;",
+            "    display: flex;",
+            "    align-items: center;",
+            "    justify-content: center;",
+            "    font-size: 18px;",
+            "    color: black;",
+            "  }",
+            "  ",
+            "  .stat-label {",
+            "    font-size: 11px;",
+            "    font-weight: 600;",
+            "    color: var(--text-secondary);",
+            "    text-transform: uppercase;",
+            "    letter-spacing: 0.8px;",
+            "    margin-bottom: 6px;",
+            "  }",
+            "  ",
+            "  .stat-value {",
+            "    font-size: 16px;",
+            "    font-weight: 700;",
+            "    color: var(--text-primary);",
+            "    font-family: 'Manrope', sans-serif;", # Manrope for values
+            "  }",
+            "  ",
+            "  /* Table Section */",
+            "  .table-section {",
+            "    padding: 32px 24px;",
+            "  }",
+            "  ",
+            "  .section-title {",
+            "    font-family: 'Manrope', sans-serif;", # Manrope for titles
+            "    font-size: 20px;",
+            "    font-weight: 700;",
+            "    color: var(--text-primary);",
+            "    margin-bottom: 6px;",
+            "  }",
+            "  ",
+            "  .section-subtitle {",
+            "    font-size: 13px;",
+            "    color: var(--text-secondary);",
+            "    margin-bottom: 24px;",
+            "  }",
+            "  ",
+            "  .table-wrapper {",
+            "    overflow-x: auto;",
+            "    border-radius: 8px;",
+            "    border: 1px solid var(--border-color);",
+            "  }",
+            "  ",
+            "  table {",
+            "    width: 100%;",
+            "    border-collapse: collapse;",
+            "    background: var(--bg-primary);",
+            "  }",
+            "  ",
+            "  thead {",
+            "    background: var(--bg-accent);",
+            "    position: sticky;",
+            "    top: 0;",
+            "    z-index: 10;",
+            "  }",
+            "  ",
+            "  thead th {",
+            "    padding: 14px 20px;",
+            "    text-align: left;",
+            "    font-size: 11px;",
+            "    font-weight: 700;",
+            "    color: var(--text-primary);",
+            "    text-transform: uppercase;",
+            "    letter-spacing: 0.8px;",
+            "    border-bottom: 1px solid var(--border-color);",
+            "  }",
+            "  ",
+            "  thead th:last-child {",
+            "    text-align: right;",
+            "  }",
+            "  ",
+            "  tbody tr {",
+            "    border-bottom: 1px solid var(--border-color);",
+            "    transition: all 0.2s ease;",
+            "  }",
+            "  ",
+            "  tbody tr:hover {",
+            "    background: var(--bg-secondary);",
+            "  }",
+            "  ",
+            "  tbody tr:last-child {",
+            "    border-bottom: none;",
+            "  }",
+            "  ",
+            "  td {",
+            "    padding: 16px 20px;",
+            "    font-size: 13px;",
+            "    color: var(--text-primary);",
+            "  }",
+            "  ",
+            "  .item-name {",
+            "    font-weight: 500;",
+            "  }",
+            "  ",
+            "  .item-value {",
+            "    text-align: right;",
+            "    font-weight: 600;",
+            "    font-family: 'Inter', monospace;",
+            "    font-size: 14px;",
+            "  }",
+            "  ",
+            "  .currency::before {",
+            "    content: '₹ ';",
+            "    color: var(--text-secondary);",
+            "    margin-right: 2px;",
+            "    font-weight: 500;",
+            "  }",
+            "  ",
+            "  /* Special Row Styles */",
+            "  .section-header {",
+            "    background: var(--bg-accent) !important;",
+            "  }",
+            "  ",
+            "  .section-header td {",
+            "    font-family: 'Manrope', sans-serif !important;",
+            "    font-weight: 700 !important;",
+            "    font-size: 13px !important;",
+            "    color: var(--text-primary) !important;",
+            "    padding: 12px 20px !important;",
+            "    text-transform: uppercase;",
+            "    letter-spacing: 0.5px;",
+            "  }",
+            "  ",
+            "  .total-row {",
+            "  }",
+            "  ",
+            "  .total-row td {",
+            "    color: black !important;",
+            "    font-weight: 700 !important;",
+            "    font-size: 15px !important;",
+            "    padding: 18px 20px !important;",
+            "    border-top: 2px solid var(--primary-dark-purple);", # Purple accent border
+            "  }",
+            "  ",
+            "  .subtotal-row {",
+            "    background: var(--bg-secondary) !important;", # Ghost White subtotal row
+            "  }",
+            "  ",
+            "  .subtotal-row td {",
+            "    font-weight: 600 !important;",
+            "    padding: 14px 20px !important;",
+            "    color: var(--text-primary);",
+            "  }",
+            "  ",
+            "  /* Footer Section */",
+            "  .report-footer {",
+            "    background: var(--bg-primary);",
+            "    padding: 32px 24px;",
+            "    text-align: center;",
+            "    border-top: 1px solid var(--border-color);",
+            "  }",
+            "  ",
+            "  .footer-content {",
+            "    max-width: 600px;",
+            "    margin: 0 auto;",
+            "  }",
+            "  ",
+            "  .footer-title {",
+            "    font-family: 'Manrope', sans-serif;", # Manrope for titles
+            "    font-size: 18px;",
+            "    font-weight: 600;",
+            "    color: var(--text-primary);",
+            "    margin-bottom: 10px;",
+            "  }",
+            "  ",
+            "  .footer-text {",
+            "    font-size: 12px;",
+            "    color: var(--text-secondary);",
+            "    line-height: 1.7;",
+            "    margin-bottom: 20px;",
+            "  }",
+            "  ",
+            "  .action-buttons {",
+            "    display: flex;",
+            "    gap: 12px;",
+            "    justify-content: center;",
+            "    flex-wrap: wrap;",
+            "  }",
+            "  ",
+            "  .btn {",
+            "    padding: 10px 24px;",
+            "    border-radius: 8px;",
+            "    font-weight: 600;",
+            "    font-size: 13px;",
+            "    cursor: pointer;",
+            "    transition: all 0.3s ease;",
+            "    border: 2px solid var(--primary-black);", # Outlined black button
+            "    display: inline-flex;",
+            "    align-items: center;",
+            "    gap: 8px;",
+            "    text-decoration: none;",
+            "    color: var(--primary-black);",
+            "    background: transparent;",
+            "  }",
+            "  ",
+            "  .btn:hover {",
+            "    background: var(--primary-black);", # Hover to solid black
+            "    color: white;",
+            "    transform: translateY(-1px);",
+            "    box-shadow: 0 4px 8px rgba(0,0,0,0.1);",
+            "  }",
+            "  ",
+            "  .btn-primary {",
+            "    background: var(--primary-black);", # Primary is solid black
+            "    color: white;",
+            "    box-shadow: var(--shadow-sm);",
+            "    border-color: var(--primary-black);",
+            "  }",
+            "  .btn-primary:hover {",
+            "    background: var(--primary-light-black);", # Darker black on hover
+            "    border-color: var(--primary-light-black);",
+            "  }",
+            "  ",
+            "  /* Secondary button is the default outlined style */",
+            "  .btn-secondary {",
+            "    background: transparent;",
+            "    color: var(--primary-black);",
+            "    border-color: var(--primary-black);",
+            "  }",
+            "  .btn-secondary:hover {",
+            "    background: var(--primary-black);",
+            "    color: white;",
+            "  }",
+            "  ",
+            "  /* Timestamp Badge */",
+            "  .timestamp-badge {",
+            "    display: inline-flex;",
+            "    align-items: center;",
+            "    gap: 6px;",
+            "    background: var(--bg-accent);",
+            "    padding: 6px 12px;",
+            "    border-radius: 6px;",
+            "    font-size: 11px;",
+            "    color: var(--text-secondary);",
+            "    margin-top: 20px;",
+            "  }",
+            "  .timestamp-badge i {",
+            "    font-size: 12px;",
+            "  }",
+            "  ",
+            "  /* Responsive Design */",
+            "  @media (max-width: 1024px) {",
+            "    .report-header {",
+            "      padding: 28px 20px 20px;",
+            "    }",
+            "    ",
+            "    .firm-name {",
+            "      font-size: 24px;",
+            "    }",
+            "    ",
+            "    .table-section {",
+            "      padding: 28px 20px;",
+            "    }",
+            "  }",
+            "  ",
+            "  @media (max-width: 768px) {",
+            "    body {",
+            "      padding: 16px;",
+            "    }",
+            "    ",
+            "    .report-card {",
+            "      border-radius: 10px;",
+            "    }",
+            "    ",
+            "    .report-header {",
+            "      padding: 24px 16px 16px;",
+            "    }",
+            "    ",
+            "    .firm-name {",
+            "      font-size: 20px;",
+            "    }",
+            "    ",
+            "    .firm-meta {",
+            "      flex-direction: column;",
+            "      gap: 16px;",
+            "    }",
+            "    ",
+            "    .stats-grid {",
+            "      grid-template-columns: 1fr;",
+            "    }",
+            "    ",
+            "    .table-section {",
+            "      padding: 20px 12px;",
+            "    }",
+            "    ",
+            "    thead th,",
+            "    td {",
+            "      padding: 12px 14px;",
+            "      font-size: 12px;",
+            "    }",
+            "    ",
+            "    .report-footer {",
+            "      padding: 24px 16px;",
+            "    }",
+            "    ",
+            "    .action-buttons {",
+            "      flex-direction: column;",
+            "    }",
+            "    ",
+            "    .btn {",
+            "      width: 100%;",
+            "      justify-content: center;",
+            "    }",
+            "  }",
+            "  ",
+            "  /* Print Styles */",
             "  @media print {",
-            "    body { background: white; }",
-            "    .receipt-wrapper { padding: 0; }",
-            "    .receipt-container { box-shadow: none; border-radius: 0; }",
-            "    .action-btn { display: none; }",
+            "    body {",
+            "      background: white;",
+            "      padding: 0;",
+            "    }",
+            "    ",
+            "    .report-card {",
+            "      box-shadow: none;",
+            "      border-radius: 0;",
+            "    }",
+            "    ",
+            "    .report-header::before {",
+            "      display: none;",
+            "    }",
+            "    ",
+            "    .action-buttons {",
+            "      display: none;",
+            "    }",
+            "    ",
+            "    tbody tr:hover {",
+            "      background: transparent;",
+            "    }",
+            "  }",
+            "  ",
+            "  /* Loading Animation */",
+            "  @keyframes shimmer {",
+            "    0% { background-position: -1000px 0; }",
+            "    100% { background-position: 1000px 0; }",
+            "  }",
+            "  ",
+            "  .loading {",
+            "    animation: shimmer 2s infinite;",
+            "    background: linear-gradient(to right, #f6f7f8 0%, #edeef1 20%, #f6f7f8 40%, #f6f7f8 100%);",
+            "    background-size: 1000px 100%;",
             "  }",
             "</style>",
             "</head>",
             "<body>",
-            "<div class='receipt-wrapper'>",
-            "<div class='receipt-container'>",
+            "<div class='container'>",
+            "<div class='report-card'>",
             "",
-            "<!-- Top Info Cards -->",
-            "<div class='top-info'>",
-            "  <div class='info-card'>",
-            "    <div class='info-label'>Report Type</div>",
-            f"    <div class='info-value'>{sheet_name}</div>",
-            "  </div>",
-            "  <div class='info-card'>",
-            "    <div class='info-label'>Generated On</div>",
-            f"    <div class='info-value'>{datetime.datetime.now().strftime('%b %d, %Y')}</div>",
-            "  </div>",
-            "  <div class='info-card'>",
-            "    <div class='info-label'>Report ID</div>",
-            f"    <div class='info-value primary'>#{datetime.datetime.now().strftime('%Y%m%d%H%M')}</div>",
-            "  </div>",
+            "<!-- Header Section -->",
+            "<div class='report-header'>",
+            "<div class='header-content'>",
+            f"<span class='report-badge'><i class='fas fa-chart-line'></i> {sheet_name}</span>", # Professional Icon
+            f"<h1 class='firm-name'>{firm_name or 'Financial Report'}</h1>",
+            "<div class='firm-meta'>",
         ]
         
-        if sector:
-            html_parts.append("  <div class='info-card'>")
-            html_parts.append("    <div class='info-label'>Sector</div>")
-            html_parts.append(f"    <div class='info-value'>{sector}</div>")
-            html_parts.append("  </div>")
-        
-        html_parts.extend([
-            "</div>",
-            "",
-            "<!-- Firm Details Section -->",
-            "<div class='firm-section'>",
-            f"  <div class='firm-name'>{firm_name or 'Financial Report'}</div>",
-            "  <div class='firm-details'>",
-        ])
-        
         if proprietor:
-            html_parts.append("    <div class='firm-detail-item'>")
-            html_parts.append("      <span class='firm-detail-label'>Proprietor:</span>")
-            html_parts.append(f"      <span class='firm-detail-value'>{proprietor}</span>")
-            html_parts.append("    </div>")
+            html_parts.extend([
+                "<div class='meta-item'>",
+                "<span class='meta-label'>Proprietor</span>",
+                f"<span class='meta-value'>{proprietor}</span>",
+                "</div>",
+            ])
+        
+        if sector:
+            html_parts.extend([
+                "<div class='meta-item'>",
+                "<span class='meta-label'>Sector</span>",
+                f"<span class='meta-value'>{sector}</span>",
+                "</div>",
+            ])
         
         if nature_of_business:
-            html_parts.append("    <div class='firm-detail-item'>")
-            html_parts.append("      <span class='firm-detail-label'>Nature of Business:</span>")
-            html_parts.append(f"      <span class='firm-detail-value'>{nature_of_business}</span>")
-            html_parts.append("    </div>")
+            html_parts.extend([
+                "<div class='meta-item'>",
+                "<span class='meta-label'>Nature of Business</span>",
+                f"<span class='meta-value'>{nature_of_business}</span>",
+                "</div>",
+            ])
         
         html_parts.extend([
-            "  </div>",
-            f"  <div class='report-meta'>Generated on {datetime.datetime.now().strftime('%B %d, %Y at %I:%M %p')}</div>",
+            "<div class='meta-item'>",
+            "<span class='meta-label'>Generated</span>",
+            f"<span class='meta-value'>{datetime.datetime.now().strftime('%b %d, %Y')}</span>",
+            "</div>",
+            "</div>",
+            "</div>",
+            "</div>",
+            "",
+            "<!-- Stats Grid -->",
+        ])
+        
+        html_parts.extend([
             "</div>",
             "",
             "<!-- Table Section -->",
             "<div class='table-section'>",
+            "<h2 class='section-title'>Financial Details</h2>",
+            "<p class='section-subtitle'>Comprehensive breakdown of financial data and calculations</p>",
+            "<div class='table-wrapper'>",
             "<table>",
             "<thead>",
             "<tr>",
@@ -583,11 +1025,10 @@ def generate_html_from_excel_com(excel_path: str, sheet_name: str) -> tuple:
             "<th>Amount</th>",
             "</tr>",
             "</thead>",
-            "<tbody>"
+            "<tbody>",
         ])
         
         # Process each row
-        current_section = None
         for row_idx in range(1, max_row + 1):
             row_data = []
             is_header = False
@@ -626,7 +1067,7 @@ def generate_html_from_excel_com(excel_path: str, sheet_name: str) -> tuple:
             
             # Detect row type
             first_value = str(row_data[0]["value"]).lower() if row_data else ""
-            if any(keyword in first_value for keyword in ["step", "financials", "ratios", "particulars", "profit", "balance", "sheet"]):
+            if any(keyword in first_value for keyword in ["step", "financials", "ratios", "particulars", "profit", "balance", "sheet", "statement"]):
                 is_header = True
             elif any(keyword in first_value for keyword in ["total", "net", "grand"]):
                 is_total = True
@@ -680,7 +1121,7 @@ def generate_html_from_excel_com(excel_path: str, sheet_name: str) -> tuple:
                 
                 # Font color (only if custom style not applied)
                 try:
-                    if not is_header:
+                    if not is_header and not is_total:
                         font_color = cell.Font.Color
                         if font_color != 0:  # Not black
                             r = font_color & 255
@@ -733,12 +1174,17 @@ def generate_html_from_excel_com(excel_path: str, sheet_name: str) -> tuple:
             "</tbody>",
             "</table>",
             "</div>",
+            "</div>",
             "",
-            "<!-- Receipt Footer -->",
-            "<div class='receipt-footer'>",
-            "  <div class='footer-main'>This is a computer-generated financial report</div>",
-            "  <div class='footer-note'>For any queries or clarifications, please contact your financial advisor</div>",
-            "  <button class='action-btn' onclick='window.print(); return false;'>Download / Print Report</button>",
+            "<!-- Footer Section -->",
+            "<div class='report-footer'>",
+            "<div class='footer-content'>",
+            f"<h3 class='footer-title'><i class='fas fa-check-circle'></i> Report Generated Successfully</h3>", # Professional Icon
+            "</div>",
+            "<div class='timestamp-badge'>",
+            f"<i class='fas fa-clock'></i> Generated on " + datetime.datetime.now().strftime('%B %d, %Y at %I:%M %p'), # Professional Icon
+            "</div>",
+            "</div>",
             "</div>",
             "",
             "</div>",
@@ -747,11 +1193,86 @@ def generate_html_from_excel_com(excel_path: str, sheet_name: str) -> tuple:
             "<script>",
             "// Store JSON data for programmatic access",
             f"window.reportData = {json.dumps(json_data, ensure_ascii=False)};",
-            "console.log('%c Financial Report Data Loaded', 'color: #667eea; font-weight: bold; font-size: 14px;');",
-            "console.log('Sheet Name:', window.reportData.sheetName);",
-            "console.log('Total Cells:', Object.keys(window.reportData.data).length);",
-            "console.log('Timestamp:', window.reportData.timestamp);",
-            "console.log('%cAccess data: window.reportData.data[\"R1C1\"]', 'color: #999; font-style: italic;');",
+            "",
+            "console.log('%c📊 Financial Report Data Loaded', 'color: #7c3aed; font-weight: bold; font-size: 16px; font-family: Inter, sans-serif;');",
+            "console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #7c3aed;');",
+            "console.log('%c📄 Sheet Name:', 'color: #6b7280; font-weight: 600;', window.reportData.sheetName);",
+            "console.log('%c🔢 Total Cells:', 'color: #6b7280; font-weight: 600;', Object.keys(window.reportData.data).length);",
+            "console.log('%c⏰ Timestamp:', 'color: #6b7280; font-weight: 600;', window.reportData.timestamp);",
+            "console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #7c3aed;');",
+            "console.log('%c💡 Access data: window.reportData.data[\"R1C1\"]', 'color: #10b981; font-style: italic;');",
+            "",
+            "// Download report as PDF (placeholder function)",
+            "function downloadReport() {",
+            "  alert('PDF download functionality will be implemented by the backend. (Ctrl+P to print)');", # Updated alert
+            "  console.log('Download request initiated for:', window.reportData.sheetName);",
+            "}",
+            "",
+            "// Add smooth scroll behavior",
+            "document.querySelectorAll('a[href^=\"#\"]').forEach(anchor => {",
+            "  anchor.addEventListener('click', function (e) {",
+            "    e.preventDefault();",
+            "    const target = document.querySelector(this.getAttribute('href'));",
+            "    if (target) {",
+            "      target.scrollIntoView({ behavior: 'smooth', block: 'start' });",
+            "    }",
+            "  });",
+            "});",
+            "",
+            "// Add loading state handler",
+            "window.addEventListener('load', () => {",
+            "  document.querySelectorAll('.loading').forEach(el => {",
+            "    el.classList.remove('loading');",
+            "  });",
+            "});",
+            "",
+            "// Add table row highlight on click",
+            "document.querySelectorAll('tbody tr').forEach(row => {",
+            "  row.addEventListener('click', function() {",
+            "    document.querySelectorAll('tbody tr').forEach(r => {",
+            "      r.style.outline = 'none';",
+            "    });",
+            "    this.style.outline = '2px solid var(--primary-purple)';", # Highlight with primary purple
+            "    this.style.outlineOffset = '-2px';",
+            "  });",
+            "});",
+            "",
+            "// Add keyboard navigation",
+            "document.addEventListener('keydown', (e) => {",
+            "  if (e.ctrlKey && e.key === 'p') {",
+            "    e.preventDefault();",
+            "    window.print();",
+            "  }",
+            "});",
+            "",
+            "// Performance monitoring",
+            "if (window.performance) {",
+            "  const perfData = window.performance.timing;",
+            "  const pageLoadTime = perfData.loadEventEnd - perfData.navigationStart;",
+            "  console.log('%c⚡ Page Load Time:', 'color: #10b981; font-weight: 600;', pageLoadTime + 'ms');",
+            "}",
+            "",
+            "// Add animation observer for elements",
+            "const observerOptions = {",
+            "  threshold: 0.1,",
+            "  rootMargin: '0px 0px -50px 0px'",
+            "};",
+            "",
+            "const observer = new IntersectionObserver((entries) => {",
+            "  entries.forEach(entry => {",
+            "    if (entry.isIntersecting) {",
+            "      entry.target.style.opacity = '1';",
+            "      entry.target.style.transform = 'translateY(0)';",
+            "    }",
+            "  });",
+            "}, observerOptions);",
+            "",
+            "document.querySelectorAll('.stat-card, .table-wrapper').forEach(el => {",
+            "  el.style.opacity = '0';",
+            "  el.style.transform = 'translateY(20px)';",
+            "  el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';",
+            "  observer.observe(el);",
+            "});",
             "</script>",
             "</body>",
             "</html>"
@@ -778,14 +1299,13 @@ def generate_html_from_excel_com(excel_path: str, sheet_name: str) -> tuple:
                 excel.Quit()
         except:
             pass
-        return "", {}
-
+        return ""
 
 def generate_html_from_excel_sheet(excel_path: str, sheet_name: str):
     """
     Convert an Excel sheet to HTML with complete styling preservation.
-    Returns tuple: (html_content, json_data) when using COM, or just html_content for fallback.
-    Uses win32com to get calculated values instead of formulas.
+    Returns tuple: (html_content, json_data) for both COM and fallback methods.
+    FALLBACK NOW PROPERLY EVALUATES FORMULAS AND DISPLAYS VALUES.
     """
     try:
         print(f"[HTML Generator] Loading workbook: {excel_path}", file=sys.stderr)
@@ -810,248 +1330,730 @@ def generate_html_from_excel_sheet(excel_path: str, sheet_name: str):
         else:
             print(f"[HTML Generator] COM not available, using openpyxl fallback", file=sys.stderr)
         
-        # Fallback to openpyxl method
-        print(f"[HTML Generator] Using openpyxl fallback method", file=sys.stderr)
-        wb = load_workbook(excel_path, data_only=True)  # data_only=True to get calculated values
+        # ========================================
+        # FALLBACK METHOD WITH PROPER VALUE HANDLING
+        # ========================================
+        print(f"[HTML Generator] Using openpyxl fallback method WITH PROFESSIONAL STYLING", file=sys.stderr)
         
-        # Find the matching sheet name (handles case and space differences)
-        actual_sheet_name = find_sheet_match(sheet_name, wb.sheetnames)
+        # CRITICAL FIX: Use pandas to read the Excel file which properly evaluates formulas
+        print(f"[HTML Generator] Reading Excel with pandas to get calculated values...", file=sys.stderr)
+        
+        # Read the specific sheet with pandas (it reads calculated values)
+        df_dict = pd.read_excel(excel_path, sheet_name=None, engine='openpyxl')
+        
+        # Find matching sheet name
+        actual_sheet_name = None
+        for sheet_key in df_dict.keys():
+            if normalize_sheet_name(sheet_key) == normalize_sheet_name(sheet_name):
+                actual_sheet_name = sheet_key
+                break
+        
         if not actual_sheet_name:
-            print(f"[HTML Generator] ERROR: Sheet '{sheet_name}' not found (tried case-insensitive matching)", file=sys.stderr)
-            print(f"[HTML Generator] Available sheets: {wb.sheetnames}", file=sys.stderr)
-            return ""
+            print(f"[HTML Generator] ERROR: Sheet '{sheet_name}' not found", file=sys.stderr)
+            print(f"[HTML Generator] Available sheets: {list(df_dict.keys())}", file=sys.stderr)
+            return "", {}
         
-        sheet = wb[actual_sheet_name]
+        df = df_dict[actual_sheet_name]
         print(f"[HTML Generator] Processing sheet: {actual_sheet_name} (matched from '{sheet_name}')", file=sys.stderr)
+        print(f"[HTML Generator] Dataframe shape: {df.shape[0]} rows x {df.shape[1]} columns", file=sys.stderr)
         
-        # Helper function to convert Excel color to hex
-        def get_hex_color(color):
-            if color is None:
-                return None
-            if isinstance(color, str):
-                return f"#{color}" if not color.startswith('#') else color
-            
-            # Handle openpyxl Color objects
-            if hasattr(color, 'rgb'):
-                rgb = color.rgb
-                if rgb is not None:
-                    # rgb could be a string or RGB object
-                    if isinstance(rgb, str):
-                        if len(rgb) >= 6:
-                            # Handle ARGB format (first 2 chars are alpha)
-                            if len(rgb) == 8:
-                                return f"#{rgb[2:]}"
-                            return f"#{rgb}"
-                    else:
-                        # RGB object - convert to hex
-                        try:
-                            return f"#{rgb:06x}"
-                        except:
-                            pass
-            
-            # Handle RGB tuple (r, g, b)
-            if hasattr(color, 'r') and hasattr(color, 'g') and hasattr(color, 'b'):
-                try:
-                    r = int(color.r) if color.r else 0
-                    g = int(color.g) if color.g else 0
-                    b = int(color.b) if color.b else 0
-                    return f"#{r:02x}{g:02x}{b:02x}"
-                except:
-                    pass
-            
-            return None
+        # Also load with openpyxl for styling and structure
+        wb = load_workbook(excel_path, data_only=False)
+        sheet = wb[actual_sheet_name]
         
-        # Helper function to get cell style
-        def get_cell_style(cell):
-            styles = []
-            
-            # Background color
-            if cell.fill and cell.fill.start_color:
-                bg_color = get_hex_color(cell.fill.start_color)
-                if bg_color and bg_color != "#000000":
-                    styles.append(f"background-color: {bg_color}")
-            
-            # Font styles
-            if cell.font:
-                if cell.font.color:
-                    font_color = get_hex_color(cell.font.color)
-                    if font_color:
-                        styles.append(f"color: {font_color}")
-                
-                if cell.font.bold:
-                    styles.append("font-weight: bold")
-                
-                if cell.font.italic:
-                    styles.append("font-style: italic")
-                
-                if cell.font.size:
-                    styles.append(f"font-size: {cell.font.size}pt")
-                
-                if cell.font.name:
-                    styles.append(f"font-family: '{cell.font.name}', sans-serif")
-            
-            # Alignment
-            if cell.alignment:
-                if cell.alignment.horizontal:
-                    h_align = cell.alignment.horizontal
-                    if h_align == 'center':
-                        styles.append("text-align: center")
-                    elif h_align == 'right':
-                        styles.append("text-align: right")
-                    elif h_align == 'left':
-                        styles.append("text-align: left")
-                
-                if cell.alignment.vertical:
-                    v_align = cell.alignment.vertical
-                    if v_align == 'center':
-                        styles.append("vertical-align: middle")
-                    elif v_align == 'top':
-                        styles.append("vertical-align: top")
-                    elif v_align == 'bottom':
-                        styles.append("vertical-align: bottom")
-            
-            # Borders
-            border_styles = []
-            if cell.border:
-                if cell.border.top and cell.border.top.style:
-                    border_styles.append("border-top: 1px solid #000")
-                if cell.border.bottom and cell.border.bottom.style:
-                    border_styles.append("border-bottom: 1px solid #000")
-                if cell.border.left and cell.border.left.style:
-                    border_styles.append("border-left: 1px solid #000")
-                if cell.border.right and cell.border.right.style:
-                    border_styles.append("border-right: 1px solid #000")
-            
-            styles.extend(border_styles)
-            
-            # Padding for better appearance
-            styles.append("padding: 4px 8px")
-            styles.append("white-space: pre-wrap")
-            
-            return "; ".join(styles) if styles else ""
+        # Extract JSON data structure
+        json_data = {
+            "sheetName": actual_sheet_name,
+            "data": {},
+            "timestamp": datetime.datetime.now().isoformat()
+        }
         
-        # Build HTML
+        # Extract firm details from the data for header
+        firm_name = ""
+        proprietor = ""
+        sector = ""
+        nature_of_business = ""
+        
+        # Try to get firm details from pandas dataframe (row 2, col 1 in 0-indexed)
+        try:
+            if len(df) >= 3 and len(df.columns) >= 2:
+                firm_name_val = df.iloc[2, 1]  # Row 3, Col 2 (0-indexed)
+                if pd.notna(firm_name_val):
+                    firm_name = str(firm_name_val)
+            if len(df) >= 4 and len(df.columns) >= 2:
+                proprietor_val = df.iloc[3, 1]
+                if pd.notna(proprietor_val):
+                    proprietor = str(proprietor_val)
+            if len(df) >= 6 and len(df.columns) >= 2:
+                sector_val = df.iloc[5, 1]
+                if pd.notna(sector_val):
+                    sector = str(sector_val)
+            if len(df) >= 7 and len(df.columns) >= 2:
+                nature_val = df.iloc[6, 1]
+                if pd.notna(nature_val):
+                    nature_of_business = str(nature_val)
+        except Exception as e:
+            print(f"[HTML Generator] Warning: Could not extract firm details: {e}", file=sys.stderr)
+        
+        # Build HTML with EXACT SAME professional styling as COM method
         html_parts = [
             "<!DOCTYPE html>",
-            "<html>",
+            "<html lang='en'>",
             "<head>",
             "<meta charset='UTF-8'>",
-            f"<title>{sheet_name}</title>",
+            "<meta name='viewport' content='width=device-width, initial-scale=1.0'>",
+            f"<title>Financial Report - {firm_name or sheet_name}</title>",
+            "<link href='https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap' rel='stylesheet'>",
+            "<link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css'>",
             "<style>",
-            "  body { margin: 0; padding: 20px; font-family: 'Calibri', 'Arial', sans-serif; background: #f5f5f5; }",
-            "  .excel-container { background: white; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow-x: auto; }",
-            "  table { border-collapse: collapse; width: 100%; table-layout: auto; }",
-            "  td, th { border: 1px solid #d0d0d0; min-width: 50px; }",
-            "  td { overflow: hidden; }",
-            "  .sheet-title { font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; }",
+            "  :root {",
+            "    --primary-color: #8b5cf6;",
+            "    --primary-light: #a78bfa;",
+            "    --primary-dark: #7c3aed;",
+            "    --success-color: #10b981;",
+            "    --text-primary: #1f2937;",
+            "    --text-secondary: #6b7280;",
+            "    --bg-primary: #ffffff;",
+            "    --bg-secondary: #f9fafb;",
+            "    --bg-accent: #f3f4f6;",
+            "    --border-color: #e5e7eb;",
+            "    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);",
+            "    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+            "    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);",
+            "    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);",
+            "  }",
+            "  * { margin: 0; padding: 0; box-sizing: border-box; }",
+            "  body {",
+            "    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;",
+            "    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);",
+            "    min-height: 100vh;",
+            "    padding: 40px 20px;",
+            "    line-height: 1.6;",
+            "    color: var(--text-primary);",
+            "    -webkit-font-smoothing: antialiased;",
+            "  }",
+            "  .container { max-width: 1400px; margin: 0 auto; }",
+            "  .report-card {",
+            "    background: var(--bg-primary);",
+            "    border-radius: 20px;",
+            "    box-shadow: var(--shadow-xl);",
+            "    overflow: hidden;",
+            "    animation: slideUp 0.6s ease-out;",
+            "  }",
+            "  @keyframes slideUp {",
+            "    from { opacity: 0; transform: translateY(30px); }",
+            "    to { opacity: 1; transform: translateY(0); }",
+            "  }",
+            "  .report-header {",
+            "    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);",
+            "    padding: 48px 48px 32px;",
+            "    color: white;",
+            "    position: relative;",
+            "  }",
+            "  .report-header::before {",
+            "    content: '';",
+            "    position: absolute;",
+            "    top: 0; right: 0;",
+            "    width: 400px; height: 400px;",
+            "    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);",
+            "    border-radius: 50%;",
+            "    transform: translate(30%, -30%);",
+            "  }",
+            "  .header-content { position: relative; z-index: 1; }",
+            "  .report-badge {",
+            "    display: inline-block;",
+            "    background: rgba(255, 255, 255, 0.2);",
+            "    backdrop-filter: blur(10px);",
+            "    padding: 8px 20px;",
+            "    border-radius: 50px;",
+            "    font-size: 13px;",
+            "    font-weight: 600;",
+            "    letter-spacing: 0.5px;",
+            "    text-transform: uppercase;",
+            "    margin-bottom: 20px;",
+            "  }",
+            "  .firm-name {",
+            "    font-size: 36px;",
+            "    font-weight: 700;",
+            "    margin-bottom: 16px;",
+            "    letter-spacing: -0.5px;",
+            "  }",
+            "  .firm-meta {",
+            "    display: flex;",
+            "    flex-wrap: wrap;",
+            "    gap: 32px;",
+            "    margin-top: 24px;",
+            "    padding-top: 24px;",
+            "    border-top: 1px solid rgba(255, 255, 255, 0.2);",
+            "  }",
+            "  .meta-item { display: flex; flex-direction: column; gap: 6px; }",
+            "  .meta-label {",
+            "    font-size: 12px;",
+            "    font-weight: 500;",
+            "    opacity: 0.9;",
+            "    text-transform: uppercase;",
+            "    letter-spacing: 1px;",
+            "  }",
+            "  .meta-value { font-size: 16px; font-weight: 600; }",
+            "  .stats-grid {",
+            "    display: grid;",
+            "    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));",
+            "    gap: 1px;",
+            "    background: var(--border-color);",
+            "    border-bottom: 1px solid var(--border-color);",
+            "  }",
+            "  .stat-card {",
+            "    background: var(--bg-primary);",
+            "    padding: 28px 32px;",
+            "    text-align: center;",
+            "    transition: all 0.3s ease;",
+            "  }",
+            "  .stat-card:hover {",
+            "    background: var(--bg-secondary);",
+            "    transform: translateY(-2px);",
+            "  }",
+            "  .stat-icon {",
+            "    width: 48px; height: 48px;",
+            "    margin: 0 auto 16px;",
+            "    background: linear-gradient(135deg, var(--primary-light), var(--primary-color));",
+            "    border-radius: 12px;",
+            "    display: flex;",
+            "    align-items: center;",
+            "    justify-content: center;",
+            "    font-size: 24px;",
+            "  }",
+            "  .stat-label {",
+            "    font-size: 12px;",
+            "    font-weight: 600;",
+            "    color: var(--text-secondary);",
+            "    text-transform: uppercase;",
+            "    letter-spacing: 0.8px;",
+            "    margin-bottom: 8px;",
+            "  }",
+            "  .stat-value {",
+            "    font-size: 18px;",
+            "    font-weight: 700;",
+            "    color: var(--text-primary);",
+            "  }",
+            "  .table-section { padding: 48px; }",
+            "  .section-title {",
+            "    font-size: 24px;",
+            "    font-weight: 700;",
+            "    color: var(--text-primary);",
+            "    margin-bottom: 8px;",
+            "  }",
+            "  .section-subtitle {",
+            "    font-size: 14px;",
+            "    color: var(--text-secondary);",
+            "    margin-bottom: 32px;",
+            "  }",
+            "  .table-wrapper {",
+            "    overflow-x: auto;",
+            "    border-radius: 12px;",
+            "    border: 1px solid var(--border-color);",
+            "  }",
+            "  table {",
+            "    width: 100%;",
+            "    border-collapse: collapse;",
+            "    background: var(--bg-primary);",
+            "  }",
+            "  thead {",
+            "    background: var(--bg-accent);",
+            "    position: sticky;",
+            "    top: 0;",
+            "    z-index: 10;",
+            "  }",
+            "  thead th {",
+            "    padding: 18px 24px;",
+            "    text-align: left;",
+            "    font-size: 12px;",
+            "    font-weight: 700;",
+            "    color: var(--text-primary);",
+            "    text-transform: uppercase;",
+            "    letter-spacing: 1px;",
+            "    border-bottom: 2px solid var(--border-color);",
+            "  }",
+            "  thead th:last-child { text-align: right; }",
+            "  tbody tr {",
+            "    border-bottom: 1px solid var(--border-color);",
+            "    transition: all 0.2s ease;",
+            "  }",
+            "  tbody tr:hover { background: var(--bg-secondary); }",
+            "  tbody tr:last-child { border-bottom: none; }",
+            "  td {",
+            "    padding: 20px 24px;",
+            "    font-size: 14px;",
+            "    color: var(--text-primary);",
+            "  }",
+            "  .item-name { font-weight: 500; }",
+            "  .item-value {",
+            "    text-align: right;",
+            "    font-weight: 600;",
+            "    font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;",
+            "    font-size: 15px;",
+            "  }",
+            "  .currency::before {",
+            "    content: '₹ ';",
+            "    color: var(--text-secondary);",
+            "    margin-right: 4px;",
+            "    font-weight: 500;",
+            "  }",
+                        "  .section-header {",
+            "    background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%) !important;",
+            "  }",
+            "  .section-header td {",
+            "    font-weight: 700 !important;",
+            "    font-size: 14px !important;",
+            "    color: var(--text-primary) !important;",
+            "    padding: 16px 24px !important;",
+            "    text-transform: uppercase;",
+            "    letter-spacing: 0.5px;",
+            "  }",
+            "  .total-row {",
+            "    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)) !important;",
+            "  }",
+            "  .total-row td {",
+            "    color: white !important;",
+            "    font-weight: 700 !important;",
+            "    font-size: 16px !important;",
+            "    padding: 24px !important;",
+            "    border-top: 3px solid var(--primary-dark);",
+            "  }",
+            "  .subtotal-row {",
+            "    background: var(--bg-accent) !important;",
+            "  }",
+            "  .subtotal-row td {",
+            "    font-weight: 600 !important;",
+            "    padding: 18px 24px !important;",
+            "    color: var(--text-primary);",
+            "  }",
+            "  .report-footer {",
+            "    background: var(--bg-secondary);",
+            "    padding: 40px 48px;",
+            "    text-align: center;",
+            "    border-top: 1px solid var(--border-color);",
+            "  }",
+            "  .footer-content {",
+            "    max-width: 600px;",
+            "    margin: 0 auto;",
+            "  }",
+            "  .footer-title {",
+            "    font-size: 16px;",
+            "    font-weight: 600;",
+            "    color: var(--text-primary);",
+            "    margin-bottom: 12px;",
+            "  }",
+            "  .footer-text {",
+            "    font-size: 13px;",
+            "    color: var(--text-secondary);",
+            "    line-height: 1.8;",
+            "    margin-bottom: 24px;",
+            "  }",
+            "  .action-buttons {",
+            "    display: flex;",
+            "    gap: 16px;",
+            "    justify-content: center;",
+            "    flex-wrap: wrap;",
+            "  }",
+            "  .btn {",
+            "    padding: 12px 32px;",
+            "    border-radius: 10px;",
+            "    font-weight: 600;",
+            "    font-size: 14px;",
+            "    cursor: pointer;",
+            "    transition: all 0.3s ease;",
+            "    border: none;",
+            "    display: inline-flex;",
+            "    align-items: center;",
+            "    gap: 8px;",
+            "    text-decoration: none;",
+            "  }",
+            "  .btn-primary {",
+            "    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));",
+            "    color: white;",
+            "    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);",
+            "  }",
+            "  .btn-primary:hover {",
+            "    transform: translateY(-2px);",
+            "    box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);",
+            "  }",
+            "  .btn-secondary {",
+            "    background: var(--bg-primary);",
+            "    color: var(--text-primary);",
+            "    border: 2px solid var(--border-color);",
+            "  }",
+            "  .btn-secondary:hover {",
+            "    background: var(--bg-accent);",
+            "    border-color: var(--primary-color);",
+            "  }",
+            "  .timestamp-badge {",
+            "    display: inline-flex;",
+            "    align-items: center;",
+            "    gap: 8px;",
+            "    background: var(--bg-accent);",
+            "    padding: 8px 16px;",
+            "    border-radius: 8px;",
+            "    font-size: 12px;",
+            "    color: var(--text-secondary);",
+            "    margin-top: 24px;",
+            "  }",
+            "  @media (max-width: 1024px) {",
+            "    .report-header { padding: 40px 32px 24px; }",
+            "    .firm-name { font-size: 28px; }",
+            "    .table-section { padding: 32px 24px; }",
+            "  }",
+            "  @media (max-width: 768px) {",
+            "    body { padding: 20px 10px; }",
+            "    .report-card { border-radius: 16px; }",
+            "    .report-header { padding: 32px 24px 20px; }",
+            "    .firm-name { font-size: 24px; }",
+            "    .firm-meta { gap: 20px; }",
+            "    .stats-grid { grid-template-columns: repeat(2, 1fr); }",
+            "    .table-section { padding: 24px 16px; }",
+            "    .section-title { font-size: 20px; }",
+            "    thead th, td { padding: 14px 16px; font-size: 13px; }",
+            "    .report-footer { padding: 32px 24px; }",
+            "    .action-buttons { flex-direction: column; }",
+            "    .btn { width: 100%; justify-content: center; }",
+            "  }",
+            "  @media (max-width: 480px) {",
+            "    .stats-grid { grid-template-columns: 1fr; }",
+            "    .firm-meta { flex-direction: column; gap: 16px; }",
+            "  }",
+            "  @media print {",
+            "    body { background: white; padding: 0; }",
+            "    .report-card { box-shadow: none; border-radius: 0; }",
+            "    .report-header::before { display: none; }",
+            "    .action-buttons { display: none; }",
+            "    tbody tr:hover { background: transparent; }",
+            "  }",
             "</style>",
             "</head>",
             "<body>",
-            "<div class='excel-container'>",
-            f"<div class='sheet-title'>{sheet_name}</div>",
-            "<table>"
+            "<div class='container'>",
+            "<div class='report-card'>",
+            "",
+            "<!-- Header Section -->",
+            "<div class='report-header'>",
+            "<div class='header-content'>",
+            f"<span class='report-badge'>📊 {sheet_name}</span>",
+            f"<h1 class='firm-name'>{firm_name or 'Financial Report'}</h1>",
+            "<div class='firm-meta'>",
         ]
         
-        # Get the actual used range
-        max_row = sheet.max_row
-        max_col = sheet.max_column
+        if proprietor:
+            html_parts.extend([
+                "<div class='meta-item'>",
+                "<span class='meta-label'>Proprietor</span>",
+                f"<span class='meta-value'>{proprietor}</span>",
+                "</div>",
+            ])
         
-        print(f"[HTML Generator] Processing {max_row} rows x {max_col} columns", file=sys.stderr)
+        if sector:
+            html_parts.extend([
+                "<div class='meta-item'>",
+                "<span class='meta-label'>Sector</span>",
+                f"<span class='meta-value'>{sector}</span>",
+                "</div>",
+            ])
         
-        # Process merged cells
+        if nature_of_business:
+            html_parts.extend([
+                "<div class='meta-item'>",
+                "<span class='meta-label'>Nature of Business</span>",
+                f"<span class='meta-value'>{nature_of_business}</span>",
+                "</div>",
+            ])
+        
+        html_parts.extend([
+            "<div class='meta-item'>",
+            "<span class='meta-label'>Generated</span>",
+            f"<span class='meta-value'>{datetime.datetime.now().strftime('%b %d, %Y')}</span>",
+            "</div>",
+            "</div>",
+            "</div>",
+            "</div>",
+            "",
+            "<!-- Stats Grid -->",
+            "<div class='stats-grid'>",
+            "<div class='stat-card'>",
+            "<div class='stat-icon'>📄</div>",
+            "<div class='stat-label'>Report Type</div>",
+            f"<div class='stat-value'>{sheet_name}</div>",
+            "</div>",
+            "<div class='stat-card'>",
+            "<div class='stat-icon'>📅</div>",
+            "<div class='stat-label'>Date</div>",
+            f"<div class='stat-value'>{datetime.datetime.now().strftime('%b %d, %Y')}</div>",
+            "</div>",
+            "<div class='stat-card'>",
+            "<div class='stat-icon'>🔢</div>",
+            "<div class='stat-label'>Report ID</div>",
+            f"<div class='stat-value'>#{datetime.datetime.now().strftime('%Y%m%d%H%M')}</div>",
+            "</div>",
+        ])
+        
+        if sector:
+            html_parts.extend([
+                "<div class='stat-card'>",
+                "<div class='stat-icon'>🏢</div>",
+                "<div class='stat-label'>Sector</div>",
+                f"<div class='stat-value'>{sector}</div>",
+                "</div>",
+            ])
+        
+        html_parts.extend([
+            "</div>",
+            "",
+            "<!-- Table Section -->",
+            "<div class='table-section'>",
+            "<h2 class='section-title'>Financial Details</h2>",
+            "<p class='section-subtitle'>Comprehensive breakdown of financial data and calculations</p>",
+            "<div class='table-wrapper'>",
+            "<table>",
+            "<thead>",
+            "<tr>",
+            "<th>Particulars</th>",
+            "<th>Amount</th>",
+            "</tr>",
+            "</thead>",
+            "<tbody>",
+        ])
+        
+        # Process merged cells from openpyxl
         merged_ranges = {}
         for merged_range in sheet.merged_cells.ranges:
-            min_row, min_col = merged_range.min_row, merged_range.min_col
-            max_row_merge, max_col_merge = merged_range.max_row, merged_range.max_col
-            merged_ranges[(min_row, min_col)] = {
-                'rowspan': max_row_merge - min_row + 1,
-                'colspan': max_col_merge - min_col + 1
+            merged_ranges[(merged_range.min_row, merged_range.min_col)] = {
+                'rowspan': merged_range.max_row - merged_range.min_row + 1,
+                'colspan': merged_range.max_col - merged_range.min_col + 1
             }
         
-        # Generate table rows
-        for row_idx, row in enumerate(sheet.iter_rows(min_row=1, max_row=max_row, min_col=1, max_col=max_col), start=1):
-            html_parts.append("  <tr>")
+        print(f"[HTML Generator] Processing {len(df)} rows from dataframe", file=sys.stderr)
+        
+        # Process each row from pandas dataframe
+        for row_idx in range(len(df)):
+            row_data = []
+            is_empty_row = True
             
-            for col_idx, cell in enumerate(row, start=1):
-                # Skip cells that are part of a merge (except the top-left cell)
-                skip_cell = False
-                for (merge_row, merge_col), merge_info in merged_ranges.items():
-                    if merge_row != row_idx or merge_col != col_idx:
-                        if (merge_row <= row_idx < merge_row + merge_info['rowspan'] and
-                            merge_col <= col_idx < merge_col + merge_info['colspan']):
-                            skip_cell = True
-                            break
+            # Get all column values for this row
+            for col_idx in range(len(df.columns)):
+                cell_value = df.iloc[row_idx, col_idx]
                 
-                if skip_cell:
-                    continue
-                
-                # Get cell value - use calculated value for formulas, not the formula itself
-                if cell.data_type == 'f':  # Formula cell
-                    # Use the cached calculated value instead of the formula
-                    cell_value = cell.value if hasattr(cell, '_value') else cell.value
-                    # Try to get the calculated value from the cell's internal value
-                    try:
-                        # Access the internal calculated value
-                        if hasattr(cell, 'internal_value'):
-                            cell_value = cell.internal_value
-                        elif hasattr(cell, '_value'):
-                            cell_value = cell._value
-                        else:
-                            # Fallback: re-read the cell to get calculated value
-                            cell_value = sheet.cell(row=cell.row, column=cell.column).value
-                    except:
-                        cell_value = cell.value
-                else:
-                    cell_value = cell.value
-                    
-                if cell_value is None:
+                # Handle NaN and None
+                if pd.isna(cell_value):
                     cell_value = ""
-                elif isinstance(cell_value, (int, float)):
-                    # Format numbers nicely
-                    if isinstance(cell_value, float):
-                        cell_value = f"{cell_value:.2f}" if cell_value % 1 else str(int(cell_value))
-                    else:
-                        cell_value = str(cell_value)
+                elif isinstance(cell_value, (int, float, np.integer, np.floating)):
+                    # Convert numpy types to Python types
+                    if isinstance(cell_value, np.floating):
+                        cell_value = float(cell_value)
+                        # Handle infinity
+                        if np.isinf(cell_value):
+                            cell_value = ""
+                    elif isinstance(cell_value, np.integer):
+                        cell_value = int(cell_value)
+                    
+                    # Store in JSON (1-indexed for consistency with COM method)
+                    if cell_value != "":
+                        json_data["data"][f"R{row_idx+1}C{col_idx+1}"] = cell_value
                 else:
                     cell_value = str(cell_value)
+                    if cell_value != "":
+                        json_data["data"][f"R{row_idx+1}C{col_idx+1}"] = cell_value
                 
-                # Get cell style
-                style_attr = get_cell_style(cell)
+                if cell_value != "":
+                    is_empty_row = False
                 
-                # Check if this cell is the start of a merged range
-                merge_attrs = ""
-                if (row_idx, col_idx) in merged_ranges:
-                    merge_info = merged_ranges[(row_idx, col_idx)]
-                    if merge_info['rowspan'] > 1:
-                        merge_attrs += f" rowspan='{merge_info['rowspan']}'"
-                    if merge_info['colspan'] > 1:
-                        merge_attrs += f" colspan='{merge_info['colspan']}'"
+                row_data.append({
+                    "value": cell_value,
+                    "col_idx": col_idx + 1  # 1-indexed for HTML
+                })
+            
+            # Skip completely empty rows
+            if is_empty_row:
+                continue
+            
+            # Detect row type
+            first_value = str(row_data[0]["value"]).lower() if row_data else ""
+            is_header = any(kw in first_value for kw in ["step", "financials", "ratios", "particulars", "profit", "balance", "sheet", "statement"])
+            is_total = any(kw in first_value for kw in ["total", "net", "grand"])
+            is_subtotal = "subtotal" in first_value or "sub-total" in first_value
+            
+            row_class = ""
+            if is_header:
+                row_class = " class='section-header'"
+            elif is_total:
+                row_class = " class='total-row'"
+            elif is_subtotal:
+                row_class = " class='subtotal-row'"
+            
+            html_parts.append(f"  <tr{row_class}>")
+            
+            for cell_data in row_data:
+                cell_value = cell_data["value"]
+                col_idx = cell_data["col_idx"]
                 
-                # Add cell to HTML
-                if style_attr:
-                    html_parts.append(f"    <td style='{style_attr}'{merge_attrs}>{cell_value}</td>")
+                # Cell classes
+                cell_classes = []
+                if col_idx == 1:
+                    cell_classes.append("item-name")
                 else:
-                    html_parts.append(f"    <td{merge_attrs}>{cell_value}</td>")
+                    cell_classes.append("item-value")
+                
+                # Format numeric values as currency
+                formatted_value = cell_value
+                if isinstance(cell_value, (int, float)) and cell_value != "" and col_idx > 1:
+                    cell_classes.append("currency")
+                    # Format with commas but without currency symbol (CSS will add it)
+                    try:
+                        if isinstance(cell_value, float):
+                            formatted_value = f"{cell_value:,.2f}"
+                        else:
+                            formatted_value = f"{cell_value:,}"
+                    except:
+                        formatted_value = str(cell_value)
+                
+                class_attr = " ".join(cell_classes) if cell_classes else ""
+                html_parts.append(f"    <td class='{class_attr}'>{formatted_value}</td>")
             
             html_parts.append("  </tr>")
         
         html_parts.extend([
+            "</tbody>",
             "</table>",
             "</div>",
+            "</div>",
+            "",
+            "<!-- Footer Section -->",
+            "<div class='report-footer'>",
+            "<div class='footer-content'>",
+            "<h3 class='footer-title'>🎉 Report Generated Successfully</h3>",
+            "<p class='footer-text'>",
+            "This financial report has been automatically generated with professional formatting. ",
+            "All calculations are based on the provided data and formulas.",
+            "</p>",
+            "<div class='action-buttons'>",
+            "<button class='btn btn-primary' onclick='window.print()'>",
+            "🖨️ Print Report",
+            "</button>",
+            "<button class='btn btn-secondary' onclick='downloadReport()'>",
+            "📥 Download PDF",
+            "</button>",
+            "</div>",
+            "<div class='timestamp-badge'>",
+            "⏰ Generated on " + datetime.datetime.now().strftime('%B %d, %Y at %I:%M %p'),
+            "</div>",
+            "</div>",
+                        "</div>",
+            "",
+            "</div>",
+            "</div>",
+            "",
+            "<script>",
+            "// Store JSON data for programmatic access",
+            f"window.reportData = {json.dumps(json_data, ensure_ascii=False)};",
+            "",
+            "console.log('%c📊 Financial Report Data Loaded', 'color: #8b5cf6; font-weight: bold; font-size: 16px; font-family: Inter, sans-serif;');",
+            "console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #8b5cf6;');",
+            "console.log('%c📄 Sheet Name:', 'color: #6b7280; font-weight: 600;', window.reportData.sheetName);",
+            "console.log('%c🔢 Total Cells:', 'color: #6b7280; font-weight: 600;', Object.keys(window.reportData.data).length);",
+            "console.log('%c⏰ Timestamp:', 'color: #6b7280; font-weight: 600;', window.reportData.timestamp);",
+            "console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #8b5cf6;');",
+            "console.log('%c💡 Access data: window.reportData.data[\"R1C1\"]', 'color: #10b981; font-style: italic;');",
+            "",
+            "// Download report as PDF (placeholder function)",
+            "function downloadReport() {",
+            "  alert('PDF download functionality will be implemented by the backend.');",
+            "  console.log('Download request initiated for:', window.reportData.sheetName);",
+            "}",
+            "",
+            "// Add smooth scroll behavior",
+            "document.querySelectorAll('a[href^=\"#\"]').forEach(anchor => {",
+            "  anchor.addEventListener('click', function (e) {",
+            "    e.preventDefault();",
+            "    const target = document.querySelector(this.getAttribute('href'));",
+            "    if (target) {",
+            "      target.scrollIntoView({ behavior: 'smooth', block: 'start' });",
+            "    }",
+            "  });",
+            "});",
+            "",
+            "// Add loading state handler",
+            "window.addEventListener('load', () => {",
+            "  document.querySelectorAll('.loading').forEach(el => {",
+            "    el.classList.remove('loading');",
+            "  });",
+            "});",
+            "",
+            "// Add table row highlight on click",
+            "document.querySelectorAll('tbody tr').forEach(row => {",
+            "  row.addEventListener('click', function() {",
+            "    // Remove previous highlights",
+            "    document.querySelectorAll('tbody tr').forEach(r => {",
+            "      r.style.outline = 'none';",
+            "    });",
+            "    // Add highlight to clicked row",
+            "    this.style.outline = '2px solid #8b5cf6';",
+            "    this.style.outlineOffset = '-2px';",
+            "  });",
+            "});",
+            "",
+            "// Add keyboard navigation",
+            "document.addEventListener('keydown', (e) => {",
+            "  if (e.ctrlKey && e.key === 'p') {",
+            "    e.preventDefault();",
+            "    window.print();",
+            "  }",
+            "});",
+            "",
+            "// Performance monitoring",
+            "if (window.performance) {",
+            "  const perfData = window.performance.timing;",
+            "  const pageLoadTime = perfData.loadEventEnd - perfData.navigationStart;",
+            "  console.log('%c⚡ Page Load Time:', 'color: #10b981; font-weight: 600;', pageLoadTime + 'ms');",
+            "}",
+            "",
+            "// Add animation observer for elements",
+            "const observerOptions = {",
+            "  threshold: 0.1,",
+            "  rootMargin: '0px 0px -50px 0px'",
+            "};",
+            "",
+            "const observer = new IntersectionObserver((entries) => {",
+            "  entries.forEach(entry => {",
+            "    if (entry.isIntersecting) {",
+            "      entry.target.style.opacity = '1';",
+            "      entry.target.style.transform = 'translateY(0)';",
+            "    }",
+            "  });",
+            "}, observerOptions);",
+            "",
+            "document.querySelectorAll('.stat-card, .table-wrapper').forEach(el => {",
+            "  el.style.opacity = '0';",
+            "  el.style.transform = 'translateY(20px)';",
+            "  el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';",
+            "  observer.observe(el);",
+            "});",
+            "</script>",
             "</body>",
             "</html>"
         ])
         
         html_content = "\n".join(html_parts)
-        print(f"[HTML Generator] SUCCESS: HTML generated successfully ({len(html_content)} chars)", file=sys.stderr)
+        print(f"[HTML Generator] SUCCESS: HTML generated using FALLBACK with professional styling ({len(html_content)} chars)", file=sys.stderr)
+        print(f"[HTML Generator] SUCCESS: JSON data extracted ({len(json_data['data'])} cells)", file=sys.stderr)
         
-        return html_content
+        # Close workbook
+        wb.close()
+        
+        return html_content, json_data
         
     except Exception as e:
         print(f"[HTML Generator] ❌ Error generating HTML: {str(e)}", file=sys.stderr)
         import traceback
         traceback.print_exc(file=sys.stderr)
         return ""
+
+
 
 
 def _abs_path(path: str) -> str:

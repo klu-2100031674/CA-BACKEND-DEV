@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Wallet = require('../models/Wallet');
+const userController = require('../controllers/users');
 const { generateToken, generateEmailToken, verifyToken, requireRole } = require('../middleware/auth');
 const { sendVerificationEmail, sendWelcomeEmail } = require('../services/mailService');
 const router = express.Router();
@@ -118,5 +119,16 @@ router.get('/', verifyToken, requireRole('admin'), async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// Profile management routes
+router.get('/profile', verifyToken, userController.getProfile);
+router.put('/profile', verifyToken, userController.updateProfile);
+
+// Super admin routes
+router.post('/create-super-admin', verifyToken, userController.createSuperAdmin);
+router.get('/all', verifyToken, userController.getAllUsers);
+router.put('/:userId/role', verifyToken, userController.updateUserRole);
+router.put('/:userId/credits', verifyToken, userController.updateUserCredits);
+router.delete('/:userId', verifyToken, userController.deleteUser);
 
 module.exports = router;

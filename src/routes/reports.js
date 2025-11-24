@@ -3,11 +3,16 @@ const fs = require('fs').promises;
 const path = require('path');
 const zlib = require('zlib');
 const Report = require('../models/Report');
+const ReportStaging = require('../models/ReportStaging');
 const Wallet = require('../models/Wallet');
 const { verifyToken } = require('../middleware/auth');
 const { alterTemplateJson } = require('../services/jsonAlterService');
 const excelCalculationService = require('../services/excelCalculationService');
+const reportController = require('../controllers/reportController');
+const logger = require('../utils/logger');
 const router = express.Router();
+
+logger.info('Reports route module loaded');
 
 let templatesCache = null;
 let cacheTimestamp = null;
@@ -20,14 +25,18 @@ async function loadTemplates() {
   
   try {
     const metaPath = path.join(__dirname, '../../templates/meta.json');
-    console.log('📁 Loading templates from:', metaPath);
+    logger.debug('Loading templates from cache or file', { metaPath });
     const metaData = await fs.readFile(metaPath, 'utf8');
     templatesCache = JSON.parse(metaData);
     cacheTimestamp = Date.now();
-    console.log('✅ Templates loaded:', templatesCache.length, 'templates');
+    logger.info('Templates loaded successfully', { templateCount: templatesCache.length });
     return templatesCache;
   } catch (error) {
-    console.error('❌ Failed to load templates:', error.message, 'Path:', path.join(__dirname, '../../templates/meta.json'));
+    logger.error('Failed to load templates', {
+      error: error.message,
+      metaPath: path.join(__dirname, '../../templates/meta.json'),
+      operation: 'loadTemplates'
+    });
     throw new Error('Failed to load templates: ' + error.message);
   }
 }
@@ -130,7 +139,7 @@ router.get('/templates/:templateId/form', async (req, res) => {
     
     try {
       const formPath = path.join(__dirname, `../../templates/forms/${templateId}.html`);
-      console.log('📝 Loading template form from:', formPath);
+      logger.debug('Loading template form from file', { templateId, formPath });
       const formHtml = await fs.readFile(formPath, 'utf8');
       
       res.json({
@@ -142,7 +151,12 @@ router.get('/templates/:templateId/form', async (req, res) => {
         message: 'Template form retrieved successfully'
       });
     } catch (fileError) {
-      console.error('❌ Template form file error:', fileError.message);
+      logger.error('Template form file not found', {
+        templateId,
+        formPath: path.join(__dirname, `../../templates/forms/${templateId}.html`),
+        error: fileError.message,
+        operation: 'getTemplateForm'
+      });
       res.status(404).json({ 
         success: false,
         error: 'Form HTML file not found',
@@ -194,8 +208,12 @@ router.post('/templates/:templateId/apply-form', verifyToken, async (req, res) =
     const { templateId } = req.params;
     const formData = req.body;
     
-    console.log(`🚀 [EXCEL APPROACH] Processing template: ${templateId}`);
-    console.log(`📊 [EXCEL APPROACH] Form data keys: ${Object.keys(formData).length}`);
+    logger.business('Processing template with form data', {
+      userId: req.user._id,
+      templateId,
+      formDataKeys: Object.keys(formData).length,
+      operation: 'applyFormToTemplate'
+    });
     
     // Validate template exists
     const templates = await loadTemplates();
@@ -211,18 +229,56 @@ router.post('/templates/:templateId/apply-form', verifyToken, async (req, res) =
       // 3. Recalculate the Excel ✅
       // 4. Get all data from multiple sheets in proper format ✅
       
-      console.log(`📋 [EXCEL APPROACH] Step 1: Received form data from frontend`);
-      console.log(`📋 [EXCEL APPROACH] Raw payload:`, JSON.stringify(formData, null, 2).substring(0, 500) + '...');
-      
-      console.log(`📋 [EXCEL APPROACH] Step 2: Sending FULL payload to Excel Calculation Service (including additionalData)...`);
+      logger.debug('Processing form data for Excel calculation', {
+        templateId,
+        userId: req.user._id,
+        payloadSize: JSON.stringify(formData).length,
+        operation: 'applyFormDataAndCalculate'
+      });
       
       // ⚠️ IMPORTANT: Pass the ORIGINAL formData to the service
       // The service's extractFormData() will handle unwrapping for cell data
       // The service's extractFixedAssetsSchedule() needs the full payload with additionalData
       const result = await excelCalculationService.applyFormDataAndCalculate(templateId, formData);
 
-      console.log(`✅ [EXCEL APPROACH] Step 3: Excel recalculated successfully`);
-      console.log(`✅ [EXCEL APPROACH] Step 4: Excel file generated and encoded to base64`);
+      logger.business('Excel calculation completed successfully', {
+        templateId,
+        userId: req.user._id,
+        operation: 'applyFormDataAndCalculate'
+      });
+
+      // Save Excel to staging for potential full report generation
+      try {
+        // Clean up old staging records for this user/template (keep only the latest)
+        await ReportStaging.deleteMany({
+          user_id: req.user._id,
+          template_id: templateId,
+          status: 'active'
+        });
+
+        const stagingRecord = new ReportStaging({
+          user_id: req.user._id,
+          template_id: templateId,
+          excel_data: Buffer.from(result.excelData, 'base64'),
+          file_name: result.fileName
+        });
+        await stagingRecord.save();
+        logger.business('Excel data saved to staging', {
+          userId: req.user._id,
+          templateId,
+          stagingId: stagingRecord._id,
+          fileName: result.fileName,
+          operation: 'saveToStaging'
+        });
+      } catch (stagingError) {
+        logger.error('Failed to save Excel to staging', {
+          userId: req.user._id,
+          templateId,
+          error: stagingError.message,
+          operation: 'saveToStaging'
+        });
+        // Continue anyway
+      }
 
       // Return Excel filename and base64 data for frontend to display
       res.json({
@@ -238,7 +294,13 @@ router.post('/templates/:templateId/apply-form', verifyToken, async (req, res) =
       });
       
     } catch (excelError) {
-      console.error('❌ [EXCEL APPROACH] Excel processing failed:', excelError);
+      logger.error('Excel processing failed', {
+        userId: req.user._id,
+        templateId,
+        error: excelError.message,
+        stack: excelError.stack,
+        operation: 'applyFormToTemplate'
+      });
       
       // Return error instead of falling back to JSON approach
       return res.status(500).json({
@@ -250,7 +312,13 @@ router.post('/templates/:templateId/apply-form', verifyToken, async (req, res) =
       });
     }
   } catch (error) {
-    console.error('❌ [GENERAL] Error applying form data:', error);
+    logger.error('Error applying form data', {
+      userId: req.user._id,
+      templateId,
+      error: error.message,
+      stack: error.stack,
+      operation: 'applyFormToTemplate'
+    });
     res.status(500).json({ error: error.message });
   }
 });
@@ -276,7 +344,14 @@ router.post('/templates/:templateId/apply-final', verifyToken, async (req, res) 
       }
     });
   } catch (error) {
-    console.error('❌ [EXCEL APPROACH] apply-final failed:', error);
+    logger.error('Error applying final edits', {
+      userId: req.user._id,
+      templateId,
+      updatesCount: req.body?.updates?.length || 0,
+      error: error.message,
+      stack: error.stack,
+      operation: 'applyFinalEdits'
+    });
     res.status(500).json({ success: false, error: error.message || 'Failed to apply final edits' });
   }
 });
@@ -295,7 +370,12 @@ router.post('/', verifyToken, async (req, res) => {
     
     // Log payload size for debugging
     const payloadSize = JSON.stringify(req.body).length;
-    console.log(`Received payload size: ${(payloadSize / 1024).toFixed(2)} KB (form data only)`);
+    logger.debug('Report creation payload received', {
+      userId: req.user._id,
+      templateId,
+      payloadSizeKB: (payloadSize / 1024).toFixed(2),
+      operation: 'createReport'
+    });
     
     const wallet = await Wallet.findOne({ user_id: req.user._id });
     if (!wallet || wallet.report_credits < 1) {
@@ -315,7 +395,13 @@ router.post('/', verifyToken, async (req, res) => {
           jsonData = excelResult.jsonData;
         }
       } catch (excelError) {
-        console.error('Error generating Excel:', excelError);
+        logger.error('Error generating Excel during report creation', {
+          userId: req.user._id,
+          templateId,
+          error: excelError.message,
+          stack: excelError.stack,
+          operation: 'createReport'
+        });
         // Continue without Excel data for now
       }
     }
@@ -342,7 +428,15 @@ router.post('/', verifyToken, async (req, res) => {
     wallet.report_credits -= 1;
     await wallet.save();
     
-    console.log(`Report created successfully: ${report._id}`);
+    logger.business('Report created successfully', {
+      userId: req.user._id,
+      reportId: report._id,
+      title,
+      templateId,
+      creditsDeducted: 1,
+      remainingCredits: wallet.report_credits,
+      operation: 'createReport'
+    });
     
     // Return minimal response
     res.status(201).json({
@@ -357,7 +451,14 @@ router.post('/', verifyToken, async (req, res) => {
       createdAt: report.createdAt
     });
   } catch (error) {
-    console.error('Error creating report:', error);
+    logger.error('Error creating report', {
+      userId: req.user._id,
+      title: req.body.title,
+      templateId: req.body.templateId,
+      error: error.message,
+      stack: error.stack,
+      operation: 'createReport'
+    });
     res.status(400).json({ error: error.message });
   }
 });
@@ -385,6 +486,10 @@ router.get('/', verifyToken, async (req, res) => {
 });
 
 router.get('/:reportId', async (req, res) => {
+  logger.debug('Report retrieval requested', {
+    reportId: req.params.reportId,
+    operation: 'getReportById'
+  });
   try {
     const { reportId } = req.params;
     // Allow access to any report without authentication
@@ -443,7 +548,11 @@ router.post('/:reportId/upload-json', async (req, res) => {
       });
     }
 
-    console.log(`Converted ${updates.length} cell updates from Luckysheet data`);
+    logger.debug('Converted Luckysheet data to cell updates', {
+      reportId,
+      updatesCount: updates.length,
+      operation: 'uploadReportJson'
+    });
 
     // Regenerate Excel with the final updates
     let newExcelData = null;
@@ -461,14 +570,25 @@ router.post('/:reportId/upload-json', async (req, res) => {
         newJsonData = excelResult.jsonData;
       }
     } catch (excelError) {
-      console.error('Error regenerating Excel:', excelError);
+      logger.error('Error regenerating Excel during JSON upload', {
+        reportId,
+        templateId: report.templateId,
+        updatesCount: updates.length,
+        error: excelError.message,
+        stack: excelError.stack,
+        operation: 'uploadReportJson'
+      });
       // Continue with JSON update only
     }
 
     // Log original size
     const originalJsonString = JSON.stringify(finalData, null, 2);
     const originalSize = Buffer.byteLength(originalJsonString, 'utf8');
-    console.log(`Original JSON size: ${(originalSize / 1024).toFixed(2)} KB`);
+    logger.debug('JSON upload processing started', {
+      reportId,
+      originalSizeKB: (originalSize / 1024).toFixed(2),
+      operation: 'uploadReportJson'
+    });
 
     // Save the final Excel JSON with compression
     try {
@@ -491,8 +611,13 @@ router.post('/:reportId/upload-json', async (req, res) => {
       const compressedSize = compressed.length;
       const compressionRatio = ((originalSize - compressedSize) / originalSize * 100).toFixed(2);
 
-      console.log(`Compressed JSON size: ${(compressedSize / 1024).toFixed(2)} KB`);
-      console.log(`Compression ratio: ${compressionRatio}% reduction`);
+      logger.business('JSON compression completed', {
+        reportId,
+        originalSizeKB: (originalSize / 1024).toFixed(2),
+        compressedSizeKB: (compressedSize / 1024).toFixed(2),
+        compressionRatio: `${compressionRatio}%`,
+        operation: 'uploadReportJson'
+      });
 
       // Update report with both file URLs, JSON data, and recalculated Excel data
       report.json_file_url = `/uploads/${reportId}.json`;
@@ -503,11 +628,13 @@ router.post('/:reportId/upload-json', async (req, res) => {
       }
       await report.save();
 
-      console.log(`Final Excel JSON saved to: ${report.json_file_url}`);
-      console.log(`Compressed version saved to: ${report.compressed_json_url}`);
-      if (newExcelData) {
-        console.log(`Recalculated Excel binary stored in database (${newExcelData.length} bytes)`);
-      }
+      logger.business('Report JSON files saved successfully', {
+        reportId,
+        jsonFileUrl: report.json_file_url,
+        compressedFileUrl: report.compressed_json_url,
+        excelDataSize: newExcelData ? `${newExcelData.length} bytes` : null,
+        operation: 'uploadReportJson'
+      });
 
       res.json({
         success: true,
@@ -528,9 +655,6 @@ router.post('/:reportId/upload-json', async (req, res) => {
       report.json_data = finalData; // Store JSON data in DB for quick access
       await report.save();
       
-      console.log(`Final Excel JSON saved to: ${report.json_file_url}`);
-      console.log(`Compressed version saved to: ${report.compressed_json_url}`);
-      
       res.json({
         success: true,
         json_file_url: report.json_file_url,
@@ -544,12 +668,22 @@ router.post('/:reportId/upload-json', async (req, res) => {
       });
       
     } catch (fileError) {
-      console.error('Error saving final JSON file:', fileError);
+      logger.error('Error saving final JSON file', {
+        reportId,
+        error: fileError.message,
+        stack: fileError.stack,
+        operation: 'uploadReportJson'
+      });
       res.status(500).json({ error: 'Failed to save Excel JSON file' });
     }
     
   } catch (error) {
-    console.error('Error uploading final JSON:', error);
+    logger.error('Error uploading final JSON', {
+      reportId: req.params.reportId,
+      error: error.message,
+      stack: error.stack,
+      operation: 'uploadReportJson'
+    });
     res.status(500).json({ error: error.message });
   }
 });
@@ -574,7 +708,12 @@ router.get('/:reportId/download-compressed', async (req, res) => {
       res.status(404).json({ error: 'Compressed JSON file not found' });
     }
   } catch (error) {
-    console.error('Error serving compressed JSON:', error);
+    logger.error('Error serving compressed JSON', {
+      reportId: req.params.reportId,
+      error: error.message,
+      stack: error.stack,
+      operation: 'downloadCompressedJson'
+    });
     res.status(500).json({ error: error.message });
   }
 });
@@ -613,7 +752,12 @@ router.get('/:reportId/download-decompressed', async (req, res) => {
       }
     }
   } catch (error) {
-    console.error('Error serving decompressed JSON:', error);
+    logger.error('Error serving decompressed JSON', {
+      reportId: req.params.reportId,
+      error: error.message,
+      stack: error.stack,
+      operation: 'downloadDecompressedJson'
+    });
     res.status(500).json({ error: error.message });
   }
 });
@@ -640,7 +784,12 @@ router.get('/:reportId/download-excel', async (req, res) => {
     // Send the Excel buffer
     res.send(report.excel_data);
   } catch (error) {
-    console.error('Error downloading Excel:', error);
+    logger.error('Error downloading Excel', {
+      reportId: req.params.reportId,
+      error: error.message,
+      stack: error.stack,
+      operation: 'downloadExcel'
+    });
     res.status(500).json({ error: error.message });
   }
 });
@@ -661,7 +810,12 @@ router.get('/:reportId/json-data', async (req, res) => {
     
     res.json(report.json_data);
   } catch (error) {
-    console.error('Error getting JSON data:', error);
+    logger.error('Error getting JSON data', {
+      reportId: req.params.reportId,
+      error: error.message,
+      stack: error.stack,
+      operation: 'getJsonData'
+    });
     res.status(500).json({ error: error.message });
   }
 });
@@ -696,7 +850,12 @@ router.get('/:reportId/finalworkings-sheet', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error getting FinalWorkings sheet:', error);
+    logger.error('Error getting FinalWorkings sheet', {
+      reportId: req.params.reportId,
+      error: error.message,
+      stack: error.stack,
+      operation: 'getFinalWorkingsSheet'
+    });
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -706,75 +865,13 @@ router.get('/:reportId/finalworkings-sheet', async (req, res) => {
  * @desc    Generate full AI-enhanced report with Excel sheets
  * @access  Public (optional authentication)
  */
-router.post('/templates/:templateId/download-full-report', async (req, res) => {
-  try {
-    const { templateId } = req.params;
-    const formData = req.body;
-    const geminiApiKey = req.body.geminiApiKey || process.env.GEMINI_API_KEY;
+router.post('/templates/:templateId/download-full-report', verifyToken, reportController.downloadFullReport);
 
-    console.log('🚀 [Full Report] Starting generation...');
-    console.log(`  Template: ${templateId}`);
-    console.log(`  User: ${req.user ? req.user._id : 'Not authenticated'}`);
-
-    if (!geminiApiKey) {
-      return res.status(400).json({
-        success: false,
-        error: 'Gemini API key is required. Provide it in request body or set GEMINI_API_KEY environment variable.'
-      });
-    }
-
-    // Call the service to generate full report
-    const result = await excelCalculationService.generateFullReport(
-      templateId,
-      formData,
-      geminiApiKey
-    );
-
-    if (!result.success) {
-      return res.status(500).json({
-        success: false,
-        error: result.error || 'Failed to generate full report'
-      });
-    }
-
-    console.log('✅ [Full Report] Generation complete');
-    console.log(`  File: ${result.fullReportFileName}`);
-    console.log(`  Size: ${result.fullReportBase64?.length || 0} bytes (base64)`);
-
-    res.json({
-      success: true,
-      excelData: result.excelData,
-      pdfData: result.pdfData,
-      fullReportData: result.fullReportData,
-      fullReportFileName: result.fullReportFileName,
-      aiInsights: result.aiInsights,
-      data: {
-        fullReportFileName: result.fullReportFileName,
-        fullReportBase64: result.fullReportData,
-        excelFileName: result.fileName || `frcc1_report_${Date.now()}.xlsx`,
-        excelBase64: result.excelData,
-        pdfFileName: result.pdfFileName,
-        pdfBase64: result.pdfData,
-        aiInsights: result.aiInsights
-      }
-    });
-  } catch (error) {
-    console.error('❌ [Full Report] Generation failed:', error);
-
-    // Handle template validation errors
-    if (error.message && error.message.includes('Template') && error.message.includes('not found')) {
-      return res.status(404).json({
-        success: false,
-        error: 'Template not found'
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
-  }
-});
+/**
+ * @route   GET /api/reports/download/:fileId/:type
+ * @desc    Download Excel file or AI report from MongoDB
+ * @access  Public (ownership verified in controller)
+ */
+router.get('/download/:fileId/:type', reportController.downloadFile);
 
 module.exports = router;

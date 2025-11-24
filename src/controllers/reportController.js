@@ -1,9 +1,11 @@
 const Report = require('../models/Report');
 const Wallet = require('../models/Wallet');
 const excelCalculationService = require('../services/excelCalculationService');
+const excelFileService = require('../services/excelFileService');
 const fs = require('fs').promises;
 const path = require('path');
 const { spawn } = require('child_process');
+const logger = require('../utils/logger');
 
 /**
  * Report Controller
@@ -20,8 +22,11 @@ exports.applyFormData = async (req, res, next) => {
     const { templateId } = req.params;
     const formData = req.body;
 
-    console.log(`[ReportController] Apply form data for template: ${templateId}`);
-    console.log(`[ReportController] User: ${req.user._id}`);
+    logger.business(`Applying form data for template: ${templateId}`, {
+      userId: req.user._id,
+      templateId,
+      operation: 'applyFormData'
+    });
 
     // Apply form data and calculate using Excel service
     const result = await excelCalculationService.applyFormDataAndCalculate(
@@ -29,13 +34,32 @@ exports.applyFormData = async (req, res, next) => {
       formData
     );
 
-    // Return success response with file path and calculated data
+    // Save Excel file to MongoDB
+    const excelFile = await excelFileService.saveExcelFile({
+      userId: req.user._id,
+      templateId: templateId,
+      fileName: result.fileName,
+      fileBuffer: Buffer.from(result.excelData, 'base64'),
+      fileSize: Buffer.from(result.excelData, 'base64').length,
+      generatedBy: req.user._id,
+      stage: 'stage1',
+      jsonData: result.jsonData,
+      allSheetsData: result.allSheetsData,
+      formattedWCData: result.formattedWCData,
+      htmlContent: result.htmlContent,
+      htmlJsonData: result.htmlJsonData,
+      pdfData: result.pdfData ? Buffer.from(result.pdfData, 'base64') : null,
+      pdfFileName: result.pdfFileName,
+      meta: result.meta
+    });
+
+    // Return success response with file ID and calculated data
     res.json({
       success: true,
       message: 'Excel generated successfully',
       data: {
+        fileId: excelFile._id,
         templateId: templateId,
-        fileUrl: result.relativePath,
         fileName: result.fileName,
         excelBase64: result.excelData, // Include the base64 Excel data
         jsonData: result.jsonData, // Include JSON data for Luckysheet
@@ -50,7 +74,13 @@ exports.applyFormData = async (req, res, next) => {
     });
 
   } catch (error) {
-    console.error('[ReportController] Error in applyFormData:', error);
+    logger.error('Error in applyFormData', {
+      userId: req.user._id,
+      templateId: req.params.templateId,
+      error: error.message,
+      stack: error.stack,
+      operation: 'applyFormData'
+    });
     next(error);
   }
 };
@@ -90,7 +120,13 @@ exports.applyFinalEdits = async (req, res, next) => {
       }
     });
   } catch (error) {
-    console.error('[ReportController] Error in applyFinalEdits:', error);
+    logger.error('Error in applyFinalEdits', {
+      userId: req.user._id,
+      templateId: req.params.templateId,
+      error: error.message,
+      stack: error.stack,
+      operation: 'applyFinalEdits'
+    });
     next(error);
   }
 };
@@ -127,7 +163,12 @@ exports.exportToPdf = async (req, res, next) => {
     });
 
   } catch (error) {
-    console.error('[ReportController] Error in exportToPdf:', error);
+    logger.error('Error in exportToPdf', {
+      userId: req.user._id,
+      error: error.message,
+      stack: error.stack,
+      operation: 'exportToPdf'
+    });
     next(error);
   }
 };
@@ -160,14 +201,66 @@ exports.exportToJson = async (req, res, next) => {
     });
 
   } catch (error) {
-    console.error('[ReportController] Error in exportToJson:', error);
+    logger.error('Error in exportToJson', {
+      userId: req.user._id,
+      error: error.message,
+      stack: error.stack,
+      operation: 'exportToJson'
+    });
     next(error);
   }
 };
 
 /**
- * @route   GET /api/reports/templates/:templateId/download/:fileName
- * @desc    Download calculated Excel file
+ * @route   GET /api/reports/download/:fileId/:type
+ * @desc    Download Excel file or AI report from MongoDB
+ * @access  Private
+ */
+exports.downloadFile = async (req, res, next) => {
+  try {
+    const { fileId, type } = req.params; // type: 'excel' or 'ai-report'
+
+    logger.business(`Downloading file: ${fileId}, type: ${type}`, {
+      fileId,
+      type,
+      operation: 'downloadFile'
+    });
+
+    // Get file buffer from MongoDB
+    const fileData = await excelFileService.getFileBuffer(fileId, type);
+
+    // Increment download count
+    await excelFileService.incrementDownloadCount(fileId);
+
+    // Set headers for file download
+    res.setHeader('Content-Type', fileData.mimeType);
+    res.setHeader('Content-Disposition', `attachment; filename="${fileData.fileName}"`);
+    res.setHeader('Content-Length', fileData.fileSize);
+
+    // Send file buffer
+    res.send(fileData.buffer);
+
+  } catch (error) {
+    logger.error('Error in downloadFile', {
+      fileId: req.params.fileId,
+      type: req.params.type,
+      error: error.message,
+      stack: error.stack,
+      operation: 'downloadFile'
+    });
+    if (error.message.includes('not found')) {
+      return res.status(404).json({
+        success: false,
+        error: 'File not found'
+      });
+    }
+    next(error);
+  }
+};
+
+/**
+ * @route   GET /api/reports/templates/:templateId/download/:fileName (LEGACY)
+ * @desc    Download calculated Excel file (legacy route for backwards compatibility)
  * @access  Private
  */
 exports.downloadExcelFile = async (req, res, next) => {
@@ -205,7 +298,14 @@ exports.downloadExcelFile = async (req, res, next) => {
     fileStream.pipe(res);
 
   } catch (error) {
-    console.error('[ReportController] Error in downloadExcelFile:', error);
+    logger.error('Error in downloadExcelFile', {
+      userId: req.user._id,
+      templateId: req.params.templateId,
+      fileName: req.params.fileName,
+      error: error.message,
+      stack: error.stack,
+      operation: 'downloadExcelFile'
+    });
     next(error);
   }
 };
@@ -227,7 +327,12 @@ exports.createReport = async (req, res, next) => {
       locked_sheets
     } = req.body;
 
-    console.log(`[ReportController] Creating report: ${title}`);
+    logger.business(`Creating report: ${title}`, {
+      userId: req.user._id,
+      title,
+      templateId,
+      operation: 'createReport'
+    });
 
     // Check wallet credits
     const wallet = await Wallet.findOne({ user_id: req.user._id });
@@ -258,7 +363,15 @@ exports.createReport = async (req, res, next) => {
     wallet.report_credits -= 1;
     await wallet.save();
 
-    console.log(`[ReportController] Report created: ${report._id}`);
+    logger.business(`Report created successfully: ${report._id}`, {
+      userId: req.user._id,
+      reportId: report._id,
+      title: report.title,
+      templateId: report.templateId,
+      creditsDeducted: 1,
+      remainingCredits: wallet.report_credits,
+      operation: 'createReport'
+    });
 
     res.status(201).json({
       success: true,
@@ -275,7 +388,14 @@ exports.createReport = async (req, res, next) => {
     });
 
   } catch (error) {
-    console.error('[ReportController] Error in createReport:', error);
+    logger.error('Error in createReport', {
+      userId: req.user._id,
+      title: req.body.title,
+      templateId: req.body.templateId,
+      error: error.message,
+      stack: error.stack,
+      operation: 'createReport'
+    });
     next(error);
   }
 };
@@ -302,7 +422,12 @@ exports.getReports = async (req, res, next) => {
     });
 
   } catch (error) {
-    console.error('[ReportController] Error in getReports:', error);
+    logger.error('Error in getReports', {
+      userId: req.user._id,
+      error: error.message,
+      stack: error.stack,
+      operation: 'getReports'
+    });
     next(error);
   }
 };
@@ -340,7 +465,13 @@ exports.getReportById = async (req, res, next) => {
     });
 
   } catch (error) {
-    console.error('[ReportController] Error in getReportById:', error);
+    logger.error('Error in getReportById', {
+      userId: req.user._id,
+      reportId: req.params.reportId,
+      error: error.message,
+      stack: error.stack,
+      operation: 'getReportById'
+    });
     next(error);
   }
 };
@@ -388,7 +519,12 @@ exports.uploadReportJson = async (req, res, next) => {
     });
 
   } catch (error) {
-    console.error('[ReportController] Error in uploadReportJson:', error);
+    logger.error('Error in uploadReportJson', {
+      reportId: req.params.reportId,
+      error: error.message,
+      stack: error.stack,
+      operation: 'uploadReportJson'
+    });
     next(error);
   }
 };
@@ -427,7 +563,13 @@ exports.deleteReport = async (req, res, next) => {
     });
 
   } catch (error) {
-    console.error('[ReportController] Error in deleteReport:', error);
+    logger.error('Error in deleteReport', {
+      userId: req.user._id,
+      reportId: req.params.reportId,
+      error: error.message,
+      stack: error.stack,
+      operation: 'deleteReport'
+    });
     next(error);
   }
 };
@@ -449,15 +591,26 @@ function runPythonScript(scriptPath, args, pythonExecutable) {
 
     pythonProcess.on('close', (code) => {
       if (code !== 0) {
-        console.error(`Python script exited with code ${code}`);
-        console.error(`stderr: ${stderr}`);
+        logger.error('Python script execution failed', {
+          scriptPath,
+          exitCode: code,
+          stderr,
+          args,
+          operation: 'runPythonScript'
+        });
         return reject(new Error(`Python script failed with code ${code}`));
       }
       resolve(stdout);
     });
 
     pythonProcess.on('error', (err) => {
-      console.error('Failed to start Python process.', err);
+      logger.error('Failed to start Python process', {
+        scriptPath,
+        error: err.message,
+        stack: err.stack,
+        args,
+        operation: 'runPythonScript'
+      });
       reject(err);
     });
   });
@@ -472,38 +625,109 @@ exports.downloadFullReport = async (req, res, next) => {
   try {
     const { templateId } = req.params;
     const formData = req.body;
-    const aiProvider = req.body.aiProvider || 'grok'; // Default to Grok (preferred AI provider)
-    const apiKey = req.body.apiKey || req.body.perplexityApiKey || req.body.grokApiKey;
+    const grokApiKey = req.body.grokApiKey || req.body.apiKey || process.env.GROK_API_KEY || process.env.XAI_API_KEY;
 
-    console.log('[ReportController] Generating full AI-enhanced report (Python-only)');
-    console.log(`  Template ID: ${templateId}`);
-    console.log(`  AI Provider: ${aiProvider} (Grok is default)`);
-    console.log(`  User: ${req.user ? req.user._id : 'Not authenticated'}`);
+    logger.business('Generating full AI-enhanced report (Grok-only)', {
+      userId: req.user ? req.user._id : null,
+      templateId,
+      operation: 'downloadFullReport',
+      creditsRequired: 100
+    });
 
-    // Validate API key based on provider
-    let finalApiKey = apiKey;
-    if (!finalApiKey) {
-      if (aiProvider === 'grok') {
-        finalApiKey = process.env.GROK_API_KEY;
-      } else {
-        finalApiKey = process.env.PERPLEXITY_API_KEY;
-      }
-    }
-
-    if (!finalApiKey) {
+    // Validate Grok API key first
+    if (!grokApiKey) {
       return res.status(400).json({
         success: false,
-        error: `${aiProvider.toUpperCase()} API key required. Provide apiKey in request body or set ${aiProvider.toUpperCase()}_API_KEY environment variable. (Grok is the default AI provider)`
+        error: 'Grok API key required. Provide grokApiKey in request body or set GROK_API_KEY/XAI_API_KEY environment variable.'
       });
     }
 
-    // Use Excel calculation service with full report generation enabled
-    const result = await excelCalculationService.generateFullReport(
+    // Check wallet credits (100 credits for AI report)
+    const wallet = await Wallet.findOne({ user_id: req.user._id });
+    if (!wallet || wallet.report_credits < 100) {
+      return res.status(400).json({
+        success: false,
+        error: 'Insufficient report credits. AI report generation requires 100 credits.',
+        error_code: 'INSUFFICIENT_REPORT_CREDITS',
+        required_credits: 100,
+        available_credits: wallet ? wallet.report_credits : 0
+      });
+    }
+
+    // Deduct 100 credits from wallet immediately after validation
+    wallet.report_credits -= 100;
+    await wallet.save();
+
+    logger.business('Credits deducted for AI report generation', {
+      userId: req.user._id,
       templateId,
-      formData,
-      finalApiKey,
-      aiProvider
-    );
+      creditsDeducted: 100,
+      remainingCredits: wallet.report_credits,
+      operation: 'downloadFullReport'
+    });
+
+    // Check for existing ReportStaging data (latest Excel with user edits)
+    const ReportStaging = require('../models/ReportStaging');
+    const existingStaging = await ReportStaging.findOne({
+      user_id: req.user._id,
+      template_id: templateId,
+      status: 'active'
+    }).sort({ createdAt: -1 });
+
+    let result;
+    let usedExistingExcel = false;
+
+    if (existingStaging) {
+      // Use existing Excel data from ReportStaging
+      logger.business('Using existing Excel data from ReportStaging for AI report generation', {
+        userId: req.user._id,
+        templateId,
+        stagingId: existingStaging._id,
+        operation: 'downloadFullReport'
+      });
+
+      // Save Excel data to temporary file for processing
+      const tempDir = path.join(__dirname, '../../temp');
+      await fs.mkdir(tempDir, { recursive: true });
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const tempExcelPath = path.join(tempDir, `${templateId}_existing_${timestamp}.xlsx`);
+      await fs.writeFile(tempExcelPath, existingStaging.excel_data);
+
+      // Generate full report using existing Excel file
+      result = await excelCalculationService.generateFullReportFromFile(
+        tempExcelPath,
+        templateId,
+        formData, // Still pass formData for any additional context
+        grokApiKey,
+        'grok'
+      );
+
+      usedExistingExcel = true;
+
+      // Cleanup temp file
+      try {
+        await fs.unlink(tempExcelPath);
+      } catch (cleanupError) {
+        logger.warn('Failed to cleanup temp Excel file', {
+          tempExcelPath,
+          error: cleanupError.message,
+          operation: 'downloadFullReport'
+        });
+      }
+    } else {
+      // No existing staging data, generate fresh Excel
+      logger.business('No existing Excel data found, generating fresh Excel for AI report', {
+        userId: req.user._id,
+        templateId,
+        operation: 'downloadFullReport'
+      });
+
+      result = await excelCalculationService.generateFullReport(
+        templateId,
+        formData,
+        grokApiKey
+      );
+    }
 
     // Check if full report was generated
     if (!result.fullReportData) {
@@ -513,35 +737,84 @@ exports.downloadFullReport = async (req, res, next) => {
       });
     }
 
-    // Return success response with all data
+    // Save Excel file to MongoDB with AI report
+    const excelFile = await excelFileService.saveExcelFile({
+      userId: req.user._id,
+      templateId: templateId,
+      fileName: result.fileName,
+      fileBuffer: Buffer.from(result.excelData, 'base64'),
+      fileSize: Buffer.from(result.excelData, 'base64').length,
+      generatedBy: req.user._id,
+      stage: 'stage1',
+      jsonData: result.jsonData,
+      allSheetsData: result.allSheetsData,
+      formattedWCData: result.formattedWCData,
+      // htmlContent and htmlJsonData skipped (not generated)
+      pdfData: result.pdfData ? Buffer.from(result.pdfData, 'base64') : null,
+      pdfFileName: result.pdfFileName,
+      meta: result.meta
+    });
+
+    // Update with AI report data
+    await excelFileService.updateWithAIReport(excelFile._id, {
+      reportBuffer: Buffer.from(result.fullReportData, 'base64'),
+      reportFileName: result.fullReportFileName
+    });
+
+    logger.business('AI report generated and saved successfully', {
+      userId: req.user._id,
+      templateId,
+      fileId: excelFile._id,
+      creditsDeducted: 100,
+      remainingCredits: wallet.report_credits,
+      usedExistingExcel,
+      operation: 'downloadFullReport'
+    });
+
+    // Return success response with file ID and PDF download data only
     res.json({
       success: true,
-      message: 'AI-enhanced full report generated successfully',
+      message: usedExistingExcel 
+        ? 'AI-enhanced full report generated successfully using existing Excel data'
+        : 'AI-enhanced full report generated successfully',
       data: {
-        // Excel data
-        excelFileName: result.fileName,
-        excelBase64: result.excelData,
-        
-        // FinalWorkings PDF
-        pdfFileName: result.pdfFileName,
-        pdfBase64: result.pdfData,
-        
-        // Full AI-enhanced report (Excel sheets + AI content)
+        fileId: excelFile._id,
         fullReportFileName: result.fullReportFileName,
-        fullReportBase64: result.fullReportData,
-        
-        // JSON data for frontend display
-        jsonData: result.jsonData,
-        htmlContent: result.htmlContent,
-        
-        // Download URLs
-        excelUrl: result.relativePath,
-        fullReportUrl: `/temp/${result.fullReportFileName}`
+        fullReportUrl: `/api/reports/download/${excelFile._id}/ai-report`
       }
     });
 
   } catch (error) {
-    console.error('[ReportController] Error in downloadFullReport:', error);
+    // Refund credits if they were deducted but report generation failed
+    try {
+      if (wallet && wallet.report_credits !== undefined) {
+        wallet.report_credits += 100;
+        await wallet.save();
+        logger.warn('Credits refunded due to report generation failure', {
+          userId: req.user ? req.user._id : null,
+          templateId: req.params.templateId,
+          creditsRefunded: 100,
+          newBalance: wallet.report_credits,
+          operation: 'downloadFullReport'
+        });
+      }
+    } catch (refundError) {
+      logger.error('Failed to refund credits after report generation error', {
+        userId: req.user ? req.user._id : null,
+        templateId: req.params.templateId,
+        refundError: refundError.message,
+        originalError: error.message,
+        operation: 'downloadFullReport'
+      });
+    }
+
+    logger.error('Error in downloadFullReport', {
+      userId: req.user ? req.user._id : null,
+      templateId: req.params.templateId,
+      error: error.message,
+      stack: error.stack,
+      operation: 'downloadFullReport'
+    });
     next(error);
   }
 };

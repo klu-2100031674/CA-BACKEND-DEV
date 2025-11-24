@@ -1,4 +1,5 @@
 const fs = require('fs');
+const logger = require('../utils/logger');
 
 function a1ToRC(a1) {
   const m = /^([A-Za-z]+)(\d+)$/.exec(a1);
@@ -100,7 +101,7 @@ function updateAllCellStructures(book, sheetName, r, c, value) {
         }
       }
     } catch (error) {
-      console.warn(`Error in searchAndUpdateNested at ${path}:`, error.message);
+      logger.warn('Error in searchAndUpdateNested', { operation: 'searchAndUpdateNested', path, error: error.message });
     } finally {
       visited.delete(obj);
     }
@@ -114,7 +115,7 @@ function updateAllCellStructures(book, sheetName, r, c, value) {
 function run() {
   try {
     const book = JSON.parse(fs.readFileSync('workbook.json', 'utf-8'));
-    console.log('Loaded workbook.json successfully.');
+    logger.info('Loaded workbook.json successfully', { operation: 'run' });
 
     if (book.data) {
       book.data.forEach(sheet => {
@@ -130,19 +131,18 @@ function run() {
     };
 
     for (const [a1, val] of Object.entries(updates)) {
-      console.log(`\nUpdating ${a1} with ${val}:`);
+      logger.info(`Updating cell ${a1} with ${val}`, { operation: 'run', cell: a1, value: val });
       const { r, c } = a1ToRC(a1);
       const updatedCount = updateAllCellStructures(book, 'Assumptions.1', r, c, val);
-      console.log(`  Total structures updated: ${updatedCount}`);
+      logger.info(`Total structures updated for ${a1}`, { operation: 'run', cell: a1, updatedCount });
       
       updateLuckysheetCell(book, 'Assumptions.1', a1, val);
     }
 
     fs.writeFileSync('output.json', JSON.stringify(book, null, 2));
-    console.log('\nSaved to output.json');
-    console.log('Note: Formulas are preserved, only values and display text updated.');
+    logger.info('Saved workbook to output.json', { operation: 'run', note: 'Formulas are preserved, only values and display text updated' });
   } catch (error) {
-    console.error('Error:', error.message);
+    logger.error('Error in run function', { operation: 'run', error: error.message });
   }
 }
 
@@ -150,7 +150,7 @@ function safeDeepCopy(obj, visited = new WeakMap(), depth = 0) {
   if (obj === null || typeof obj !== 'object') return obj;
   
   if (depth > 100) {
-    console.warn('Deep copy depth limit reached, returning null');
+    logger.warn('Deep copy depth limit reached, returning null', { operation: 'safeDeepCopy', depth });
     return null;
   }
   
@@ -166,7 +166,7 @@ function safeDeepCopy(obj, visited = new WeakMap(), depth = 0) {
         arrCopy[index] = safeDeepCopy(item, visited, depth + 1);
       });
     } catch (error) {
-      console.warn('Error copying array:', error.message);
+      logger.warn('Error copying array', { operation: 'safeDeepCopy', error: error.message });
     }
     return arrCopy;
   }
@@ -178,7 +178,7 @@ function safeDeepCopy(obj, visited = new WeakMap(), depth = 0) {
       objCopy[key] = safeDeepCopy(obj[key], visited, depth + 1);
     });
   } catch (error) {
-    console.warn('Error copying object:', error.message);
+    logger.warn('Error copying object', { operation: 'safeDeepCopy', error: error.message });
   }
   
   return objCopy;
@@ -206,14 +206,14 @@ function alterTemplateJson(templateJson, formData, sheetName = 'Assumptions.1') 
           updateAllCellStructures(book, sheetName, r, c, value);
           updateLuckysheetCell(book, sheetName, upperCellAddress, value);
         } catch (error) {
-          console.warn(`Invalid cell address ${upperCellAddress}: ${error.message}`);
+          logger.warn('Invalid cell address', { operation: 'alterTemplateJSON', cellAddress: upperCellAddress, error: error.message });
         }
       }
     }
 
     return book;
   } catch (error) {
-    console.error('Error altering template JSON:', error.message);
+    logger.error('Error altering template JSON', { operation: 'alterTemplateJSON', error: error.message });
     throw error;
   }
 }

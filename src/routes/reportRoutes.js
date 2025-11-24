@@ -48,6 +48,13 @@ router.post(
   reportController.downloadFullReport
 );
 
+// Download file from MongoDB (Excel or AI report)
+router.get(
+  '/download/:fileId/:type',
+  verifyToken,
+  reportController.downloadFile
+);
+
 // Download exported file
 router.get(
   '/download/:fileName',

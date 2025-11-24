@@ -2,9 +2,14 @@
  * CORS Configuration for Production
  */
 
+const logger = require('../utils/logger');
+
 const corsOptions = {
   origin: function (origin, callback) {
-    console.log('CORS check for origin:', origin);
+    logger.debug('CORS check for origin', {
+      operation: 'corsOriginCheck',
+      origin
+    });
     // Allow requests with no origin (mobile apps, Postman, etc.)
     if (!origin) return callback(null, true);
 
@@ -19,24 +24,41 @@ const corsOptions = {
       ? process.env.ALLOWED_ORIGINS.split(',').map(url => url.trim())
       : defaultOrigins;
 
-    console.log(`Origin: ${origin}`);
-    console.log(`Allowed origins: ${allowedOrigins.join(', ')}`);
+    logger.debug('CORS origin validation', {
+      operation: 'corsOriginCheck',
+      origin,
+      allowedOrigins
+    });
 
-    // In development, allow all localhost origins
+    // In development, allow localhost origins
     if (process.env.NODE_ENV === 'development') {
-      const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
-      if (isLocalhost) {
-        console.log(`✓ CORS allowed (development - localhost): ${origin}`);
+      const allowedDevOrigins = [
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:5173'
+      ];
+      if (allowedDevOrigins.includes(origin) || (origin && origin.includes('localhost'))) {
+        logger.info('CORS allowed for development origin', {
+          operation: 'corsOriginCheck',
+          origin
+        });
         return callback(null, true);
       }
     }
 
     if (allowedOrigins.includes(origin)) {
-      console.log(`✓ CORS allowed: ${origin}`);
+      logger.info('CORS allowed', {
+        operation: 'corsOriginCheck',
+        origin
+      });
       callback(null, true);
     } else {
-      console.error(`✗ CORS blocked origin: ${origin}`);
-      console.error(`Allowed origins: ${allowedOrigins.join(', ')}`);
+      logger.warn('CORS blocked origin', {
+        operation: 'corsOriginCheck',
+        origin,
+        allowedOrigins
+      });
       callback(new Error(`Not allowed by CORS: ${origin}`));
     }
   },

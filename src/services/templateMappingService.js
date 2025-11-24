@@ -8,6 +8,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const logger = require('../utils/logger');
 
 class TemplateMappingService {
   constructor() {
@@ -23,9 +24,17 @@ class TemplateMappingService {
     try {
       const data = fs.readFileSync(this.mappingsPath, 'utf8');
       this.mappings = JSON.parse(data);
-      console.log('[TemplateMappingService] Loaded mappings for:', Object.keys(this.mappings).join(', '));
+      logger.info('Template mappings loaded successfully', {
+        templates: Object.keys(this.mappings),
+        operation: 'loadMappings'
+      });
     } catch (error) {
-      console.error('[TemplateMappingService] Failed to load mappings:', error.message);
+      logger.error('Failed to load template mappings', {
+        mappingsPath: this.mappingsPath,
+        error: error.message,
+        stack: error.stack,
+        operation: 'loadMappings'
+      });
       this.mappings = {};
     }
   }
@@ -40,7 +49,11 @@ class TemplateMappingService {
     const normalizedId = this.normalizeTemplateId(templateId);
     
     if (!this.mappings[normalizedId]) {
-      console.warn(`[TemplateMappingService] No mapping found for ${templateId} (normalized: ${normalizedId})`);
+      logger.warn('No mapping found for template', {
+        templateId,
+        normalizedId,
+        operation: 'getMapping'
+      });
       return null;
     }
 
@@ -78,7 +91,12 @@ class TemplateMappingService {
 
     const sectionKey = `${section}_section`;
     if (!mapping[sectionKey] || !mapping[sectionKey].input_rows) {
-      console.warn(`[TemplateMappingService] No input rows found for ${templateId}.${section}`);
+      logger.warn('No input rows found for template section', {
+        templateId,
+        section,
+        sectionKey,
+        operation: 'getInputRows'
+      });
       return [];
     }
 
@@ -125,7 +143,10 @@ class TemplateMappingService {
   getFixedAssetsMapping(templateId) {
     const mapping = this.getMapping(templateId);
     if (!mapping || !mapping.fixed_assets) {
-      console.warn(`[TemplateMappingService] No fixed assets mapping for ${templateId}`);
+      logger.warn('No fixed assets mapping found for template', {
+        templateId,
+        operation: 'getFixedAssetsMapping'
+      });
       return {};
     }
 
@@ -154,7 +175,12 @@ class TemplateMappingService {
     }
 
     // If not in either list, be conservative and don't write
-    console.warn(`[TemplateMappingService] Row ${rowNumber} not in mapping for ${templateId}.${section} - skipping`);
+    logger.warn('Row not in mapping - skipping write operation', {
+      templateId,
+      section,
+      rowNumber,
+      operation: 'canWriteToRow'
+    });
     return false;
   }
 
@@ -167,7 +193,10 @@ class TemplateMappingService {
   filterWritableCells(templateId, cellData) {
     const mapping = this.getMapping(templateId);
     if (!mapping) {
-      console.warn(`[TemplateMappingService] No mapping for ${templateId}, allowing all cells`);
+      logger.warn('No mapping found for template - allowing all cells', {
+        templateId,
+        operation: 'filterWritableCells'
+      });
       return cellData;
     }
 
@@ -182,7 +211,11 @@ class TemplateMappingService {
         if (financeCells[lowerRef] === 'input') {
           filtered[cellRef] = value;
         } else {
-          console.log(`[TemplateMappingService] Skipping formula cell: ${cellRef}`);
+          logger.debug('Skipping formula cell in finance section', {
+            cellRef,
+            templateId,
+            operation: 'filterWritableCells'
+          });
         }
         continue;
       }
@@ -217,7 +250,13 @@ class TemplateMappingService {
       }
     }
 
-    console.log(`[TemplateMappingService] Filtered ${Object.keys(cellData).length} cells -> ${Object.keys(filtered).length} writable cells`);
+    logger.info('Cell filtering completed', {
+      operation: 'filterWritableCells',
+      templateId,
+      originalCellCount: Object.keys(cellData).length,
+      filteredCellCount: Object.keys(filtered).length,
+      writableCells: Object.keys(filtered).length
+    });
     return filtered;
   }
 }

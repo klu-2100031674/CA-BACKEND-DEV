@@ -2,8 +2,17 @@
  * Error Handler Middleware
  */
 
+const logger = require('../utils/logger');
+
 const errorHandler = (err, req, res, next) => {
-  console.error('❌ Error:', err);
+  logger.error('Unhandled error in application', {
+    error: err.message,
+    stack: err.stack,
+    url: req.url,
+    method: req.method,
+    userId: req.user ? req.user._id : null,
+    operation: 'errorHandler'
+  });
 
   // Mongoose validation error
   if (err.name === 'ValidationError') {

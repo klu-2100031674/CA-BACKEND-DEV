@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 import openai
+import google.generativeai as genai
 from PyPDF2 import PdfMerger, PdfReader
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -84,8 +85,14 @@ class AIReportGenerator:
             )
             self.model = "sonar"
             print("🤖 AI Report Generator initialized with Perplexity", file=sys.stderr)
+        elif self.provider == "gemini":
+            # Configure Gemini AI (Google)
+            genai.configure(api_key=api_key)
+            self.client = genai.GenerativeModel('gemini-1.5-flash')
+            self.model = "gemini-1.5-flash"
+            print("🤖 AI Report Generator initialized with Gemini (Google AI)", file=sys.stderr)
         else:
-            raise ValueError(f"Unsupported AI provider: {provider}. Use 'perplexity' or 'grok'")
+            raise ValueError(f"Unsupported AI provider: {provider}. Use 'perplexity', 'grok', or 'gemini'")
         
         print(f"🤖 Using model: {self.model}", file=sys.stderr)
     
@@ -163,11 +170,17 @@ class AIReportGenerator:
             import time
             time.sleep(2)
             
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt[:8000]}]  # Limit prompt length
-            )
-            generated_text = response.choices[0].message.content
+            if self.provider == "gemini":
+                # Use Gemini API
+                response = self.client.generate_content(prompt[:8000])
+                generated_text = response.text
+            else:
+                # Use OpenAI-style API for Grok and Perplexity
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[{"role": "user", "content": prompt[:8000]}]  # Limit prompt length
+                )
+                generated_text = response.choices[0].message.content
             
             print(f"   ✅ Generated {len(generated_text)} characters", file=sys.stderr)
             return generated_text
@@ -178,631 +191,149 @@ class AIReportGenerator:
             
             # Check for different types of errors based on provider
             error_str = str(e).lower()
-            if "401" in str(e) or "authorization" in error_str:
+            if "401" in str(e) or "authorization" in error_str or "invalid api key" in error_str:
                 if self.provider == "grok":
                     print(f"   🔐 GROK AUTHENTICATION ERROR: Check if Grok API key is valid", file=sys.stderr)
                     print(f"   💡 Try regenerating your API key at https://console.x.ai/", file=sys.stderr)
+                elif self.provider == "gemini":
+                    print(f"   🔐 GEMINI AUTHENTICATION ERROR: Check if Gemini API key is valid", file=sys.stderr)
+                    print(f"   💡 Try regenerating your API key at https://makersuite.google.com/app/apikey", file=sys.stderr)
                 else:
                     print(f"   🔐 PERPLEXITY AUTHENTICATION ERROR: Check if Perplexity API key is valid and active", file=sys.stderr)
                     print(f"   💡 Try regenerating your API key at https://www.perplexity.ai/settings/api", file=sys.stderr)
-            elif "403" in str(e) or "credits" in error_str or "permission" in error_str:
+            elif "403" in str(e) or "credits" in error_str or "permission" in error_str or "quota" in error_str:
                 if self.provider == "grok":
                     print(f"   💰 GROK CREDITS ERROR: Your Grok account needs credits", file=sys.stderr)
                     print(f"   💡 Add credits at https://console.x.ai/team/7ca0b680-16db-4157-a272-9379e32ba4ce", file=sys.stderr)
+                elif self.provider == "gemini":
+                    print(f"   💰 GEMINI QUOTA ERROR: Check your Gemini API quota and billing", file=sys.stderr)
+                    print(f"   💡 Check usage at https://makersuite.google.com/app/apikey", file=sys.stderr)
                 else:
                     print(f"   🚫 PERPLEXITY PERMISSION ERROR: Check your account permissions", file=sys.stderr)
             
             return f"[AI Content Generation Failed: {str(e)}]"
     
     def _create_prompt(self, section_type: str, excel_data: Dict, context: str, reference_context: str) -> str:
-        """Create a detailed prompt for AI based on section type."""
-        
-        base_instructions = f"""
-You are a professional financial report writer analyzing a manufacturing/business project.
-
-**WRITING STYLE:**
-- Professional, formal business report writing
-- Clear paragraph structure (3-5 paragraphs)
-- Reference the Excel data where appropriate
-- Use your expertise to provide comprehensive analysis and recommendations
-
-**TABLE FORMATTING (CRITICAL - MUST USE THIS EXACT FORMAT):**
-When including tables, use this EXACT format with NO HTML, NO Markdown:
-
-[TABLE:Your Table Title Here]
-Header1|Header2|Header3|Header4
-DataRow1Col1|DataRow1Col2|DataRow1Col3|DataRow1Col4
-DataRow2Col1|DataRow2Col2|DataRow2Col3|DataRow2Col4
-[/TABLE]
-
-Example:
-[TABLE:Financial Ratios - 3 Year Projection]
-Ratio|Year 1|Year 2|Year 3|Banking Norm
-DSCR|1.65|1.85|2.10|Min 1.50
-Current Ratio|1.45|1.60|1.75|1.33-2.00
-[/TABLE]
-
-RULES:
-- Use pipe (|) to separate columns
-- First row after [TABLE:...] is ALWAYS the header row
-- NO HTML tags (<table>, <tr>, <td>, <br>, etc.)
-- NO Markdown (no |---|---|)
-- Just plain text with pipes
-- Include meaningful table titles
-- Use data from Excel calculations for financial tables
-
-═══════════════════════════════════════════════════════════
-
-**EXCEL CALCULATIONS (Financial Data from Analysis):**
-{json.dumps(excel_data, indent=2)}
-
-{f"**REFERENCE REPORT FORMAT:**{reference_context}" if reference_context else ""}
-
-═══════════════════════════════════════════════════════════
-**TASK:** Write the "{section_type}" section using your expertise and the Excel data provided.
-Include relevant tables using [TABLE:...][/TABLE] format with data from Excel calculations.
-═══════════════════════════════════════════════════════════
-"""
-        
-        section_prompts = {
-            "executive_summary": base_instructions + """
-Create an Executive Summary that includes:
-1. Project overview and business nature
-2. Total project cost and funding structure
-3. Key financial indicators (profitability, ROI, payback period)
-4. Employment generation
-5. Overall viability assessment
-
-Keep it concise (200-300 words), highlight only the most important points.
-""",
-
-            "project_profile": base_instructions + """
-Create a comprehensive Project Profile Overview that includes:
-1. Promoter details and background
-2. Business experience and qualifications
-3. Project location with specific address
-4. Nature of business activity in detail
-5. Legal structure and registration details
-6. Existing business (if any) and turnover
-7. Educational qualifications of key personnel
-
-**REQUIRED TABLE** - Use [TABLE:...][/TABLE] format:
-[TABLE:Project Profile Summary]
-Particulars|Details
-Project Name|[Extract from Excel or use generic name]
-Promoter Name|[Use generic or from context]
-Location|[Extract from context]
-Total Project Cost (Rs.)|[Use Excel total_project_cost]
-Promoter Contribution (Rs.)|[Calculate from Excel]
-Loan Required (Rs.)|[Calculate from Excel]
-Employment Generation|[Extract from Excel or estimate]
-[/TABLE]
-
-Use information from Excel data about project costs and business details.
-Write in 2-3 paragraphs followed by the table using exact [TABLE:...][/TABLE] format.
-Minimum 300 words total.
-""",
-
-            "firm_constitution": base_instructions + """
-Create a Constitution of Firm section that includes:
-1. Legal form of organization (Proprietorship/Partnership/Private Ltd/LLP)
-2. Registration details (if applicable)
-3. Partner details with capital contribution (if partnership)
-4. Management structure and roles
-5. Authorized signatories
-
-**REQUIRED TABLE** - Use [TABLE:...][/TABLE] format:
-[TABLE:Promoter/Partner Details]
-Name|Contribution (Rs.)|Share %|Role
-Partner/Promoter 1|[From Excel]|[Calculate]|Managing Partner
-Partner/Promoter 2|[From Excel]|[Calculate]|Partner
-[/TABLE]
-
-Write professionally with 2-3 paragraphs.
-Minimum 250 words.
-""",
-
-            "product_characteristics": base_instructions + """
-Create a Product Characteristics & Market Analysis section that includes:
-1. Detailed product specifications
-2. Quality standards and certifications
-3. Market demand analysis
-4. Target customer segments
-5. Competition analysis
-6. Pricing strategy
-7. Sales and distribution channels
-
-Include tables for:
-- Product specifications and features
-- Market size and growth projections
-- Competitive positioning
-
-Use information from guidelines about market assessment.
-Write in 4-5 paragraphs with professional formatting.
-Minimum 400 words.
-""",
-
-            "swot_analysis": base_instructions + """
-Create a comprehensive SWOT Analysis section with:
-
-**REQUIRED TABLE** - Use [TABLE:...][/TABLE] format:
-[TABLE:SWOT Analysis Matrix]
-Category|Key Points
-Strengths|1. [Financial strength from Excel data]
-Strengths|2. [Technical capability]
-Strengths|3. [Market position]
-Strengths|4. [Management expertise]
-Strengths|5. [Policy support - from guidelines]
-Weaknesses|1. [Financial constraint if any]
-Weaknesses|2. [Market challenge]
-Weaknesses|3. [Operational limitation]
-Weaknesses|4. [Resource constraint]
-Opportunities|1. [Market expansion potential]
-Opportunities|2. [Product diversification]
-Opportunities|3. [Government scheme benefits - from guidelines]
-Opportunities|4. [Technology upgrade]
-Opportunities|5. [Export potential]
-Threats|1. [Competition from established players]
-Threats|2. [Market price fluctuations]
-Threats|3. [Regulatory changes]
-Threats|4. [Economic uncertainties]
-[/TABLE]
-
-Add 1-2 paragraphs of analysis explaining how strengths can overcome weaknesses
-and how opportunities can mitigate threats.
-Minimum 300 words.
-""",
-
-            "plant_machinery": base_instructions + """
-Create a Plant & Machinery Details section that includes:
-1. Complete list of machinery and equipment
-2. Technical specifications for each major equipment
-3. Capacity and throughput details
-4. Supplier/manufacturer information
-5. Installation and commissioning timeline
-6. Maintenance requirements
-7. Power and utility requirements
-
-**REQUIRED TABLE** - Use [TABLE:...][/TABLE] format with Excel data:
-[TABLE:Plant & Machinery Cost Details]
-S.No|Machinery/Equipment|Specifications|Quantity|Unit Cost (Rs.)|Total Cost (Rs.)
-1|[Machine name]|[Specs]|[Qty]|[From Excel]|[Calculate]
-2|[Machine name]|[Specs]|[Qty]|[From Excel]|[Calculate]
-3|[Machine name]|[Specs]|[Qty]|[From Excel]|[Calculate]
-Total|-|-|-|-|[Sum from Excel plant_machinery_cost]
-[/TABLE]
-
-Extract cost information from Excel data.
-Write in 3-4 paragraphs plus comprehensive table.
-Minimum 350 words.
-""",
-
-            "ratio_interpretation": base_instructions + """
-Create a comprehensive Detailed Ratio Analysis & Trends section that includes:
-
-**REQUIRED TABLE** - Use [TABLE:...][/TABLE] format with Excel ratio data:
-[TABLE:Key Financial Ratios - Multi-Year Analysis]
-Ratio Name|Year 1|Year 2|Year 3|Banking Norm|Status
-DSCR|[Excel DSCR_year1]|[Excel DSCR_year2]|[Excel DSCR_year3]|Min 1.50|[Pass/Fail]
-Current Ratio|[Excel]|[Excel]|[Excel]|1.33-2.00|[Pass/Fail]
-Interest Coverage|[Excel]|[Excel]|[Excel]|Min 2.50|[Pass/Fail]
-Debt-Equity|[Excel]|[Excel]|[Excel]|Max 2:1|[Pass/Fail]
-Net Profit %|[Excel]|[Excel]|[Excel]|Industry Avg|[Assessment]
-[/TABLE]
-
-**Threats:**
-- List 4-5 external threats
-- Competition, regulatory changes, market risks
-
-Present in a professional table format with 4 sections.
-Add 1-2 paragraphs of analysis explaining how strengths can overcome weaknesses
-and how opportunities can mitigate threats.
-Minimum 300 words.
-""",
-            
-            "project_description": base_instructions + """
-Create a detailed Project Description that includes:
-1. Nature of business/manufacturing activity
-2. Location and infrastructure details
-3. Plant and machinery requirements
-4. Production capacity
-5. Raw materials and inventory management
-6. Manpower requirements
-
-Use information from the knowledge source about manufacturing projects and PMEGP guidelines.
-Write in paragraph form, 4-6 paragraphs.
-Minimum 350 words.
-""",
-
-            "manufacturing_process": base_instructions + """
-Create a Manufacturing Process & Flowchart section that includes:
-1. Step-by-step production process description
-2. Raw material procurement and storage
-3. Production workflow stages
-4. Quality control measures at each stage
-5. Packaging and finished goods storage
-6. Production capacity and shift details
-7. Technology and equipment used
-
-Include a table showing:
-- Process Stage
-- Description
-- Equipment Used
-- Duration/Capacity
-- Quality Check Points
-
-Write in 4-5 paragraphs describing the complete manufacturing cycle.
-Minimum 400 words.
-""",
-
-            "plant_machinery": base_instructions + """
-Create a Plant & Machinery Details section that includes:
-1. Complete list of machinery and equipment
-2. Technical specifications for each major equipment
-3. Capacity and throughput details
-4. Supplier/manufacturer information
-5. Installation and commissioning timeline
-6. Maintenance requirements
-7. Power and utility requirements
-
-Include a detailed table with:
-- S.No.
-- Machinery/Equipment Name
-- Specifications
-- Quantity
-- Rate (Rs.)
-- Total Cost (Rs.)
-- Supplier Details
-
-Extract cost information from Excel data if available.
-Write in 3-4 paragraphs plus comprehensive table.
-Minimum 350 words.
-""",
-
-            "inventory_details": base_instructions + """
-Create an Inventory & Stock Management section that includes:
-1. Raw material requirements and specifications
-2. Minimum stock levels (safety stock)
-3. Reorder levels and quantities
-4. Storage requirements and facilities
-5. Inventory turnover targets
-6. Work-in-progress management
-7. Finished goods inventory policy
-
-Include tables for:
-- Raw material inventory with quantities and values
-- Consumables and packing materials
-- Stock holding period for each category
-
-Use Excel data for working capital calculations if available.
-Write in 3-4 paragraphs with tables.
-Minimum 300 words.
-""",
-
-            "transportation": base_instructions + """
-Create a Transportation & Logistics section that includes:
-1. Raw material transportation arrangements
-2. Finished goods distribution network
-3. Vehicle requirements (own/hired)
-4. Transportation costs and budgets
-5. Logistics partners and arrangements
-6. Storage and warehousing at distribution points
-7. Delivery timelines and service levels
-
-Include a table showing:
-- Type of Transport
-- Purpose (RM/FG/Both)
-- Capacity
-- Ownership (Own/Hired)
-- Monthly Cost
-
-Write in 2-3 paragraphs covering the complete logistics chain.
-Minimum 250 words.
-""",
-
-            "land_requirements": base_instructions + """
-Create a Land & Building Requirements section that includes:
-1. Total land area required
-2. Built-up area breakdown (production, storage, office, etc.)
-3. Land ownership status (own/leased/purchased)
-4. Location advantages and connectivity
-5. Zoning and regulatory approvals
-6. Construction specifications
-7. Cost of land and building development
-
-Include a table with:
-- Particulars
-- Area (Sq.ft/Sq.mtr)
-- Rate
-- Total Cost
-- Remarks
-
-Extract cost data from Excel if available.
-Write in 2-3 paragraphs plus table.
-Minimum 300 words.
-""",
-            
-            "financial_analysis": base_instructions + """
-Create a comprehensive Financial Analysis section that includes:
-1. Overview of the project's financial position
-2. Analysis of profitability trends from P&L and Balance Sheet
-3. Debt service capacity assessment
-4. Working capital management evaluation
-5. Cash flow and liquidity position
-6. Year-wise financial performance analysis
-7. Break-even analysis
-
-**REQUIRED TABLE 1** - Use [TABLE:...][/TABLE] format with Excel data:
-[TABLE:Profitability Analysis - Multi-Year]
-Particulars|Year 1|Year 2|Year 3|Trend
-Sales Revenue|[Excel]|[Excel]|[Excel]|[Increasing/Stable]
-Cost of Goods Sold|[Excel]|[Excel]|[Excel]|[Analysis]
-Gross Profit|[Excel]|[Excel]|[Excel]|[Analysis]
-Operating Expenses|[Excel]|[Excel]|[Excel]|[Analysis]
-Net Profit Before Tax|[Excel]|[Excel]|[Excel]|[Analysis]
-Net Profit After Tax|[Excel]|[Excel]|[Excel]|[Analysis]
-[/TABLE]
-
-**REQUIRED TABLE 2** - Asset & Liability Composition:
-[TABLE:Balance Sheet Summary]
-Particulars|Year 1|Year 2|Year 3
-Fixed Assets|[Excel]|[Excel]|[Excel]
-Current Assets|[Excel]|[Excel]|[Excel]
-Total Assets|[Excel]|[Excel]|[Excel]
-Net Worth|[Excel]|[Excel]|[Excel]
-Term Loan|[Excel]|[Excel]|[Excel]
-Current Liabilities|[Excel]|[Excel]|[Excel]
-[/TABLE]
-
-Use the Excel data provided and reference the guidelines for acceptable financial parameters.
-Write professionally with clear explanations of what the financial statements indicate.
-5-6 paragraphs with comprehensive analysis.
-Minimum 450 words.
-""",
-            
-            "ratio_interpretation": base_instructions + """
-Create a comprehensive Detailed Ratio Analysis & Trends section that includes:
-
-**Coverage Ratios:**
-1. **DSCR (Debt Service Coverage Ratio)**: Explain the calculated value and what it means for debt servicing ability. Reference ideal range from guidelines (minimum 1.5 preferred).
-2. **Interest Coverage Ratio**: Evaluate ability to service interest obligations (minimum 2.5 preferred).
-
-**Liquidity Ratios:**
-3. **Current Ratio**: Interpret short-term liquidity position. Mention ideal range (1.33-2 times).
-4. **Quick Ratio**: Assess immediate liquidity excluding inventory.
-
-**Profitability Ratios:**
-5. **Net Profit Ratio**: Analyze profitability trend and efficiency.
-6. **Return on Assets (ROA)**: Assess asset utilization efficiency.
-7. **Return on Equity (ROE)**: Evaluate returns to shareholders.
-
-**Efficiency Ratios:**
-8. **Debtors Turnover Ratio**: Assess collection efficiency.
-9. **Inventory Turnover Ratio**: Evaluate stock management.
-10. **Fixed Asset Turnover**: Measure asset productivity.
-
-**Leverage Ratios:**
-11. **Debt-Equity Ratio**: Assess financial leverage (max 2:1 acceptable).
-12. **TOL/TNW (Total Outside Liabilities to Tangible Net Worth)**: Banking norm assessment.
-
-For EACH ratio, provide:
-- What the calculated value is (extract from Excel data)
-- What it indicates about the business
-- Whether it meets banking/industry standards
-- Trend analysis across years
-- What it means for loan approval
-
-Include a comprehensive table showing all ratios for 3-5 years.
-
-Write in clear paragraphs with ratio names in BOLD. 
-Reference specific numbers from Excel data.
-8-10 paragraphs covering all key ratios with detailed interpretation.
-Minimum 600 words.
-""",
-
-            "mpbf_calculation": base_instructions + """
-Create an MPBF Calculation & Working Capital Analysis section that includes:
-
-**Maximum Permissible Bank Finance (MPBF):**
-1. Turnover Method calculation (25% of projected turnover)
-2. Current Asset method calculation
-3. Nayak Committee recommendations
-4. Assessment of both methods and lower value selection
-
-**Working Capital Components:**
-5. Current Assets breakdown (inventory, receivables, cash)
-6. Current Liabilities (creditors, provisions)
-7. Net Working Capital calculation
-8. Margin requirements (promoter's contribution)
-
-**Assessment:**
-9. Adequacy of working capital
-10. Comparison with industry norms
-11. Monthly MPBF utilization pattern
-12. Peak and non-peak working capital needs
-
-Include comprehensive tables for:
-- MPBF calculation (both methods)
-- Current assets and liabilities breakdown
-- Monthly working capital cycle
-- Bank finance eligibility
-
-Extract all values from Excel data (MPBF sheet and Working Capital sheet).
-Write in 5-6 paragraphs with detailed calculations and tables.
-Minimum 500 words.
-""",
-
-            "cash_flow_projection": base_instructions + """
-Create a Cash Flow Statements & Projections section that includes:
-
-**Operating Activities:**
-1. Cash inflows from sales/operations
-2. Cash outflows for expenses, salaries, raw materials
-3. Net cash from operating activities
-
-**Investing Activities:**
-4. Capital expenditure on fixed assets
-5. Sale of assets (if any)
-6. Net cash from investing activities
-
-**Financing Activities:**
-7. Loan receipts and repayments
-8. Equity capital and promoter contributions
-9. Interest and dividend payments
-10. Net cash from financing activities
-
-**Cash Position:**
-11. Opening cash balance
-12. Net increase/decrease in cash
-13. Closing cash balance
-14. Cash adequacy analysis
-
-Include comprehensive tables showing:
-- Year-wise cash flow statement (3-5 years)
-- Monthly cash flow projection for Year 1
-- Sources and uses of cash
-- Cash conversion cycle analysis
-
-Extract data from Excel sheets wherever available.
-Write in 5-6 paragraphs analyzing cash generation capacity and liquidity.
-Minimum 500 words.
-""",
-
-            "funds_flow_analysis": base_instructions + """
-Create a Funds Flow Statement & Analysis section that includes:
-
-**Sources of Funds:**
-1. Funds from operations (net profit + depreciation)
-2. Issue of share capital
-3. Long-term borrowings
-4. Sale of fixed assets
-5. Total sources of funds
-
-**Applications of Funds:**
-6. Purchase of fixed assets
-7. Repayment of long-term loans
-8. Payment of dividends
-9. Increase in working capital
-10. Total applications of funds
-
-**Analysis:**
-11. Net increase/decrease in working capital
-12. Assessment of fund utilization efficiency
-13. Comparison of sources vs applications
-14. Long-term financial position analysis
-15. Capital structure changes
-
-Include comprehensive tables showing:
-- Sources and Applications of Funds (3-5 years)
-- Changes in Working Capital components
-- Fund flow ratios and trends
-
-Extract data from Balance Sheet and P&L data in Excel.
-Write in 5-6 paragraphs with detailed analysis of capital movements.
-Minimum 500 words.
-""",
-            
-            "loan_eligibility": base_instructions + """
-Create a comprehensive Loan Eligibility Assessment section that includes:
-
-**Policy Compliance:**
-1. Eligibility criteria from PMEGP/IDP guidelines
-2. Project category and classification
-3. Unit cost limits and compliance
-4. Location criteria (urban/rural/special area)
-5. Caste category benefits (if applicable)
-
-**Financial Parameters:**
-6. DSCR compliance (minimum 1.5 required)
-7. Margin money requirements and availability
-8. Debt-Equity ratio assessment (max 2:1)
-9. Working capital margin (25% promoter contribution)
-10. Security/collateral adequacy
-
-**Assessment Against Norms:**
-11. Banking norms for current ratio (min 1.33)
-12. TOL/TNW ratio compliance (max 3:1)
-13. Interest coverage adequacy (min 2.5)
-14. Profitability standards
-
-**Subsidy Eligibility:**
-15. Subsidy calculation based on category
-16. Maximum subsidy limits
-17. Conditions for subsidy release
-
-**Recommendations:**
-18. Overall eligibility status
-19. Compliance gaps (if any)
-20. Conditions for approval
-
-Include tables for:
-- Eligibility criteria checklist
-- Financial parameter compliance
-- Subsidy calculation
-- Loan structure and terms
-
-Use ONLY information from the AP IDP 4.0 and PMEGP guidelines provided in the context.
-Be specific about which criteria are met or not met.
-Cite specific guideline requirements where applicable.
-6-7 paragraphs with comprehensive assessment.
-Minimum 550 words.
-""",
-            
-            "recommendations": base_instructions + """
-Create a comprehensive Recommendations & Conclusions section that includes:
-
-**Project Viability Assessment:**
-1. Overall financial viability based on DSCR, profitability, ROI
-2. Market viability and demand assessment
-3. Technical feasibility and operational capability
-4. Management competence evaluation
-
-**Key Strengths:**
-5. Financial strengths (ratios, profitability margins)
-6. Business strengths (market position, product quality)
-7. Operational strengths (technology, location, infrastructure)
-8. Compliance with all policy guidelines
-
-**Risk Factors:**
-9. Market risks (competition, demand fluctuations)
-10. Financial risks (debt servicing, working capital adequacy)
-11. Operational risks (raw material availability, technical issues)
-12. External risks (regulatory, economic conditions)
-
-**Mitigation Strategies:**
-13. For each risk identified, provide specific mitigation measures
-14. Contingency planning recommendations
-15. Monitoring mechanisms
-
-**Compliance Review:**
-16. Compliance with banking norms
-17. Adherence to PMEGP/IDP guidelines
-18. All regulatory approvals status
-19. Security and documentation adequacy
-
-**Final Recommendation:**
-20. Clear recommendation: APPROVE / REJECT / CONDITIONAL APPROVAL
-21. If conditional, list specific conditions to be met
-22. Suggested loan amount and terms
-23. Subsidy recommendation
-24. Disbursement conditions and monitoring requirements
-
-Base recommendations on:
-- Financial metrics from Excel data (DSCR > 1.5, Current Ratio > 1.33, profitability positive)
-- All ratios meeting banking norms
-- Compliance with guidelines from knowledge source
-- Industry standards mentioned in reference documents
-- Working capital adequacy as per Nayak Committee
-- Debt servicing capacity confirmed
-
-Be balanced and professional in your assessment.
-Provide clear, actionable recommendations with supporting rationale.
-6-8 paragraphs covering all aspects comprehensively.
-Minimum 600 words.
-"""
+        """Create efficient, targeted prompts for specific report sections."""
+
+        # Base instructions (keep minimal)
+        base = f"""You are a financial analyst. Use Excel data: {json.dumps(excel_data, separators=(',', ':'))}
+
+Format: Use [TABLE:Title]Header1|Header2|...[/TABLE] for tables. No HTML/markdown.
+
+Task: Generate content for "{section_type}" section matching banking report format."""
+
+        # Section-specific concise prompts
+        prompts = {
+            "index_page": base + """
+Create a Table of Contents with page numbers:
+1. Cover Page
+2. Trading, Profit & Loss Account
+3. Balance Sheet
+4. Administrative & Selling Expenses
+5. Ratio Analysis - Part I
+6. Ratio Analysis - Part II
+7. Ratio Analysis - Part III
+8. MPBF Calculation - Methods 1 & 2
+9. MPBF Calculation - Turnover Method
+10. Depreciation Calculation
+11. Executive Summary
+
+Format as numbered list with "Page X" for each item.""",
+
+            "trading_pl_account": base + """
+Generate Trading, Profit & Loss Account analysis. Focus on:
+- Revenue trends and growth
+- Cost structure analysis
+- Profit margins (Gross, Operating, Net)
+- Key ratios and efficiency metrics
+
+Include 1-2 key insights about profitability trends.""",
+
+            "balance_sheet_analysis": base + """
+Analyze Balance Sheet structure:
+- Asset composition and quality
+- Liabilities and capital structure
+- Working capital position
+- Debt-equity ratio trends
+
+Highlight financial stability and liquidity position.""",
+
+            "admin_selling_expenses": base + """
+Analyze Administrative & Selling Expenses:
+- Expense breakdown and trends
+- Cost control effectiveness
+- Operating efficiency ratios
+- Recommendations for cost optimization
+
+Focus on expense management and efficiency.""",
+
+            "ratio_analysis_part1": base + """
+Analyze Current Ratio, Debtors Turnover, and Gross Profit Ratio:
+- Liquidity assessment
+- Receivables management efficiency
+- Basic profitability indicators
+- Industry comparisons and benchmarks
+
+Provide brief interpretation of each ratio.""",
+
+            "ratio_analysis_part2": base + """
+Analyze Net Profit Ratio, Interest Coverage, Working Capital Turnover, and Stock Turnover:
+- Overall profitability
+- Debt servicing capacity
+- Asset utilization efficiency
+- Inventory management effectiveness
+
+Include specific ratio calculations and interpretations.""",
+
+            "ratio_analysis_part3": base + """
+Analyze TOL/TNW Ratio and Return on Capital Employed:
+- Financial leverage assessment
+- Overall capital efficiency
+- Risk-return profile
+- Investment viability indicators
+
+Provide banking norms comparison.""",
+
+            "mpbf_methods_1_2": base + """
+Explain MPBF calculation using Methods 1 (25% of Working Capital Gap) and 2 (25% of Current Assets):
+- Methodology differences
+- Calculation steps
+- Recommended approach
+- Banking guidelines compliance
+
+Focus on working capital assessment.""",
+
+            "mpbf_turnover_method": base + """
+Explain MPBF Turnover Method calculation:
+- Sales-based working capital assessment
+- Four operating cycles assumption
+- Drawing power limitations
+- Permissible finance determination
+
+Include Nayak Committee guidelines reference.""",
+
+            "depreciation_calculation": base + """
+Analyze depreciation calculation as per Income Tax Act:
+- WDV method application
+- Plant and machinery depreciation
+- Tax implications
+- Asset utilization over time
+
+Show 5-year depreciation schedule analysis.""",
+
+            "executive_summary": base + """
+Create concise Executive Summary covering:
+- Project overview and objectives
+- Financial viability assessment
+- Key financial indicators
+- Risk factors and mitigation
+- Recommendations for loan approval
+
+Keep under 500 words, focus on critical decision points."""
         }
-        
-        return section_prompts.get(section_type, base_instructions)
+
+        return prompts.get(section_type, base + f" Generate professional content for {section_type} section using Excel data.")
     
     def create_text_pdf(self, content_sections: List[Dict[str, str]], output_path: str) -> bool:
         """
@@ -1006,110 +537,68 @@ Minimum 600 words.
             # Position is relative to Excel sheets in SHEET_ORDER
             AI_SECTIONS_CONFIG = [
                 {
-                    "type": "executive_summary",
-                    "title": "Executive Summary",
-                    "after_sheet": "Coverpage",  # After Coverpage sheet
+                    "type": "index_page",
+                    "title": "Index / Table of Contents",
+                    "after_sheet": "coverpage",  # After Coverpage sheet
                     "pages": 1
                 },
                 {
-                    "type": "project_profile",
-                    "title": "Project Profile Overview",
-                    "after_ai": "executive_summary",  # After Executive Summary
-                    "pages": 2
-                },
-                {
-                    "type": "firm_constitution",
-                    "title": "Constitution of Firm",
-                    "after_ai": "project_profile",  # After Project Profile
+                    "type": "trading_pl_account",
+                    "title": "Trading, Profit & Loss Account",
+                    "after_sheet": "Finalworkings",  # After Final workings sheet
                     "pages": 1
                 },
                 {
-                    "type": "product_characteristics",
-                    "title": "Product Characteristics & Market Analysis",
-                    "after_ai": "firm_constitution",  # After Firm Constitution
-                    "pages": 2
-                },
-                {
-                    "type": "swot_analysis",
-                    "title": "SWOT Analysis",
-                    "after_ai": "product_characteristics",  # After Product Characteristics
-                    "pages": 1
-                },
-                {
-                    "type": "project_description",
-                    "title": "Detailed Project Description",
-                    "after_ai": "swot_analysis",  # After SWOT Analysis
-                    "pages": 2
-                },
-                {
-                    "type": "manufacturing_process",
-                    "title": "Manufacturing Process & Flowchart",
-                    "after_ai": "project_description",  # After Project Description
-                    "pages": 2
-                },
-                {
-                    "type": "plant_machinery",
-                    "title": "Plant & Machinery Details",
-                    "after_ai": "manufacturing_process",  # After Manufacturing Process
-                    "pages": 1
-                },
-                {
-                    "type": "inventory_details",
-                    "title": "Inventory & Stock Management",
-                    "after_ai": "plant_machinery",  # After Plant & Machinery
-                    "pages": 1
-                },
-                {
-                    "type": "transportation",
-                    "title": "Transportation & Logistics",
-                    "after_ai": "inventory_details",  # After Inventory Details
-                    "pages": 1
-                },
-                {
-                    "type": "land_requirements",
-                    "title": "Land & Building Requirements",
-                    "after_ai": "transportation",  # After Transportation
-                    "pages": 1
-                },
-                {
-                    "type": "financial_analysis",
-                    "title": "Financial Analysis & Interpretation",
+                    "type": "balance_sheet_analysis",
+                    "title": "Balance Sheet Analysis",
                     "after_sheet": "PLBS",  # After Balance Sheet
-                    "pages": 2
-                },
-                {
-                    "type": "ratio_interpretation",
-                    "title": "Detailed Ratio Analysis & Trends",
-                    "after_sheet": "RATIO",  # After Ratio sheet
-                    "pages": 2
-                },
-                {
-                    "type": "mpbf_calculation",
-                    "title": "MPBF Calculation & Working Capital Analysis",
-                    "after_sheet": "MPBF ",  # After MPBF sheet
-                    "pages": 2
-                },
-                {
-                    "type": "cash_flow_projection",
-                    "title": "Cash Flow Statements & Projections",
-                    "after_sheet": "wp",  # After Working Capital
-                    "pages": 2
-                },
-                {
-                    "type": "funds_flow_analysis",
-                    "title": "Funds Flow Statement & Analysis",
-                    "after_ai": "cash_flow_projection",  # After Cash Flow
-                    "pages": 2
-                },
-                {
-                    "type": "loan_eligibility",
-                    "title": "Loan Eligibility Assessment",
-                    "after_ai": "funds_flow_analysis",  # After Funds Flow
                     "pages": 1
                 },
                 {
-                    "type": "recommendations",
-                    "title": "Recommendations & Conclusions",
+                    "type": "admin_selling_expenses",
+                    "title": "Schedule of Administrative & Selling Expenses",
+                    "after_sheet": "Finalworkings",  # After Final workings (before P&L)
+                    "pages": 1
+                },
+                {
+                    "type": "ratio_analysis_part1",
+                    "title": "Ratio Analysis - Part I (Current Ratio, Debtors Turnover, Gross Profit Ratio)",
+                    "after_sheet": "RATIO",  # After Ratio sheet
+                    "pages": 1
+                },
+                {
+                    "type": "ratio_analysis_part2",
+                    "title": "Ratio Analysis - Part II (Net Profit Ratio, Interest Coverage, Working Capital Turnover, Stock Turnover)",
+                    "after_ai": "ratio_analysis_part1",  # After Part I
+                    "pages": 1
+                },
+                {
+                    "type": "ratio_analysis_part3",
+                    "title": "Ratio Analysis - Part III (TOL/TNW Ratio, Return on Capital Employed)",
+                    "after_ai": "ratio_analysis_part2",  # After Part II
+                    "pages": 1
+                },
+                {
+                    "type": "mpbf_methods_1_2",
+                    "title": "Maximum Permissible Bank Finance - Methods 1 & 2",
+                    "after_sheet": "MPBF ",  # After MPBF sheet
+                    "pages": 1
+                },
+                {
+                    "type": "mpbf_turnover_method",
+                    "title": "Maximum Permissible Bank Finance - Turnover Method",
+                    "after_ai": "mpbf_methods_1_2",  # After Methods 1 & 2
+                    "pages": 1
+                },
+                {
+                    "type": "depreciation_calculation",
+                    "title": "Depreciation Calculation as per Income Tax Act",
+                    "after_sheet": "Depsch",  # After Depreciation Schedule
+                    "pages": 2
+                },
+                {
+                    "type": "executive_summary",
+                    "title": "Executive Summary & Recommendations",
                     "position": "end",  # At the very end
                     "pages": 2
                 }
@@ -1292,7 +781,8 @@ if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser(description='Generate AI-enhanced PDF report')
-    parser.add_argument('--api-key', required=True, help='Google Gemini API key')
+    parser.add_argument('--api-key', required=True, help='AI API key (Grok, Perplexity, or Gemini)')
+    parser.add_argument('--provider', default='gemini', choices=['grok', 'perplexity', 'gemini'], help='AI provider to use')
     parser.add_argument('--excel-pdfs-dir', required=True, help='Directory with Excel sheet PDFs')
     parser.add_argument('--output', required=True, help='Output PDF path')
     parser.add_argument('--excel-data', help='JSON file with Excel computed data')
@@ -1307,7 +797,7 @@ if __name__ == "__main__":
             excel_data = json.load(f)
     
     # Generate report
-    generator = AIReportGenerator(args.api_key)
+    generator = AIReportGenerator(args.api_key, provider=args.provider)
     result = generator.generate_full_report(
         excel_pdfs_dir=args.excel_pdfs_dir,
         excel_data=excel_data,

@@ -28,6 +28,58 @@ except ImportError:
     COM_AVAILABLE = False
     print("Warning: pywin32 not available. PDF generation will use fallback method.", file=sys.stderr)
 
+# Pure Python Excel formula evaluation (fallback when COM unavailable)
+try:
+    from xlcalculator import ModelCompiler
+    from xlcalculator.evaluator import Evaluator
+    from xlcalculator.xlfunctions import func_xltypes, xlerrors, xl
+    XL_CALC_AVAILABLE = True
+except ImportError:
+    XL_CALC_AVAILABLE = False
+
+_XL_CUSTOM_FUNCS_REGISTERED = False
+
+
+def _ensure_custom_xl_functions_registered():
+    """Register Excel functions missing from xlcalculator (e.g., IFERROR)."""
+    global _XL_CUSTOM_FUNCS_REGISTERED
+    if _XL_CUSTOM_FUNCS_REGISTERED or not XL_CALC_AVAILABLE:
+        return
+
+    @xl.register()
+    @xl.validate_args
+    def IFERROR(
+        value: func_xltypes.XlExpr,
+        value_if_error: func_xltypes.XlExpr = lambda: func_xltypes.BLANK
+    ):
+        try:
+            result = value()
+            if isinstance(result, xlerrors.ExcelError):
+                return value_if_error()
+            return result
+        except Exception:
+            return value_if_error()
+
+    _XL_CUSTOM_FUNCS_REGISTERED = True
+
+
+def _coerce_model_constants_to_excel_types(model):
+    """Wrap raw constants in ExcelType so xlcalculator functions can access .value."""
+    if not XL_CALC_AVAILABLE:
+        return
+    for cell in model.cells.values():
+        if cell.formula is not None:
+            continue
+        if cell.value is None:
+            continue
+        if isinstance(cell.value, func_xltypes.ExcelType):
+            continue
+        try:
+            cell.value = func_xltypes.ExcelType.cast_from_native(cell.value)
+        except Exception:
+            # Leave value as-is if casting fails; evaluator will attempt later
+            pass
+
 
 def normalize_sheet_name(sheet_name: str) -> str:
     """Normalize sheet name by stripping whitespace and converting to lowercase."""
@@ -1335,65 +1387,198 @@ def generate_html_from_excel_sheet(excel_path: str, sheet_name: str):
         # ========================================
         print(f"[HTML Generator] Using openpyxl fallback method WITH PROFESSIONAL STYLING", file=sys.stderr)
         
-        # CRITICAL FIX: Use pandas to read the Excel file which properly evaluates formulas
-        print(f"[HTML Generator] Reading Excel with pandas to get calculated values...", file=sys.stderr)
+        from decimal import Decimal
+        import math
         
-        # Read the specific sheet with pandas (it reads calculated values)
-        df_dict = pd.read_excel(excel_path, sheet_name=None, engine='openpyxl')
+        print(f"[HTML Generator] Reading workbook with openpyxl (data_only=True) to capture evaluated values...", file=sys.stderr)
+        values_wb = None
+        structure_wb = None
         
-        # Find matching sheet name
-        actual_sheet_name = None
-        for sheet_key in df_dict.keys():
-            if normalize_sheet_name(sheet_key) == normalize_sheet_name(sheet_name):
-                actual_sheet_name = sheet_key
-                break
-        
-        if not actual_sheet_name:
-            print(f"[HTML Generator] ERROR: Sheet '{sheet_name}' not found", file=sys.stderr)
-            print(f"[HTML Generator] Available sheets: {list(df_dict.keys())}", file=sys.stderr)
-            return "", {}
-        
-        df = df_dict[actual_sheet_name]
-        print(f"[HTML Generator] Processing sheet: {actual_sheet_name} (matched from '{sheet_name}')", file=sys.stderr)
-        print(f"[HTML Generator] Dataframe shape: {df.shape[0]} rows x {df.shape[1]} columns", file=sys.stderr)
-        
-        # Also load with openpyxl for styling and structure
-        wb = load_workbook(excel_path, data_only=False)
-        sheet = wb[actual_sheet_name]
-        
-        # Extract JSON data structure
-        json_data = {
-            "sheetName": actual_sheet_name,
-            "data": {},
-            "timestamp": datetime.datetime.now().isoformat()
-        }
-        
-        # Extract firm details from the data for header
-        firm_name = ""
-        proprietor = ""
-        sector = ""
-        nature_of_business = ""
-        
-        # Try to get firm details from pandas dataframe (row 2, col 1 in 0-indexed)
         try:
-            if len(df) >= 3 and len(df.columns) >= 2:
-                firm_name_val = df.iloc[2, 1]  # Row 3, Col 2 (0-indexed)
-                if pd.notna(firm_name_val):
-                    firm_name = str(firm_name_val)
-            if len(df) >= 4 and len(df.columns) >= 2:
-                proprietor_val = df.iloc[3, 1]
-                if pd.notna(proprietor_val):
-                    proprietor = str(proprietor_val)
-            if len(df) >= 6 and len(df.columns) >= 2:
-                sector_val = df.iloc[5, 1]
-                if pd.notna(sector_val):
-                    sector = str(sector_val)
-            if len(df) >= 7 and len(df.columns) >= 2:
-                nature_val = df.iloc[6, 1]
-                if pd.notna(nature_val):
-                    nature_of_business = str(nature_val)
-        except Exception as e:
-            print(f"[HTML Generator] Warning: Could not extract firm details: {e}", file=sys.stderr)
+            values_wb = load_workbook(excel_path, data_only=True)
+            structure_wb = load_workbook(excel_path, data_only=False)
+            available_sheets = values_wb.sheetnames
+            actual_sheet_name = find_sheet_match(sheet_name, available_sheets)
+            if not actual_sheet_name:
+                print(f"[HTML Generator] ERROR: Sheet '{sheet_name}' not found", file=sys.stderr)
+                print(f"[HTML Generator] Available sheets: {available_sheets}", file=sys.stderr)
+                return "", {}
+            
+            values_sheet = values_wb[actual_sheet_name]
+            sheet = structure_wb[actual_sheet_name]
+            max_row = values_sheet.max_row or 0
+            max_col = values_sheet.max_column or 0
+            print(
+                f"[HTML Generator] Processing sheet: {actual_sheet_name} (matched from '{sheet_name}')",
+                file=sys.stderr
+            )
+            print(
+                f"[HTML Generator] Worksheet size detected: {max_row} rows x {max_col} columns",
+                file=sys.stderr
+            )
+            
+            json_data = {
+                "sheetName": actual_sheet_name,
+                "data": {},
+                "timestamp": datetime.datetime.now().isoformat()
+            }
+
+            merged_ranges = {}
+            for merged_range in sheet.merged_cells.ranges:
+                merged_ranges[(merged_range.min_row, merged_range.min_col)] = {
+                    'rowspan': merged_range.max_row - merged_range.min_row + 1,
+                    'colspan': merged_range.max_col - merged_range.min_col + 1
+                }
+            
+            def _to_native_excel_value(raw_value):
+                """Convert xlcalculator ExcelType or other wrappers to native Python."""
+                if raw_value is None:
+                    return None
+                try:
+                    if hasattr(raw_value, 'to_python'):
+                        return raw_value.to_python()
+                    if hasattr(raw_value, 'value') and not isinstance(raw_value, (str, bytes)):
+                        # ExcelType exposes .value containing the typed payload
+                        nested_val = raw_value.value
+                        if hasattr(nested_val, 'to_python'):
+                            return nested_val.to_python()
+                        return nested_val
+                except Exception as conv_err:
+                    print(f"[HTML Generator] Warning: Could not convert ExcelType value ({conv_err})", file=sys.stderr)
+                return raw_value
+
+            def normalize_cell_value(raw_value):
+                if raw_value is None:
+                    return ""
+                raw_value = _to_native_excel_value(raw_value)
+                if isinstance(raw_value, str):
+                    return raw_value.strip()
+                if isinstance(raw_value, Decimal):
+                    return float(raw_value)
+                if isinstance(raw_value, float):
+                    if math.isnan(raw_value) or math.isinf(raw_value):
+                        return ""
+                    return float(raw_value)
+                return raw_value
+            
+            def serialize_for_json(value):
+                if isinstance(value, (datetime.datetime, datetime.date)):
+                    return value.isoformat()
+                return value
+            
+            def extract_text_value(row_num: int, col_num: int) -> str:
+                try:
+                    cell_val = values_sheet.cell(row=row_num, column=col_num).value
+                except Exception:
+                    cell_val = None
+                if cell_val is None:
+                    return ""
+                return str(cell_val).strip()
+            
+            firm_name = extract_text_value(3, 2)
+            proprietor = extract_text_value(4, 2)
+            sector = extract_text_value(6, 2)
+            nature_of_business = extract_text_value(7, 2)
+            
+            calc_evaluator = None
+            if XL_CALC_AVAILABLE:
+                try:
+                    print("[HTML Generator] Initializing xlcalculator model for formula evaluation", file=sys.stderr)
+                    compiler = ModelCompiler()
+                    parsed_model = compiler.read_and_parse_archive(excel_path)
+                    _ensure_custom_xl_functions_registered()
+                    _coerce_model_constants_to_excel_types(parsed_model)
+                    calc_evaluator = Evaluator(parsed_model)
+                    print("[HTML Generator] xlcalculator model ready", file=sys.stderr)
+                except Exception as calc_init_error:
+                    calc_evaluator = None
+                    print(f"[HTML Generator] Warning: xlcalculator unavailable ({calc_init_error})", file=sys.stderr)
+            else:
+                print("[HTML Generator] xlcalculator package not available; complex formulas may remain blank", file=sys.stderr)
+
+            sheet_matrix: List[List[Any]] = []
+            non_empty_cells = 0
+            calc_debug_count = 0
+            sheet_prefix = (
+                f"'{actual_sheet_name}'" if any(ch in actual_sheet_name for ch in (" ", "-", "."))
+                else actual_sheet_name
+            )
+
+            for row_idx in range(1, max_row + 1):
+                row_values: List[Any] = []
+                for col_idx in range(1, max_col + 1):
+                    raw_value = values_sheet.cell(row=row_idx, column=col_idx).value
+                    normalized_value = normalize_cell_value(raw_value)
+                    structure_cell = sheet.cell(row=row_idx, column=col_idx)
+                    cell_formula = structure_cell.value
+                    has_formula = False
+                    try:
+                        has_formula = (
+                            structure_cell.data_type == "f"
+                            or (isinstance(cell_formula, str) and cell_formula.startswith("="))
+                        )
+                    except Exception:
+                        has_formula = False
+
+                    if calc_evaluator and (normalized_value in ("", None) or has_formula):
+                        cell_ref = f"{get_column_letter(col_idx)}{row_idx}"
+                        sheet_ref = f"{sheet_prefix}!{cell_ref}"
+                        try:
+                            calc_value = calc_evaluator.evaluate(sheet_ref)
+                            normalized_calc_value = normalize_cell_value(calc_value)
+                            if normalized_calc_value not in ("", None):
+                                normalized_value = normalized_calc_value
+                                if calc_debug_count < 6:
+                                    source = "formula" if has_formula else "blank"
+                                    print(
+                                        f"[HTML Generator] xlcalculator filled {sheet_ref} ({source}) => {normalized_value}",
+                                        file=sys.stderr
+                                    )
+                                    calc_debug_count += 1
+                        except KeyError:
+                            # Missing sheet/cell references can be safely ignored
+                            pass
+                        except Exception as calc_eval_error:
+                            if calc_debug_count < 12:
+                                print(
+                                    f"[HTML Generator] xlcalculator skip {sheet_ref}: {calc_eval_error}",
+                                    file=sys.stderr
+                                )
+                                calc_debug_count += 1
+
+                    row_values.append(normalized_value)
+
+                    if normalized_value not in ("", None):
+                        json_key = f"R{row_idx}C{col_idx}"
+                        json_data["data"][json_key] = serialize_for_json(normalized_value)
+                        non_empty_cells += 1
+
+                sheet_matrix.append(row_values)
+            
+            total_rows = len(sheet_matrix)
+            total_cols = max_col
+            print(
+                f"[HTML Generator] Prepared matrix with {total_rows} rows for HTML conversion",
+                file=sys.stderr
+            )
+            print(
+                f"[HTML Generator] Non-empty cells captured for JSON: {non_empty_cells}",
+                file=sys.stderr
+            )
+            sample_preview = list(json_data["data"].items())[:10]
+            if sample_preview:
+                print("[HTML Generator] Sample JSON pairs:", file=sys.stderr)
+                for key, value in sample_preview:
+                    print(f"  - {key} => {value}", file=sys.stderr)
+            else:
+                print("[HTML Generator] JSON data is currently empty", file=sys.stderr)
+        finally:
+            if values_wb:
+                values_wb.close()
+            if structure_wb:
+                structure_wb.close()
+        
+        # Build HTML with EXACT SAME professional styling as COM method
         
         # Build HTML with EXACT SAME professional styling as COM method
         html_parts = [
@@ -1820,47 +2005,40 @@ def generate_html_from_excel_sheet(excel_path: str, sheet_name: str):
             "<tbody>",
         ])
         
-        # Process merged cells from openpyxl
-        merged_ranges = {}
-        for merged_range in sheet.merged_cells.ranges:
-            merged_ranges[(merged_range.min_row, merged_range.min_col)] = {
-                'rowspan': merged_range.max_row - merged_range.min_row + 1,
-                'colspan': merged_range.max_col - merged_range.min_col + 1
-            }
+        print(f"[HTML Generator] Processing {total_rows} rows from evaluated worksheet data", file=sys.stderr)
+
+        def format_cell_for_html(value, col_idx):
+            if value in ("", None):
+                return ""
+            if isinstance(value, (datetime.datetime, datetime.date)):
+                # Present dates in a reader-friendly format
+                try:
+                    return value.strftime('%d %b %Y')
+                except Exception:
+                    return value.isoformat()
+            if isinstance(value, float):
+                if col_idx > 1:
+                    return f"{value:,.2f}"
+                return f"{value:.2f}".rstrip('0').rstrip('.')
+            if isinstance(value, int):
+                if col_idx > 1:
+                    return f"{value:,}"
+                return str(value)
+            return str(value)
         
-        print(f"[HTML Generator] Processing {len(df)} rows from dataframe", file=sys.stderr)
-        
-        # Process each row from pandas dataframe
-        for row_idx in range(len(df)):
+        # Process each row from the prepared matrix
+        for row_idx in range(total_rows):
             row_data = []
             is_empty_row = True
             
             # Get all column values for this row
-            for col_idx in range(len(df.columns)):
-                cell_value = df.iloc[row_idx, col_idx]
-                
-                # Handle NaN and None
-                if pd.isna(cell_value):
+            for col_idx in range(total_cols):
+                try:
+                    cell_value = sheet_matrix[row_idx][col_idx]
+                except IndexError:
                     cell_value = ""
-                elif isinstance(cell_value, (int, float, np.integer, np.floating)):
-                    # Convert numpy types to Python types
-                    if isinstance(cell_value, np.floating):
-                        cell_value = float(cell_value)
-                        # Handle infinity
-                        if np.isinf(cell_value):
-                            cell_value = ""
-                    elif isinstance(cell_value, np.integer):
-                        cell_value = int(cell_value)
-                    
-                    # Store in JSON (1-indexed for consistency with COM method)
-                    if cell_value != "":
-                        json_data["data"][f"R{row_idx+1}C{col_idx+1}"] = cell_value
-                else:
-                    cell_value = str(cell_value)
-                    if cell_value != "":
-                        json_data["data"][f"R{row_idx+1}C{col_idx+1}"] = cell_value
                 
-                if cell_value != "":
+                if cell_value not in ("", None):
                     is_empty_row = False
                 
                 row_data.append({
@@ -1899,18 +2077,10 @@ def generate_html_from_excel_sheet(excel_path: str, sheet_name: str):
                 else:
                     cell_classes.append("item-value")
                 
-                # Format numeric values as currency
-                formatted_value = cell_value
-                if isinstance(cell_value, (int, float)) and cell_value != "" and col_idx > 1:
+                # Format numeric values as currency when needed
+                formatted_value = format_cell_for_html(cell_value, col_idx)
+                if isinstance(cell_value, (int, float)) and cell_value not in ("", None) and col_idx > 1:
                     cell_classes.append("currency")
-                    # Format with commas but without currency symbol (CSS will add it)
-                    try:
-                        if isinstance(cell_value, float):
-                            formatted_value = f"{cell_value:,.2f}"
-                        else:
-                            formatted_value = f"{cell_value:,}"
-                    except:
-                        formatted_value = str(cell_value)
                 
                 class_attr = " ".join(cell_classes) if cell_classes else ""
                 html_parts.append(f"    <td class='{class_attr}'>{formatted_value}</td>")
@@ -2041,9 +2211,6 @@ def generate_html_from_excel_sheet(excel_path: str, sheet_name: str):
         html_content = "\n".join(html_parts)
         print(f"[HTML Generator] SUCCESS: HTML generated using FALLBACK with professional styling ({len(html_content)} chars)", file=sys.stderr)
         print(f"[HTML Generator] SUCCESS: JSON data extracted ({len(json_data['data'])} cells)", file=sys.stderr)
-        
-        # Close workbook
-        wb.close()
         
         return html_content, json_data
         
@@ -2190,58 +2357,60 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
             excel_bytes = f.read()
         excel_base64 = base64.b64encode(excel_bytes).decode('utf-8')
 
-        # Also extract JSON data for browser display in Luckysheet format
-        try:
-            import pandas as pd
-            all_sheets = pd.read_excel(output_path, sheet_name=None, engine='openpyxl')
-            json_output = []
-            for sheet_name, df in all_sheets.items():
-                try:
-                    df_cleaned = df.replace([pd.NA, np.inf, -np.inf], None)
-                    df_cleaned = df_cleaned.where(pd.notna(df_cleaned), None)
+        # Also extract JSON data for browser display in Luckysheet format (skip if requested)
+        json_output = []
+        if not input_data.get('skipJsonExtraction', False):
+            try:
+                import pandas as pd
+                all_sheets = pd.read_excel(output_path, sheet_name=None, engine='openpyxl')
+                json_output = []
+                for sheet_name, df in all_sheets.items():
+                    try:
+                        df_cleaned = df.replace([pd.NA, np.inf, -np.inf], None)
+                        df_cleaned = df_cleaned.where(pd.notna(df_cleaned), None)
 
-                    # Convert to Luckysheet format
-                    sheet_data = []
-                    max_rows = len(df_cleaned)
-                    max_cols = len(df_cleaned.columns) if max_rows > 0 else 0
-                    
-                    for row_idx in range(max_rows):
-                        row_data = []
-                        for col_idx in range(max_cols):
-                            try:
-                                value = df_cleaned.iloc[row_idx, col_idx] if row_idx < len(df_cleaned) else None
-                                if value is not None and not pd.isna(value):
-                                    cell_data = {
-                                        'v': value,
-                                        'm': str(value) if value is not None else ''
-                                    }
-                                else:
-                                    cell_data = None
-                                row_data.append(cell_data)
-                            except Exception as cell_error:
-                                print(f"Error processing cell {row_idx},{col_idx}: {cell_error}", file=sys.stderr)
-                                row_data.append(None)
-                        sheet_data.append(row_data)
-                    
-                    sheet_obj = {
-                        'name': sheet_name,
-                        'data': sheet_data,
-                        'config': {
-                            'merge': {},
-                            'borderInfo': [],
-                            'rowlen': {},
-                            'columnlen': {}
-                        },
-                        'index': len(json_output)  # sheet index
-                    }
-                    json_output.append(sheet_obj)
-                except Exception as sheet_error:
-                    print(f"Error processing sheet {sheet_name}: {sheet_error}", file=sys.stderr)
-                    # Skip this sheet
-                    continue
-        except Exception as json_error:
-            print(f"Error generating JSON data: {json_error}", file=sys.stderr)
-            json_output = []  # Fallback to empty array
+                        # Convert to Luckysheet format
+                        sheet_data = []
+                        max_rows = len(df_cleaned)
+                        max_cols = len(df_cleaned.columns) if max_rows > 0 else 0
+                        
+                        for row_idx in range(max_rows):
+                            row_data = []
+                            for col_idx in range(max_cols):
+                                try:
+                                    value = df_cleaned.iloc[row_idx, col_idx] if row_idx < len(df_cleaned) else None
+                                    if value is not None and not pd.isna(value):
+                                        cell_data = {
+                                            'v': value,
+                                            'm': str(value) if value is not None else ''
+                                        }
+                                    else:
+                                        cell_data = None
+                                    row_data.append(cell_data)
+                                except Exception as cell_error:
+                                    print(f"Error processing cell {row_idx},{col_idx}: {cell_error}", file=sys.stderr)
+                                    row_data.append(None)
+                            sheet_data.append(row_data)
+                        
+                        sheet_obj = {
+                            'name': sheet_name,
+                            'data': sheet_data,
+                            'config': {
+                                'merge': {},
+                                'borderInfo': [],
+                                'rowlen': {},
+                                'columnlen': {}
+                            },
+                            'index': len(json_output)  # sheet index
+                        }
+                        json_output.append(sheet_obj)
+                    except Exception as sheet_error:
+                        print(f"Error processing sheet {sheet_name}: {sheet_error}", file=sys.stderr)
+                        # Skip this sheet
+                        continue
+            except Exception as json_error:
+                print(f"Error generating JSON data: {json_error}", file=sys.stderr)
+                json_output = []  # Fallback to empty array
 
         # Determine sheet name based on template
         final_sheet_name = 'Final workings' if 'CC6' in template_name else 'Finalworkings'
@@ -2264,31 +2433,34 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
         except Exception as pdf_error:
             print(f"Error generating PDF: {pdf_error}", file=sys.stderr)
 
-        # Generate HTML for Final workings sheet with exact formatting
+        # Generate HTML for Final workings sheet with exact formatting (skip if requested)
         html_content = None
         html_json_data = {}
-        try:
-            result_tuple = generate_html_from_excel_sheet(output_path, final_sheet_name)
-            # Handle both old return (str) and new return (tuple) for backward compatibility
-            if isinstance(result_tuple, tuple):
-                html_content, html_json_data = result_tuple
-            else:
-                html_content = result_tuple
-                html_json_data = {}
-            
-            if html_content:
-                print(f"HTML generated successfully ({len(html_content)} chars)", file=sys.stderr)
-                if html_json_data:
-                    print(f"HTML JSON data extracted ({len(html_json_data.get('data', {}))} cells)", file=sys.stderr)
-            else:
-                print("HTML generation returned empty content", file=sys.stderr)
-        except Exception as html_error:
-            print(f"Error generating HTML: {html_error}", file=sys.stderr)
+        if not input_data.get('skipHtmlGeneration', False):
+            try:
+                result_tuple = generate_html_from_excel_sheet(output_path, final_sheet_name)
+                # Handle both old return (str) and new return (tuple) for backward compatibility
+                if isinstance(result_tuple, tuple):
+                    html_content, html_json_data = result_tuple
+                else:
+                    html_content = result_tuple
+                    html_json_data = {}
+                
+                if html_content:
+                    print(f"HTML generated successfully ({len(html_content)} chars)", file=sys.stderr)
+                    if html_json_data:
+                        print(f"HTML JSON data extracted ({len(html_json_data.get('data', {}))} cells)", file=sys.stderr)
+                else:
+                    print("HTML generation returned empty content", file=sys.stderr)
+            except Exception as html_error:
+                print(f"Error generating HTML: {html_error}", file=sys.stderr)
+        else:
+            print("HTML generation skipped as requested", file=sys.stderr)
 
-        # Generate full AI-enhanced report if requested
+        # Generate full AI-enhanced report if requested (Grok only)
         full_report_base64 = None
         full_report_filename = None
-        if input_data.get('generateFullReport', False) and (input_data.get('grokApiKey') or input_data.get('perplexityApiKey')):
+        if input_data.get('generateFullReport', False) and input_data.get('grokApiKey'):
             try:
                 print(f"\n{'='*80}", file=sys.stderr)
                 print(f"🚀 GENERATING FULL AI-ENHANCED REPORT", file=sys.stderr)
@@ -2314,29 +2486,9 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
                     'timestamp': timestamp
                 }
                 
-                # Initialize AI generator - Grok is the default/preferred AI provider
-                if input_data.get('grokApiKey'):
-                    ai_generator = AIReportGenerator(input_data['grokApiKey'], provider="grok")
-                    print("[Full Report] Using Grok AI for report generation", file=sys.stderr)
-                elif input_data.get('perplexityApiKey'):
-                    ai_generator = AIReportGenerator(input_data['perplexityApiKey'], provider="perplexity")
-                    print("[Full Report] Using Perplexity AI for report generation (fallback)", file=sys.stderr)
-                else:
-                    # Default to Grok if no specific API key provided
-                    grok_key = input_data.get('grokApiKey') or os.environ.get('GROK_API_KEY')
-                    if grok_key:
-                        ai_generator = AIReportGenerator(grok_key, provider="grok")
-                        print("[Full Report] Using Grok AI for report generation (default)", file=sys.stderr)
-                    else:
-                        # Final fallback to Perplexity
-                        perplexity_key = input_data.get('perplexityApiKey') or os.environ.get('PERPLEXITY_API_KEY')
-                        if perplexity_key:
-                            ai_generator = AIReportGenerator(perplexity_key, provider="perplexity")
-                            print("[Full Report] Using Perplexity AI for report generation (final fallback)", file=sys.stderr)
-                        else:
-                            raise ValueError("No AI API key provided. Set GROK_API_KEY or PERPLEXITY_API_KEY environment variable, or provide apiKey in request.")
-                
-                # Generate full report
+                # Initialize AI generator - Grok only
+                ai_generator = AIReportGenerator(input_data['grokApiKey'], provider="grok")
+                print("[Full Report] Using Grok AI for report generation", file=sys.stderr)                # Generate full report
                 full_report_path = os.path.join(output_dir, f'{template_name}-full-report-{timestamp}.pdf')
                 print("[Full Report] Step 2: Generating AI content and merging...", file=sys.stderr)
                 

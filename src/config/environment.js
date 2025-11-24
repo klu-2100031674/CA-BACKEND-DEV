@@ -2,6 +2,8 @@
  * Environment Configuration
  */
 
+const logger = require('../utils/logger');
+
 const config = {
   // Server
   PORT: process.env.PORT || 3000,
@@ -45,7 +47,10 @@ if (config.NODE_ENV === 'production') {
   const missing = required.filter(key => !config[key]);
   
   if (missing.length > 0) {
-    console.error(`❌ Missing required environment variables: ${missing.join(', ')}`);
+    logger.error('Missing required environment variables', {
+      operation: 'environmentValidation',
+      missingVariables: missing
+    });
     process.exit(1);
   }
 }

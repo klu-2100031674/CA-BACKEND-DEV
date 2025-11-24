@@ -2,6 +2,7 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const templateMappingService = require('./templateMappingService');
+const logger = require('../utils/logger');
 
 /**
  * Excel Calculation Service (Python-Powered)
@@ -26,20 +27,32 @@ class ExcelCalculationService {
     // Check if virtual environment Python exists; otherwise, use system Python
     this.pythonExecutable = fs.existsSync(venvPythonPath) ? venvPythonPath : 'python';
     
-    console.log(`[ExcelCalculationService] Python executable path: ${this.pythonExecutable}`);
+    logger.debug('Python executable configured', {
+      operation: 'constructor',
+      pythonExecutable: this.pythonExecutable
+    });
     this.tempDir = process.env.TEMP_DIR || path.join(__dirname, '../../temp');
-    console.log(`[ExcelCalculationService] Temp directory: ${this.tempDir}`);
+    logger.debug('Temp directory configured', {
+      operation: 'constructor',
+      tempDir: this.tempDir
+    });
   }
 
   // Extract cell mapping from various payload formats
   extractFormData(payload, templateId = null) {
-    console.log('[ExcelCalculationService] Extracting form data from payload');
-    console.log('[ExcelCalculationService] Template ID:', templateId);
-    console.log('[ExcelCalculationService] Payload keys:', Object.keys(payload));
+    logger.debug('Starting form data extraction', {
+      operation: 'extractFormData',
+      templateId,
+      payloadKeys: Object.keys(payload)
+    });
 
     // Normalize template ID
     const normalizedTemplateId = templateId ? templateMappingService.normalizeTemplateId(templateId) : null;
-    console.log('[ExcelCalculationService] Normalized Template ID:', normalizedTemplateId);
+    logger.debug('Template ID normalized', {
+      operation: 'extractFormData',
+      originalTemplateId: templateId,
+      normalizedTemplateId
+    });
 
     // Handle different payload formats
     let cellData = {};
@@ -50,7 +63,10 @@ class ExcelCalculationService {
       const keys = Object.keys(payload);
       if (keys.some(key => key.match(/^[d-eh-j]\d+$/i))) {
         cellData = payload;
-        console.log('[ExcelCalculationService] Found direct cell mapping format');
+        logger.debug('Direct cell mapping format detected', {
+          operation: 'extractFormData',
+          cellKeys: keys.length
+        });
       }
     }
 
@@ -58,10 +74,14 @@ class ExcelCalculationService {
     if (payload && payload.formData) {
       if (payload.formData.excelData) {
         cellData = payload.formData.excelData;
-        console.log('[ExcelCalculationService] Found nested formData.excelData format');
+        logger.debug('Nested formData.excelData format detected', {
+          operation: 'extractFormData'
+        });
       } else if (payload.formData.formData && payload.formData.formData.excelData) {
         cellData = payload.formData.formData.excelData;
-        console.log('[ExcelCalculationService] Found deeply nested formData.formData.excelData format');
+        logger.debug('Deeply nested formData.formData.excelData format detected', {
+          operation: 'extractFormData'
+        });
       }
     }
 
@@ -89,15 +109,24 @@ class ExcelCalculationService {
       }
     }
 
-    console.log('[ExcelCalculationService] Extracted cell data (before filtering):', Object.keys(normalizedData).length, 'cells');
+    logger.debug('Cell data extracted and normalized', {
+      operation: 'extractFormData',
+      cellCount: Object.keys(normalizedData).length
+    });
 
     // Apply template-specific filtering to prevent overwriting formulas
     let filteredData = normalizedData;
     if (templateId) {
       filteredData = templateMappingService.filterWritableCells(templateId, normalizedData);
-      console.log('[ExcelCalculationService] After template filtering:', Object.keys(filteredData).length, 'cells');
+      logger.debug('Template filtering applied', {
+        operation: 'extractFormData',
+        templateId,
+        filteredCellCount: Object.keys(filteredData).length
+      });
     } else {
-      console.warn('[ExcelCalculationService] No templateId provided - skipping formula protection filter');
+      logger.warn('Template filtering skipped - no templateId provided', {
+        operation: 'extractFormData'
+      });
     }
 
     return normalizedData; // Return normalizedData to ensure extracted values
@@ -105,17 +134,26 @@ class ExcelCalculationService {
 
   // Extract Fixed Assets Schedule items and map to D/E columns (uses dynamic mapping)
   extractFixedAssetsSchedule(formDataPayload, templateId = 'Format CC1') {
-    console.log('🔧 [ExcelCalculationService] ========================================');
-    console.log(`🔧 [ExcelCalculationService] EXTRACTING FIXED ASSETS SCHEDULE - ${templateId}`);
-    console.log('🔧 [ExcelCalculationService] ========================================');
+    logger.info('Starting fixed assets schedule extraction', {
+      operation: 'extractFixedAssetsSchedule',
+      templateId
+    });
 
     // Normalize template ID for consistent checking
     const normalizedTemplateId = templateId ? templateMappingService.normalizeTemplateId(templateId) : null;
-    console.log(`🔧 [ExcelCalculationService] Normalized template ID: ${normalizedTemplateId}`);
+    logger.debug('Template ID normalized for fixed assets extraction', {
+      operation: 'extractFixedAssetsSchedule',
+      originalTemplateId: templateId,
+      normalizedTemplateId
+    });
 
     // CC1, CC2, CC3, CC4, CC5, and CC6 now use cell mappings instead of row mappings, so skip this extraction
     if (normalizedTemplateId === 'CC1' || normalizedTemplateId === 'CC2' || normalizedTemplateId === 'CC3' || normalizedTemplateId === 'CC4' || normalizedTemplateId === 'CC5' || normalizedTemplateId === 'CC6') {
-      console.log(`✅ [ExcelCalculationService] Skipping fixed assets extraction for ${templateId} (normalized: ${normalizedTemplateId}) (uses cell mappings)`);
+      logger.info('Fixed assets extraction skipped - using cell mappings', {
+        operation: 'extractFixedAssetsSchedule',
+        templateId,
+        normalizedTemplateId
+      });
       return [];
     }
     
@@ -124,24 +162,42 @@ class ExcelCalculationService {
     // Try different payload structures (check deep nested path first)
     if (formDataPayload?.formData?.formData?.additionalData?.["Fixed Assets Schedule"]) {
       fixedAssetsSchedule = formDataPayload.formData.formData.additionalData["Fixed Assets Schedule"];
-      console.log('✅ [ExcelCalculationService] Found Fixed Assets Schedule in formData.formData.additionalData');
+      logger.debug('Fixed assets schedule found in deep nested path', {
+        operation: 'extractFixedAssetsSchedule',
+        path: 'formData.formData.additionalData'
+      });
     } else if (formDataPayload?.formData?.additionalData?.["Fixed Assets Schedule"]) {
       fixedAssetsSchedule = formDataPayload.formData.additionalData["Fixed Assets Schedule"];
-      console.log('✅ [ExcelCalculationService] Found Fixed Assets Schedule in formData.additionalData');
+      logger.debug('Fixed assets schedule found in nested path', {
+        operation: 'extractFixedAssetsSchedule',
+        path: 'formData.additionalData'
+      });
     } else if (formDataPayload?.formData?.formData?.["Fixed Assets Schedule"]) {
       fixedAssetsSchedule = formDataPayload.formData.formData["Fixed Assets Schedule"];
-      console.log('✅ [ExcelCalculationService] Found Fixed Assets Schedule in formData.formData');
+      logger.debug('Fixed assets schedule found in formData.formData', {
+        operation: 'extractFixedAssetsSchedule',
+        path: 'formData.formData'
+      });
     } else if (formDataPayload?.formData?.["Fixed Assets Schedule"]) {
       fixedAssetsSchedule = formDataPayload.formData["Fixed Assets Schedule"];
-      console.log('✅ [ExcelCalculationService] Found Fixed Assets Schedule in formData');
+      logger.debug('Fixed assets schedule found in formData', {
+        operation: 'extractFixedAssetsSchedule',
+        path: 'formData'
+      });
     } else if (formDataPayload?.additionalData?.["Fixed Assets Schedule"]) {
       fixedAssetsSchedule = formDataPayload.additionalData["Fixed Assets Schedule"];
-      console.log('✅ [ExcelCalculationService] Found Fixed Assets Schedule in additionalData');
+      logger.debug('Fixed assets schedule found in additionalData', {
+        operation: 'extractFixedAssetsSchedule',
+        path: 'additionalData'
+      });
     }
     
     if (!fixedAssetsSchedule) {
-      console.log('❌ [ExcelCalculationService] No Fixed Assets Schedule found in payload');
-      console.log('❌ [ExcelCalculationService] Payload keys:', Object.keys(formDataPayload || {}));
+      logger.warn('Fixed assets schedule not found in payload', {
+        operation: 'extractFixedAssetsSchedule',
+        templateId,
+        payloadKeys: Object.keys(formDataPayload || {})
+      });
       return [];
     }
     
@@ -151,7 +207,10 @@ class ExcelCalculationService {
     let categoryRowMapping = templateMappingService.getFixedAssetsMapping(templateId);
     
     if (!categoryRowMapping || Object.keys(categoryRowMapping).length === 0) {
-      console.warn('⚠️  [ExcelCalculationService] No fixed assets mapping found for template, using defaults');
+      logger.warn('No fixed assets mapping found for template, using defaults', {
+        operation: 'extractFixedAssetsSchedule',
+        templateId
+      });
       // Fallback to CC6 mapping
       categoryRowMapping = {
         "plant_machinery": 135,
@@ -167,7 +226,11 @@ class ExcelCalculationService {
       };
     }
     
-    console.log('📊 [ExcelCalculationService] Using Fixed Assets Mapping:', categoryRowMapping);
+    logger.debug('Using fixed assets mapping', {
+      operation: 'extractFixedAssetsSchedule',
+      templateId,
+      mappingKeys: Object.keys(categoryRowMapping)
+    });
     
     // Map frontend category names to backend mapping keys
     const categoryNameMap = {
@@ -191,7 +254,11 @@ class ExcelCalculationService {
       const startRow = categoryRowMapping[mappingKey];
       
       if (!startRow) {
-        console.log(`[ExcelCalculationService] Unknown category: ${categoryName} (key: ${mappingKey}), skipping`);
+        logger.warn('Unknown fixed assets category, skipping', {
+          operation: 'extractFixedAssetsSchedule',
+          categoryName,
+          mappingKey
+        });
         continue;
       }
       
@@ -200,11 +267,21 @@ class ExcelCalculationService {
         const row = startRow + index;
         updates.push({ sheet: 'Assumptions.1', cell: `d${row}`, value: item.description || '' });
         updates.push({ sheet: 'Assumptions.1', cell: `e${row}`, value: item.amount || 0 });
-        console.log(`[ExcelCalculationService] ${categoryName}: d${row}=${item.description}, e${row}=${item.amount}`);
+        logger.debug('Fixed asset item mapped', {
+          operation: 'extractFixedAssetsSchedule',
+          categoryName,
+          row,
+          description: item.description,
+          amount: item.amount
+        });
       });
     }
     
-    console.log(`[ExcelCalculationService] Extracted ${updates.length} fixed asset items`);
+    logger.info('Fixed assets extraction completed', {
+      operation: 'extractFixedAssetsSchedule',
+      templateId,
+      extractedItems: updates.length
+    });
     return updates;
   }
 
@@ -212,49 +289,90 @@ class ExcelCalculationService {
   //  Main entry: apply data and extract JSON by calling Python script
   async applyFormDataAndCalculate(templateId, formDataPayload) {
     try {
-      console.log(`[ExcelCalculationService] Starting Python calculation for template: ${templateId}`);
+      logger.info('Starting Python calculation', {
+        operation: 'applyFormDataAndCalculate',
+        templateId
+      });
 
       // Extract cell data from the payload (with template-specific filtering)
       const cellData = this.extractFormData(formDataPayload, templateId);
-      console.log(`[ExcelCalculationService] Extracted cell data: ${Object.keys(cellData).length} cells`);
+      logger.debug('Cell data extracted', {
+        operation: 'applyFormDataAndCalculate',
+        templateId,
+        cellCount: Object.keys(cellData).length
+      });
 
       const updates = [];
       for (const [cell, value] of Object.entries(cellData)) {
         updates.push({ sheet: 'Assumptions.1', cell, value });
       }
-      console.log(`[ExcelCalculationService] Added ${updates.length} cell updates`);
+      logger.debug('Cell updates prepared', {
+        operation: 'applyFormDataAndCalculate',
+        templateId,
+        updateCount: updates.length
+      });
       
       // Extract and add Fixed Assets Schedule items (pass templateId for correct mapping)
       const fixedAssetsUpdates = this.extractFixedAssetsSchedule(formDataPayload, templateId);
       updates.push(...fixedAssetsUpdates);
-      console.log(`[ExcelCalculationService] Added ${fixedAssetsUpdates.length} fixed assets updates`);
+      logger.debug('Fixed assets updates added', {
+        operation: 'applyFormDataAndCalculate',
+        templateId,
+        fixedAssetsUpdateCount: fixedAssetsUpdates.length
+      });
       
       const inputData = {
         updates,
         recalculate: false, // Let Excel handle automatic calculation
       };
-      console.log(`[ExcelCalculationService] Total updates: ${updates.length}`);
+      logger.debug('Input data prepared for Python script', {
+        operation: 'applyFormDataAndCalculate',
+        templateId,
+        totalUpdates: updates.length
+      });
 
       // Resolve template path (handle different naming conventions)
       const templatePath = this.resolveTemplatePath(templateId);
-      console.log(`[ExcelCalculationService] Using template path: ${templatePath}`);
+      logger.debug('Template path resolved', {
+        operation: 'applyFormDataAndCalculate',
+        templateId,
+        templatePath
+      });
       
       const scriptPath = path.join(this.pythonEnginePath, 'excel_calculator.py');
-      console.log(`[ExcelCalculationService] Using script path: ${scriptPath}`);
+      logger.debug('Python script path configured', {
+        operation: 'applyFormDataAndCalculate',
+        scriptPath
+      });
       
-      console.log(`[ExcelCalculationService] Running Python script with executable: ${this.pythonExecutable}`);
+      logger.debug('Executing Python script', {
+        operation: 'applyFormDataAndCalculate',
+        templateId,
+        pythonExecutable: this.pythonExecutable
+      });
       const result = await this.runPythonScript(scriptPath, [templatePath, JSON.stringify(inputData)]);
       
-      console.log(`[ExcelCalculationService] Python script finished.`);
+      logger.debug('Python script execution completed', {
+        operation: 'applyFormDataAndCalculate',
+        templateId
+      });
       const excelResult = this.transformPythonResult(JSON.parse(result));
 
       // PDF is now generated directly in Python, no need for separate generation
-      console.log(`[ExcelCalculationService] PDF generated directly from Excel sheet`);
+      logger.info('PDF generated directly from Excel sheet', {
+        operation: 'applyFormDataAndCalculate',
+        templateId
+      });
 
       return excelResult;
 
     } catch (error) {
-      console.error(`[ExcelCalculationService] Error during Python script execution:`, error);
+      logger.error('Error during Python script execution', {
+        operation: 'applyFormDataAndCalculate',
+        templateId,
+        error: error.message,
+        stack: error.stack
+      });
       throw new Error('Failed to calculate Excel data using Python engine.');
     }
   }
@@ -297,7 +415,10 @@ class ExcelCalculationService {
   // Apply arbitrary updates across any sheets and calculate
   async applyUpdatesAndCalculate(templateId, updatesPayload) {
     try {
-      console.log(`[ExcelCalculationService] Starting Python calculation (applyUpdates) for template: ${templateId}`);
+      logger.info('Starting Python calculation (applyUpdates)', {
+        operation: 'applyUpdatesAndCalculate',
+        templateId
+      });
 
       // Expecting updatesPayload = { updates: [{sheet, cell, value}, ...], recalculate?: boolean }
       const inputData = {
@@ -309,24 +430,126 @@ class ExcelCalculationService {
       const scriptPath = path.join(this.pythonEnginePath, 'excel_calculator.py');
 
       const result = await this.runPythonScript(scriptPath, [templatePath, JSON.stringify(inputData)]);
-      console.log(`[ExcelCalculationService] Python script finished (applyUpdates).`);
+      logger.debug('Python script execution completed (applyUpdates)', {
+        operation: 'applyUpdatesAndCalculate',
+        templateId
+      });
       return this.transformPythonResult(JSON.parse(result));
     } catch (error) {
-      console.error(`[ExcelCalculationService] Error during Python script execution (applyUpdates):`, error);
+      logger.error('Error during Python script execution (applyUpdates)', {
+        operation: 'applyUpdatesAndCalculate',
+        templateId,
+        error: error.message,
+        stack: error.stack
+      });
       throw new Error('Failed to calculate Excel data using Python engine.');
     }
   }
 
-  // Generate full AI-enhanced report (all in Python)
-  async generateFullReport(templateId, formDataPayload, apiKey, aiProvider = 'grok') {
+  // Generate full AI-enhanced report (Grok only, simplified)
+  async generateFullReport(templateId, formDataPayload, apiKey) {
     try {
-      console.log(`[ExcelCalculationService] Starting FULL REPORT generation for template: ${templateId} using ${aiProvider}`);
+      logger.info('Starting full report generation with Grok', {
+        operation: 'generateFullReport',
+        templateId
+      });
+
+      // Always use Grok API key
+      let finalApiKey = apiKey || process.env.GROK_API_KEY || process.env.XAI_API_KEY;
+      if (!finalApiKey) {
+        throw new Error('Grok API key is required. Set GROK_API_KEY or XAI_API_KEY environment variable or provide in request.');
+      }
+
+      // Extract cell data from the payload (with template-specific filtering)
+      const cellData = this.extractFormData(formDataPayload, templateId);
+
+      // Convert cell data to updates array
+      const updates = [];
+      for (const [cell, value] of Object.entries(cellData)) {
+        updates.push({ sheet: 'Assumptions.1', cell, value });
+      }
+
+      // Extract and add Fixed Assets Schedule items (pass templateId for correct mapping)
+      const fixedAssetsUpdates = this.extractFixedAssetsSchedule(formDataPayload, templateId);
+      updates.push(...fixedAssetsUpdates);
+
+      logger.debug('Excel updates prepared for AI report generation', {
+        operation: 'generateFullReport',
+        templateId,
+        totalUpdates: updates.length,
+        cellUpdates: updates.length - fixedAssetsUpdates.length,
+        fixedAssetsUpdates: fixedAssetsUpdates.length
+      });
+
+      // Build input data for Python script (simplified, Grok only)
+      const inputData = {
+        updates,
+        recalculate: false,
+        generateFullReport: true,
+        grokApiKey: finalApiKey,  // Always use Grok
+        skipHtmlGeneration: true   // Skip unnecessary HTML generation
+      };
+
+      const templatePath = this.resolveTemplatePath(templateId);
+      const scriptPath = path.join(this.pythonEnginePath, 'excel_calculator.py');
+
+      const result = await this.runPythonScript(scriptPath, [templatePath, JSON.stringify(inputData)]);
+
+      logger.info('Full report generation completed', {
+        operation: 'generateFullReport',
+        templateId
+      });
+      logger.debug('Python script output preview', {
+        operation: 'generateFullReport',
+        templateId,
+        outputPreview: result.substring(0, 500)
+      });
+
+      let parsedResult;
+      try {
+        parsedResult = JSON.parse(result);
+      } catch (parseError) {
+        logger.error('Failed to parse Python output as JSON', {
+          operation: 'generateFullReport',
+          templateId,
+          parseError: parseError.message,
+          rawOutputLength: result.length
+        });
+        throw new Error(`Failed to parse Python script output: ${parseError.message}`);
+      }
+
+      const excelResult = this.transformPythonResult(parsedResult);
+
+      return excelResult;
+
+    } catch (error) {
+      logger.error('Error during full report generation', {
+        operation: 'generateFullReport',
+        templateId,
+        error: error.message,
+        stack: error.stack
+      });
+      throw error;
+    }
+  }
+
+  // Generate full AI-enhanced report from existing Excel file
+  async generateFullReportFromFile(excelFilePath, templateId, formDataPayload, apiKey, aiProvider = 'grok') {
+    try {
+      logger.info('Starting full report generation from file', {
+        operation: 'generateFullReportFromFile',
+        templateId,
+        excelFilePath,
+        aiProvider
+      });
 
       // Get API key based on provider
       let finalApiKey = apiKey;
       if (!finalApiKey) {
         if (aiProvider === 'grok') {
-          finalApiKey = process.env.GROK_API_KEY;
+          finalApiKey = process.env.GROK_API_KEY || process.env.XAI_API_KEY;
+        } else if (aiProvider === 'gemini') {
+          finalApiKey = process.env.GEMINI_API_KEY;
         } else {
           finalApiKey = process.env.PERPLEXITY_API_KEY;
         }
@@ -336,54 +559,60 @@ class ExcelCalculationService {
         throw new Error(`${aiProvider.toUpperCase()} API key is required. Set ${aiProvider.toUpperCase()}_API_KEY environment variable or provide in request.`);
       }
 
-      // Extract cell data from the payload (with template-specific filtering)
-      const cellData = this.extractFormData(formDataPayload, templateId);
-      
-      // Convert cell data to updates array
+      // For existing file, we don't need to extract form data or apply updates
+      // The Excel is already updated, so we pass empty updates
       const updates = [];
-      for (const [cell, value] of Object.entries(cellData)) {
-        updates.push({ sheet: 'Assumptions.1', cell, value });
-      }
-      
-      // Extract and add Fixed Assets Schedule items (pass templateId for correct mapping)
-      const fixedAssetsUpdates = this.extractFixedAssetsSchedule(formDataPayload, templateId);
-      updates.push(...fixedAssetsUpdates);
 
-      console.log(`[ExcelCalculationService] Prepared ${updates.length} Excel updates for AI report generation`);
-      console.log(`[ExcelCalculationService] - Cell updates: ${updates.length - fixedAssetsUpdates.length}`);
-      console.log(`[ExcelCalculationService] - Fixed assets updates: ${fixedAssetsUpdates.length}`);
+      logger.debug('Using existing Excel file - no updates needed', {
+        operation: 'generateFullReportFromFile',
+        templateId,
+        excelFilePath
+      });
 
       // Build input data for Python script
       const inputData = {
-        updates,  // Excel cell updates (including Fixed Assets in D/E columns)
+        updates,  // Empty updates since Excel is already updated
         recalculate: false,  // Let Excel auto-calculate
         generateFullReport: true,  // Enable full report generation
+        skipHtmlGeneration: true,  // Skip HTML generation for full reports (not needed)
+        skipJsonExtraction: true,  // Skip JSON data extraction for full reports (not needed)
       };
 
       // Add API key based on provider
       if (aiProvider === 'grok') {
         inputData.grokApiKey = finalApiKey;
+      } else if (aiProvider === 'gemini') {
+        inputData.geminiApiKey = finalApiKey;
       } else {
         inputData.perplexityApiKey = finalApiKey;
       }
 
-      console.log('[ExcelCalculationService] Updates sample:', JSON.stringify(updates.slice(0, 3)));
-
-      const templatePath = this.resolveTemplatePath(templateId);
       const scriptPath = path.join(this.pythonEnginePath, 'excel_calculator.py');
       
-      const result = await this.runPythonScript(scriptPath, [templatePath, JSON.stringify(inputData)]);
+      const result = await this.runPythonScript(scriptPath, [excelFilePath, JSON.stringify(inputData)]);
       
-      console.log(`[ExcelCalculationService] Full report generation finished.`);
-      console.log(`[ExcelCalculationService] Python output (first 500 chars):`, result.substring(0, 500));
+      logger.info('Full report generation from file completed', {
+        operation: 'generateFullReportFromFile',
+        templateId,
+        excelFilePath
+      });
+      logger.debug('Python script output preview', {
+        operation: 'generateFullReportFromFile',
+        templateId,
+        outputPreview: result.substring(0, 500)
+      });
       
       let parsedResult;
       try {
         parsedResult = JSON.parse(result);
       } catch (parseError) {
-        console.error('[ExcelCalculationService] Failed to parse Python output as JSON');
-        console.error('[ExcelCalculationService] Parse error:', parseError.message);
-        console.error('[ExcelCalculationService] Raw output:', result);
+        logger.error('Failed to parse Python output as JSON', {
+          operation: 'generateFullReportFromFile',
+          templateId,
+          excelFilePath,
+          parseError: parseError.message,
+          rawOutputLength: result.length
+        });
         throw new Error(`Failed to parse Python script output: ${parseError.message}`);
       }
       
@@ -392,31 +621,49 @@ class ExcelCalculationService {
       return excelResult;
 
     } catch (error) {
-      console.error(`[ExcelCalculationService] Error during full report generation:`, error);
-      console.error(`[ExcelCalculationService] Error stack:`, error.stack);
+      logger.error('Error during full report generation from file', {
+        operation: 'generateFullReportFromFile',
+        templateId,
+        excelFilePath,
+        error: error.message,
+        stack: error.stack
+      });
       throw error; // Rethrow the actual error instead of generic message
     }
   }
 
   transformPythonResult(rawResult) {
-    console.log('[transformPythonResult] Raw result type:', typeof rawResult);
-    console.log('[transformPythonResult] Raw result keys:', rawResult ? Object.keys(rawResult) : 'null');
+    logger.debug('Transforming Python result', {
+      operation: 'transformPythonResult',
+      rawResultType: typeof rawResult,
+      rawResultKeys: rawResult ? Object.keys(rawResult) : 'null'
+    });
     
     try {
       // Try to parse if it's a string
       let result = rawResult;
       if (typeof rawResult === 'string') {
-        console.log('[transformPythonResult] Parsing JSON string...');
+        logger.debug('Parsing JSON string', {
+          operation: 'transformPythonResult'
+        });
         result = JSON.parse(rawResult);
-        console.log('[transformPythonResult] JSON parsed successfully');
+        logger.debug('JSON parsed successfully', {
+          operation: 'transformPythonResult'
+        });
       }
       
-      console.log('[transformPythonResult] Success field:', result?.success);
-      console.log('[transformPythonResult] Error field:', result?.error);
+      logger.debug('Python result fields', {
+        operation: 'transformPythonResult',
+        success: result?.success,
+        error: result?.error
+      });
       
       if (!result || result.success === false) {
         const errorMessage = result?.error || 'Python engine returned an error';
-        console.error('[transformPythonResult] Python script failed:', errorMessage);
+        logger.error('Python script failed', {
+          operation: 'transformPythonResult',
+          errorMessage
+        });
         throw new Error(errorMessage);
       }
 
@@ -436,12 +683,17 @@ class ExcelCalculationService {
         htmlJsonData: result.htmlJsonData || {},
         pdfData: result.pdfData,
         pdfFileName: result.pdfFileName,
+        fullReportData: result.fullReportData,
+        fullReportFileName: result.fullReportFileName,
         meta: result._meta || {}
       };
       
     } catch (parseError) {
-      console.error('[transformPythonResult] JSON parse error:', parseError.message);
-      console.error('[transformPythonResult] Raw result (first 500 chars):', rawResult?.substring(0, 500));
+      logger.error('JSON parse error in transformPythonResult', {
+        operation: 'transformPythonResult',
+        parseError: parseError.message,
+        rawResultPreview: rawResult?.substring(0, 500)
+      });
       
       // Try to extract error from raw result if it contains error information
       if (typeof rawResult === 'string' && rawResult.includes('error')) {
@@ -464,7 +716,12 @@ class ExcelCalculationService {
   //  Utility to run a Python script and get its output
   runPythonScript(scriptPath, args) {
     return new Promise((resolve, reject) => {
-      console.log(`[runPythonScript] Executing: ${this.pythonExecutable} ${scriptPath} ${args.join(' ')}`);
+      logger.debug('Executing Python script', {
+        operation: 'runPythonScript',
+        pythonExecutable: this.pythonExecutable,
+        scriptPath,
+        args: args.join(' ')
+      });
       const env = { ...process.env, TEMP_DIR: this.tempDir };
       const pythonProcess = spawn(this.pythonExecutable, [scriptPath, ...args], { env });
 
@@ -479,20 +736,30 @@ class ExcelCalculationService {
         const stderrText = data.toString();
         stderr += stderrText;
         // Log Python stderr in real-time for debugging
-        console.log('[Python stderr]', stderrText);
+        logger.debug('Python stderr output', {
+          operation: 'runPythonScript',
+          stderrText: stderrText.trim()
+        });
       });
 
       pythonProcess.on('close', (code) => {
         if (code !== 0) {
-          console.error(`Python script exited with code ${code}`);
-          console.error(`stderr: ${stderr}`);
+          logger.error('Python script exited with error', {
+            operation: 'runPythonScript',
+            exitCode: code,
+            stderr: stderr.trim()
+          });
           return reject(new Error(`Python script failed with code ${code}: ${stderr}`));
         }
         resolve(stdout);
       });
 
       pythonProcess.on('error', (err) => {
-        console.error('Failed to start Python process.', err);
+        logger.error('Failed to start Python process', {
+          operation: 'runPythonScript',
+          error: err.message,
+          stack: err.stack
+        });
         reject(err);
       });
     });

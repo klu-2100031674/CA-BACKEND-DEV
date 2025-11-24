@@ -7,6 +7,7 @@
 const fs = require('fs').promises;
 const path = require('path');
 const yaml = require('js-yaml');
+const logger = require('../utils/logger');
 
 class ProductionCalculationEngine {
   constructor(yamlDataPath = null) {
@@ -18,10 +19,17 @@ class ProductionCalculationEngine {
   }
 
   async loadExcelData() {
-    console.log('📂 Loading YAML structure...');
+    logger.info('Loading YAML structure', {
+      operation: 'loadExcelData',
+      dataPath: this.dataPath
+    });
     const content = await fs.readFile(this.dataPath, 'utf8');
     this.excelData = yaml.load(content);
-    console.log(`✅ Loaded ${this.excelData.metadata.total_sheets} sheets with ${this.excelData.metadata.total_formulas} formulas\n`);
+    logger.info('YAML structure loaded successfully', {
+      operation: 'loadExcelData',
+      totalSheets: this.excelData.metadata.total_sheets,
+      totalFormulas: this.excelData.metadata.total_formulas
+    });
   }
 
   getTotalFormulas() {
@@ -32,7 +40,10 @@ class ProductionCalculationEngine {
    * Initialize with form inputs
    */
   setInputs(formData) {
-    console.log('📝 Processing inputs...');
+    logger.info('Processing form inputs', {
+      operation: 'setInputs',
+      inputKeys: Object.keys(formData)
+    });
     this.inputs = formData;
     
     // If formData has excelData property, use that (frontend format)
@@ -113,7 +124,11 @@ class ProductionCalculationEngine {
     // Fix electricity mapping: calculation uses I30
     if (normalizedData.electricity !== undefined) {
       this.setCellValue('Assumptions.1', 'I30', normalizedData.electricity);
-      console.log('   🔧 Fixed electricity mapping: I30 =', normalizedData.electricity);
+      logger.debug('Fixed electricity mapping', {
+        operation: 'setInputs',
+        cell: 'I30',
+        value: normalizedData.electricity
+      });
     }
     
     // Fix rent mapping: calculation uses I28 for base amount, I29 for growth factor
@@ -121,25 +136,41 @@ class ProductionCalculationEngine {
     // Base rent amount (I28) should be derived or set separately
     if (normalizedData.rent !== undefined) {
       this.setCellValue('Assumptions.1', 'I29', normalizedData.rent);
-      console.log('   🔧 Fixed rent growth factor: I29 =', normalizedData.rent);
+      logger.debug('Fixed rent growth factor mapping', {
+        operation: 'setInputs',
+        cell: 'I29',
+        value: normalizedData.rent
+      });
     }
     
     // Set base monthly rent amount for I28 (this might need to be an input)
     // Based on expected output, base rent = 7500/month
     const monthlyRentAmount = normalizedData.monthly_rent || 7500;
     this.setCellValue('Assumptions.1', 'I28', monthlyRentAmount);
-    console.log('   🔧 Set base monthly rent: I28 =', monthlyRentAmount);
+    logger.debug('Set base monthly rent', {
+      operation: 'setInputs',
+      cell: 'I28',
+      value: monthlyRentAmount
+    });
     
     // Marketing expenses should go to I31 (not I30)
     if (normalizedData.marketing_expenses !== undefined) {
       this.setCellValue('Assumptions.1', 'I31', normalizedData.marketing_expenses);
-      console.log('   🔧 Fixed marketing_expenses mapping: I31 =', normalizedData.marketing_expenses);
+      logger.debug('Fixed marketing expenses mapping', {
+        operation: 'setInputs',
+        cell: 'I31',
+        value: normalizedData.marketing_expenses
+      });
     }
     
     // Fix other_expenses mapping for electricity growth calculations
     if (normalizedData.other_expenses !== undefined) {
       this.setCellValue('Assumptions.1', 'I35', normalizedData.other_expenses);
-      console.log('   🔧 Fixed other_expenses mapping: I35 =', normalizedData.other_expenses);
+      logger.debug('Fixed other expenses mapping', {
+        operation: 'setInputs',
+        cell: 'I35',
+        value: normalizedData.other_expenses
+      });
     }
 
     // Load all static values from all sheets
@@ -156,7 +187,11 @@ class ProductionCalculationEngine {
     // ⚠️ CRITICAL FIX: F84 is missing from YAML but used in many formulas
     // F84 appears to be the months in a year (12) used as denominator in calculations
     this.setCellValue('Assumptions.1', 'F84', 12);
-    console.log('   🔧 Fixed missing F84 value (set to 12 months)');
+    logger.debug('Fixed missing F84 value', {
+      operation: 'setInputs',
+      cell: 'F84',
+      value: 12
+    });
 
     // ⚠️ CRITICAL FIX: F72-F76 missing from YAML but used for gross profit calculations
     // These appear to be gross profit margin percentages for each year
@@ -166,9 +201,16 @@ class ProductionCalculationEngine {
     this.setCellValue('Assumptions.1', 'F74', 0); // Year 3 gross profit margin
     this.setCellValue('Assumptions.1', 'F75', 0); // Year 4 gross profit margin
     this.setCellValue('Assumptions.1', 'F76', 0); // Year 5 gross profit margin
-    console.log('   🔧 Fixed missing F72-F76 values (gross profit margins set to 0%)');
+    logger.debug('Fixed missing F72-F76 values', {
+      operation: 'setInputs',
+      cells: 'F72-F76',
+      value: 0
+    });
 
-    console.log(`   ✅ Loaded ${this.calculatedCells.size} initial values\n`);
+    logger.info('Input processing completed', {
+      operation: 'setInputs',
+      loadedValues: this.calculatedCells.size
+    });
   }
 
   /**
@@ -280,7 +322,12 @@ class ProductionCalculationEngine {
       // Check for circular reference
       const cellKey = `${sheetName}!${cellAddress}`;
       if (this.processing.has(cellKey)) {
-        console.warn(`   ⚠️  Circular reference detected: ${cellKey}`);
+        logger.warn('Circular reference detected', {
+          operation: 'evaluateFormula',
+          cellKey,
+          sheetName,
+          cellAddress
+        });
         return 0;
       }
       
@@ -346,11 +393,17 @@ class ProductionCalculationEngine {
   async calculateSheet(sheetName) {
     const sheet = this.excelData.sheets[sheetName];
     if (!sheet) {
-      console.warn(`⚠️  Sheet not found: ${sheetName}`);
+      logger.warn('Sheet not found for calculation', {
+        operation: 'calculateSheet',
+        sheetName
+      });
       return;
     }
 
-    console.log(`📊 Calculating ${sheetName}...`);
+    logger.info('Starting sheet calculation', {
+      operation: 'calculateSheet',
+      sheetName
+    });
     
     let calculated = 0;
     let failed = 0;
@@ -366,14 +419,21 @@ class ProductionCalculationEngine {
       }
     }
     
-    console.log(`   ✅ Calculated: ${calculated}, Failed: ${failed}`);
+    logger.info('Sheet calculation completed', {
+      operation: 'calculateSheet',
+      sheetName,
+      calculated,
+      failed
+    });
   }
 
   /**
    * Calculate all sheets in dependency order
    */
   async calculateAll() {
-    console.log('🔄 Starting calculations...\n');
+    logger.info('Starting full calculation process', {
+      operation: 'calculateAll'
+    });
     
     // Process sheets in dependency order
     const sheetOrder = [
@@ -392,7 +452,9 @@ class ProductionCalculationEngine {
       await this.calculateSheet(sheetName);
     }
     
-    console.log('\n✅ All calculations complete!\n');
+    logger.info('All calculations completed successfully', {
+      operation: 'calculateAll'
+    });
   }
 
   /**
@@ -773,8 +835,9 @@ class ProductionCalculationEngine {
    * Main execution method
    */
   async execute(formData) {
-    console.log('\n🚀 Production Calculation Engine v3.0\n');
-    console.log('═══════════════════════════════════════════════════════\n');
+    logger.info('Production Calculation Engine v3.0 started', {
+      operation: 'execute'
+    });
     
     await this.loadExcelData();
     this.setInputs(formData);
@@ -782,12 +845,12 @@ class ProductionCalculationEngine {
     
     const response = this.generateResponse();
     
-    console.log('📊 Execution Summary:');
-    console.log(`   Total Sheets: ${response.metadata.total_sheets}`);
-    console.log(`   Total Formulas: ${response.metadata.total_formulas}`);
-    console.log(`   Total Calculated Values: ${response.metadata.total_calculated}`);
-    console.log('');
-    console.log('═══════════════════════════════════════════════════════\n');
+    logger.info('Execution completed successfully', {
+      operation: 'execute',
+      totalSheets: response.metadata.total_sheets,
+      totalFormulas: response.metadata.total_formulas,
+      totalCalculated: response.metadata.total_calculated
+    });
     
     return response;
   }

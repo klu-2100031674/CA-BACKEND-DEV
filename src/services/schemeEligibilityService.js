@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const logger = require('../utils/logger');
 
 const knowledgeBasePath = path.join(__dirname, '../python-engine/ai_knowledge_base.json');
 
@@ -64,7 +65,10 @@ Respond only with a valid JSON object in the exact format:
 
 Do not include any other text, explanations, or markdown. Only the JSON object.`;
 
-  console.log('Full prompt:', prompt);
+  logger.debug('Sending prompt to Grok API', {
+    promptLength: prompt.length,
+    operation: 'checkEligibility'
+  });
 
   // Send to Grok API
   const response = await fetch('https://api.x.ai/v1/chat/completions', {
@@ -81,7 +85,12 @@ Do not include any other text, explanations, or markdown. Only the JSON object.`
 
   const data = await response.json();
   if (!response.ok) {
-    console.error('Grok API error:', data);
+    logger.error('Grok API error', {
+      status: response.status,
+      statusText: response.statusText,
+      errorData: data,
+      operation: 'checkEligibility'
+    });
     // Fallback to mock
     return {
       title: "Scheme Eligibility Assessment",
@@ -119,7 +128,10 @@ Do not include any other text, explanations, or markdown. Only the JSON object.`
   }
 
   const aiResponse = data.choices[0].message.content;
-  console.log('AI response:', aiResponse);
+  logger.debug('Received AI response from Grok', {
+    responseLength: aiResponse.length,
+    operation: 'checkEligibility'
+  });
   // Extract JSON from markdown code block if present
   const jsonMatch = aiResponse.match(/```json\s*(\{[\s\S]*?\})\s*```/);
   const jsonString = jsonMatch ? jsonMatch[1] : aiResponse;

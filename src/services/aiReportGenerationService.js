@@ -1,6 +1,7 @@
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs').promises;
+const logger = require('../utils/logger');
 
 /**
  * AI Report Generation Service
@@ -34,9 +35,11 @@ class AIReportGenerationService {
    */
   async generateFullReport(excelFilePath, templateId, excelData = {}) {
     try {
-      console.log('[AIReportService] Starting full report generation');
-      console.log(`  Excel file: ${excelFilePath}`);
-      console.log(`  Template ID: ${templateId}`);
+      logger.info('Starting full report generation', {
+        operation: 'generateFullReport',
+        excelFilePath,
+        templateId
+      });
 
       // Validate Gemini API key
       if (!this.geminiApiKey) {
@@ -51,21 +54,21 @@ class AIReportGenerationService {
       await fs.mkdir(pdfsDir, { recursive: true });
 
       // Step 1: Generate PDFs for all Excel sheets
-      console.log('[AIReportService] Step 1: Generating PDFs from Excel sheets...');
+      logger.info('Step 1: Generating PDFs from Excel sheets', { operation: 'generateFullReport', templateId, timestamp });
       const pdfGeneration = await this.generateExcelSheetPDFs(excelFilePath, pdfsDir);
 
       if (!pdfGeneration.success) {
         throw new Error('Failed to generate Excel sheet PDFs');
       }
 
-      console.log(`[AIReportService] Generated ${pdfGeneration.success_count} PDFs from Excel sheets`);
+      logger.info('Generated PDFs from Excel sheets', { operation: 'generateFullReport', templateId, successCount: pdfGeneration.success_count });
 
       // Step 2: Save Excel data to JSON for Python script
       const excelDataPath = path.join(this.tempDir, `${templateId}_data_${timestamp}.json`);
       await fs.writeFile(excelDataPath, JSON.stringify(excelData, null, 2));
 
       // Step 3: Generate AI-enhanced report using Python
-      console.log('[AIReportService] Step 2: Generating AI-enhanced content and merging PDFs...');
+      logger.info('Step 2: Generating AI-enhanced content and merging PDFs', { operation: 'generateFullReport', templateId, timestamp });
       const reportGeneration = await this.generateAIReport(pdfsDir, excelDataPath, finalReportPath);
 
       if (!reportGeneration.success) {
@@ -82,10 +85,10 @@ class AIReportGenerationService {
         // Optionally cleanup PDF directory (keep for debugging)
         // await fs.rm(pdfsDir, { recursive: true });
       } catch (cleanupError) {
-        console.warn('[AIReportService] Cleanup warning:', cleanupError.message);
+        logger.warn('Cleanup warning during report generation', { operation: 'generateFullReport', templateId, error: cleanupError.message });
       }
 
-      console.log('[AIReportService] ✅ Full report generation complete');
+      logger.info('Full report generation complete', { operation: 'generateFullReport', templateId, timestamp });
 
       return {
         success: true,
@@ -102,7 +105,11 @@ class AIReportGenerationService {
       };
 
     } catch (error) {
-      console.error('[AIReportService] Error generating full report:', error);
+      logger.error('Error generating full report', {
+        operation: 'generateFullReport',
+        error: error.message,
+        stack: error.stack
+      });
       throw error;
     }
   }
@@ -140,7 +147,11 @@ print(json.dumps(result))
       return result;
 
     } catch (error) {
-      console.error('[AIReportService] Error generating Excel sheet PDFs:', error);
+      logger.error('Error generating Excel sheet PDFs', {
+        operation: 'generateExcelSheetPDFs',
+        error: error.message,
+        stack: error.stack
+      });
       throw error;
     }
   }
@@ -168,7 +179,11 @@ print(json.dumps(result))
       return result;
 
     } catch (error) {
-      console.error('[AIReportService] Error generating AI report:', error);
+      logger.error('Error generating AI report', {
+        operation: 'generateAIReport',
+        error: error.message,
+        stack: error.stack
+      });
       throw error;
     }
   }
@@ -194,20 +209,26 @@ print(json.dumps(result))
         const stderrText = data.toString();
         stderr += stderrText;
         // Log Python stderr for debugging
-        console.log('[Python stderr]', stderrText);
+        logger.debug('Python stderr output', {
+          operation: 'runPythonScript',
+          stderrText: stderrText.trim()
+        });
       });
 
       pythonProcess.on('close', (code) => {
         if (code !== 0) {
-          console.error(`Python script exited with code ${code}`);
-          console.error(`stderr: ${stderr}`);
+          logger.error('Python script exited with error', {
+            operation: 'runPythonScript',
+            exitCode: code,
+            stderr: stderr.trim()
+          });
           return reject(new Error(`Python script failed with code ${code}`));
         }
         resolve(stdout);
       });
 
       pythonProcess.on('error', (err) => {
-        console.error('Failed to start Python process:', err);
+        logger.error('Failed to start Python process', { operation: 'runPythonScript', error: err.message });
         reject(err);
       });
     });

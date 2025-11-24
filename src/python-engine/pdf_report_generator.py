@@ -541,67 +541,68 @@ Keep under 500 words, focus on critical decision points."""
                     "title": "Index / Table of Contents",
                     "after_sheet": "coverpage",  # After Coverpage sheet
                     "pages": 1
-                },
-                {
-                    "type": "trading_pl_account",
-                    "title": "Trading, Profit & Loss Account",
-                    "after_sheet": "Finalworkings",  # After Final workings sheet
-                    "pages": 1
-                },
-                {
-                    "type": "balance_sheet_analysis",
-                    "title": "Balance Sheet Analysis",
-                    "after_sheet": "PLBS",  # After Balance Sheet
-                    "pages": 1
-                },
-                {
-                    "type": "admin_selling_expenses",
-                    "title": "Schedule of Administrative & Selling Expenses",
-                    "after_sheet": "Finalworkings",  # After Final workings (before P&L)
-                    "pages": 1
-                },
-                {
-                    "type": "ratio_analysis_part1",
-                    "title": "Ratio Analysis - Part I (Current Ratio, Debtors Turnover, Gross Profit Ratio)",
-                    "after_sheet": "RATIO",  # After Ratio sheet
-                    "pages": 1
-                },
-                {
-                    "type": "ratio_analysis_part2",
-                    "title": "Ratio Analysis - Part II (Net Profit Ratio, Interest Coverage, Working Capital Turnover, Stock Turnover)",
-                    "after_ai": "ratio_analysis_part1",  # After Part I
-                    "pages": 1
-                },
-                {
-                    "type": "ratio_analysis_part3",
-                    "title": "Ratio Analysis - Part III (TOL/TNW Ratio, Return on Capital Employed)",
-                    "after_ai": "ratio_analysis_part2",  # After Part II
-                    "pages": 1
-                },
-                {
-                    "type": "mpbf_methods_1_2",
-                    "title": "Maximum Permissible Bank Finance - Methods 1 & 2",
-                    "after_sheet": "MPBF ",  # After MPBF sheet
-                    "pages": 1
-                },
-                {
-                    "type": "mpbf_turnover_method",
-                    "title": "Maximum Permissible Bank Finance - Turnover Method",
-                    "after_ai": "mpbf_methods_1_2",  # After Methods 1 & 2
-                    "pages": 1
-                },
-                {
-                    "type": "depreciation_calculation",
-                    "title": "Depreciation Calculation as per Income Tax Act",
-                    "after_sheet": "Depsch",  # After Depreciation Schedule
-                    "pages": 2
-                },
-                {
-                    "type": "executive_summary",
-                    "title": "Executive Summary & Recommendations",
-                    "position": "end",  # At the very end
-                    "pages": 2
                 }
+                # },
+                # {
+                #     "type": "trading_pl_account",
+                #     "title": "Trading, Profit & Loss Account",
+                #     "after_sheet": "Finalworkings",  # After Final workings sheet
+                #     "pages": 1
+                # },
+                # {
+                #     "type": "balance_sheet_analysis",
+                #     "title": "Balance Sheet Analysis",
+                #     "after_sheet": "PLBS",  # After Balance Sheet
+                #     "pages": 1
+                # },
+                # {
+                #     "type": "admin_selling_expenses",
+                #     "title": "Schedule of Administrative & Selling Expenses",
+                #     "after_sheet": "Finalworkings",  # After Final workings (before P&L)
+                #     "pages": 1
+                # },
+                # {
+                #     "type": "ratio_analysis_part1",
+                #     "title": "Ratio Analysis - Part I (Current Ratio, Debtors Turnover, Gross Profit Ratio)",
+                #     "after_sheet": "RATIO",  # After Ratio sheet
+                #     "pages": 1
+                # },
+                # {
+                #     "type": "ratio_analysis_part2",
+                #     "title": "Ratio Analysis - Part II (Net Profit Ratio, Interest Coverage, Working Capital Turnover, Stock Turnover)",
+                #     "after_ai": "ratio_analysis_part1",  # After Part I
+                #     "pages": 1
+                # },
+                # {
+                #     "type": "ratio_analysis_part3",
+                #     "title": "Ratio Analysis - Part III (TOL/TNW Ratio, Return on Capital Employed)",
+                #     "after_ai": "ratio_analysis_part2",  # After Part II
+                #     "pages": 1
+                # },
+                # {
+                #     "type": "mpbf_methods_1_2",
+                #     "title": "Maximum Permissible Bank Finance - Methods 1 & 2",
+                #     "after_sheet": "MPBF ",  # After MPBF sheet
+                #     "pages": 1
+                # },
+                # {
+                #     "type": "mpbf_turnover_method",
+                #     "title": "Maximum Permissible Bank Finance - Turnover Method",
+                #     "after_ai": "mpbf_methods_1_2",  # After Methods 1 & 2
+                #     "pages": 1
+                # },
+                # {
+                #     "type": "depreciation_calculation",
+                #     "title": "Depreciation Calculation as per Income Tax Act",
+                #     "after_sheet": "Depsch",  # After Depreciation Schedule
+                #     "pages": 2
+                # },
+                # {
+                #     "type": "executive_summary",
+                #     "title": "Executive Summary & Recommendations",
+                #     "position": "end",  # At the very end
+                #     "pages": 2
+                # }
             ]
             
             # Collect all Excel sheet PDFs
@@ -625,7 +626,7 @@ Keep under 500 words, focus on critical decision points."""
                 print(f"\n{'─'*60}", file=sys.stderr)
                 print(f"🤖 Generating: {section_title}", file=sys.stderr)
                 
-                content = self.generate_ai_content(section_type, excel_data)
+                content = ""#self.generate_ai_content(section_type, excel_data)
                 
                 # Create individual PDF for this AI section
                 ai_pdf_path = output_path.replace('.pdf', f'_ai_{section_type}.pdf')

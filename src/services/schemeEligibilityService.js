@@ -23,6 +23,7 @@ const extractKnowledgeFromPDFs = async () => {
 };
 
 const checkEligibility = async (formData) => {
+  /*
   const knowledgeText = await extractKnowledgeFromPDFs();
 
   // Create prompt
@@ -136,6 +137,92 @@ Do not include any other text, explanations, or markdown. Only the JSON object.`
   const jsonMatch = aiResponse.match(/```json\s*(\{[\s\S]*?\})\s*```/);
   const jsonString = jsonMatch ? jsonMatch[1] : aiResponse;
   return JSON.parse(jsonString);
+  */
+
+  const knowledgeText = await extractKnowledgeFromPDFs();
+
+  // Specific prompt for AP IDP 4.0 eligibility check
+  const prompt = `From the industrial policy AP IDP 4.0, please tell me whether the below unit falls under ineligibility criteria and if it doesn't fall in ineligibility criteria, what are the incentives available for the unit.
+
+Name of sole proprietorship concern: ${formData.businessName || 'Sri Krishna Aqua Farms'}
+
+Proprietor details:
+Name: ${formData.primaryContact || 'N Krishna Kumari'}
+Gender: ${formData.gender || 'Female'}
+Caste: ${formData.casteCategory || 'OC'}
+
+Nature of Business: ${formData.lineOfActivity || 'Re circulated Aquaculture system (RAS)'}
+
+Project cost:
+Service Equipment - ${formData.serviceEquipment || '56.89'} Lacs
+Civil works - ${formData.civilWorks || '10'} Lacs
+Erection and Commissioning: ${formData.erectionCommissioning || '1.50'} Lacs
+
+Working capital requirement - ${formData.workingCapital || '10'} Lacs
+
+Total project cost - ${formData.totalProjectCost || '78.39'} Lacs
+
+Based on the following knowledge from Andhra Pradesh Industrial Development Policy and PMEGP guidelines:
+
+${knowledgeText}
+
+Provide a detailed response in the following format:
+
+Eligibility Assessment for [Business Name] under AP IDP 4.0
+
+1. Does the Unit Fall Under Ineligibility Criteria?
+[Yes/No, with detailed reasoning based on policy sections]
+
+2. Incentives Available (If Eligible)
+[List all applicable incentives with amounts, conditions, and calculations if eligible, or state none if ineligible]`;
+
+  logger.debug('Sending prompt to Grok API', {
+    promptLength: prompt.length,
+    operation: 'checkEligibility'
+  });
+
+  // Send to Grok API
+  const response = await fetch('https://api.x.ai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.GROK_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: 'grok-4-fast',
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    logger.error('Grok API error', {
+      status: response.status,
+      statusText: response.statusText,
+      errorData: data,
+      operation: 'checkEligibility'
+    });
+    // Fallback response
+    return {
+      title: "AP IDP 4.0 Eligibility Assessment",
+      status: "Under Review",
+      details: "Unable to process request due to API error. Please try again later.",
+      schemes: [],
+      suggestions: []
+    };
+  }
+
+  const aiResponse = data.choices[0].message.content;
+  logger.debug('Received AI response from Grok', {
+    responseLength: aiResponse.length,
+    operation: 'checkEligibility'
+  });
+
+  // Return the complete AI response
+  return {
+    title: "AP IDP 4.0 Eligibility Assessment",
+    completeResponse: aiResponse
+  };
 };
 
 module.exports = { checkEligibility };

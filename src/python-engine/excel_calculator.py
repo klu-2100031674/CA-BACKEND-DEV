@@ -2351,6 +2351,16 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
                 print(f"[Excel Calculator] ⚠ COM not available, formulas NOT recalculated", file=sys.stderr)
         except Exception as calc_error:
             print(f"[Excel Calculator] ⚠ Formula recalculation failed: {calc_error}", file=sys.stderr)
+        
+        # Strip formulas by reloading with data_only=True
+        print(f"[Excel Calculator] Stripping formulas by reloading with data_only=True...", file=sys.stderr)
+        try:
+            workbook.close()
+            workbook = load_workbook(output_path, data_only=True)
+            workbook.save(output_path)
+            print(f"[Excel Calculator] ✓ Formulas stripped successfully", file=sys.stderr)
+        except Exception as strip_error:
+            print(f"[Excel Calculator] ⚠ Formula stripping failed: {strip_error}", file=sys.stderr)
 
         # Read the Excel file as bytes and encode to base64
         with open(output_path, 'rb') as f:

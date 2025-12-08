@@ -7,6 +7,7 @@ Uses ONLY the two resource PDFs as knowledge source - NO external data allowed.
 import os
 import sys
 import json
+import re
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 import openai
@@ -20,10 +21,56 @@ from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY, TA_RIGHT
 from ai_resource_parser import AIResourceParser
 
+
+def get_final_sheet_name(template_name: str) -> str:
+    """
+    Get the correct 'Final workings' sheet name based on template type.
+    
+    Args:
+        template_name: The template file name or identifier
+        
+    Returns:
+        The exact sheet name to use for this template
+    """
+    template_upper = template_name.upper()
+    
+    # CC1 -> FinalWorkings
+    if 'CC1' in template_upper or 'FORMAT CC1' in template_upper:
+        return 'FinalWorkings'
+    # CC2 -> FinalWorkings
+    elif 'CC2' in template_upper or 'FORMAT CC2' in template_upper:
+        return 'FinalWorkings'
+    # CC3 -> FinalWorkings
+    elif 'CC3' in template_upper or 'FORMAT CC3' in template_upper:
+        return 'FinalWorkings'
+    # CC4 -> Finalworkings
+    elif 'CC4' in template_upper or 'FORMAT CC4' in template_upper:
+        return 'Finalworkings'
+    # CC5 -> FinalWorkings
+    elif 'CC5' in template_upper or 'FORMAT CC5' in template_upper:
+        return 'FinalWorkings'
+    # CC6 -> Final workings (with space)
+    elif 'CC6' in template_upper or 'FORMAT CC6' in template_upper:
+        return 'Final workings'
+    # Term Loan -> Final workings (with space)
+    elif 'TERM LOAN' in template_upper or 'TERM_LOAN' in template_upper:
+        return 'Final workings'
+    # Default fallback
+    else:
+        return 'Finalworkings'
+
+
 # Sheet name normalization utilities
 def normalize_sheet_name(sheet_name: str) -> str:
     """Normalize sheet name by stripping whitespace and converting to lowercase."""
     return sheet_name.strip().lower()
+
+
+def normalize_identifier(value: str) -> str:
+    """Create a comparable identifier by removing non-alphanumeric characters."""
+    if not value:
+        return ''
+    return re.sub(r'[^a-z0-9]', '', value.lower())
 
 
 def find_sheet_match(expected_sheet: str, available_sheets: List[str]) -> str:
@@ -50,6 +97,14 @@ def find_sheet_match(expected_sheet: str, available_sheets: List[str]) -> str:
             return sheet
     
     return None
+
+def extract_sheet_title_from_filename(filename: str) -> str:
+    """Infer the best-guess sheet title from a generated PDF filename."""
+    stem = Path(filename).stem
+    match = re.match(r'^sheet_\d+_(.+)$', stem, re.IGNORECASE)
+    sheet_title = match.group(1) if match else stem
+    sheet_title = sheet_title.replace('_', ' ').strip()
+    return sheet_title or filename
 from professional_pdf_template import ProfessionalTemplate, COLORS
 
 class AIReportGenerator:
@@ -216,15 +271,107 @@ class AIReportGenerator:
     def _create_prompt(self, section_type: str, excel_data: Dict, context: str, reference_context: str) -> str:
         """Create efficient, targeted prompts for specific report sections."""
 
-        # Base instructions (keep minimal)
-        base = f"""You are a financial analyst. Use Excel data: {json.dumps(excel_data, separators=(',', ':'))}
+        # Base instructions (Strict professional guidelines)
+        base = f"""You are a senior financial analyst writing a formal Detailed Project Report (DPR) for a bank loan.
+Use the provided Excel data for context: {json.dumps(excel_data, separators=(',', ':'))}
 
-Format: Use [TABLE:Title]Header1|Header2|...[/TABLE] for tables. No HTML/markdown.
+STRICT WRITING RULES:
+1. **NO PLACEHOLDERS**: Never use brackets like [Name], [Date], [CIN], [Address]. If specific data is missing, use generic professional terms (e.g., "The Company", "The Promoters", "The Unit", "Relevant Authorities") or omit the detail entirely.
+2. **NO TEMPLATE REFERENCES**: Do NOT mention "template", "filename", "timestamp", "provided Excel data", "JSON", or "AI".
+3. **PROFESSIONAL TONE**: Write as if YOU are the author. Be concise, direct, and business-like.
+4. **FORMATTING**:
+   - **Tables**: Use LaTeX table format. Example:
+     \\begin{{table}}
+     \\caption{{Title}}
+     \\begin{{tabular}}{{|l|l|}}
+     \\hline
+     Header1 & Header2 \\\\
+     \\hline
+     Row1 & Row2 \\\\
+     \\hline
+     \\end{{tabular}}
+     \\end{{table}}
+   - **Headings**: Use LaTeX section commands for headings: \\section{{Title}}, \\subsection{{Subtitle}}.
+   - **Lists**: Use LaTeX itemize/enumerate environments for bullet points and numbered lists:
+     \\begin{{itemize}}
+     \\item Point 1
+     \\item Point 2
+     \\end{{itemize}}
+   - **Emphasis**: Use \\textbf{{bold}} and \\textit{{italic}} for emphasis.
+   - Do NOT use Markdown formatting (like #, ##, *, -).
+   - Do NOT use Markdown tables or [TABLE] markers.
+5. **ASSUMPTIONS**: If data is missing, make reasonable professional assumptions for a standard manufacturing/service unit (e.g., "The unit is located in an industrial area with adequate infrastructure"), but do not explicitly state "assuming".
 
-Task: Generate content for "{section_type}" section matching banking report format."""
+Task: Generate content for "{section_type}" section."""
 
         # Section-specific concise prompts
         prompts = {
+            "constitution": base + """
+Describe the Constitution of the Firm.
+- State the legal entity type (Proprietorship/Partnership/Company) based on available data or imply a standard structure.
+- Describe the management team generally if names are missing (e.g., "The unit is managed by experienced promoters with significant industry expertise").
+- Mention the business activity and operational focus.
+- Focus on stability, experience, and business continuity.""",
+
+            "product_characteristics": base + """
+Describe the Key Characteristics of the Product/Service.
+- Explain the product's utility, application, and target market.
+- Highlight unique selling propositions (USPs) such as quality, cost-effectiveness, or service delivery.
+- Mention adherence to quality standards (e.g., "The unit follows strict quality control measures").
+- Focus on marketability and demand dynamics.""",
+
+            "swot_analysis": base + """
+Perform a SWOT Analysis (Strengths, Weaknesses, Opportunities, Threats).
+- Strengths: Strategic location, experienced management, established market network.
+- Weaknesses: Working capital intensity, competition from unorganized sector.
+- Opportunities: Growing domestic demand, potential for export, government support schemes.
+- Threats: Raw material price volatility, changing regulatory norms.
+Format as a structured analysis.""",
+
+            "competitors": base + """
+Provide an Overview of Competitors.
+- Describe the competitive landscape (e.g., "The market is characterized by a mix of organized and unorganized players").
+- Mention generic competitor types (e.g., "Large established brands", "Local regional players").
+- Explain the unit's competitive strategy (e.g., "Focus on quality, timely delivery, and customer relationship management").""",
+
+            "power_approvals": base + """
+Detail Power & Statutory Approvals.
+- Mention power requirements are met through the State Electricity Board with backup generators.
+- State that "The unit has applied for/obtained necessary statutory approvals such as GST Registration, Udyam Registration, and Pollution Control Board clearances."
+- Emphasize compliance with local regulations.""",
+
+            "raw_materials": base + """
+Describe Raw Materials.
+- List typical raw materials required for this type of industry.
+- Mention procurement from local and inter-state suppliers to ensure competitive pricing.
+- Comment on the stability of the supply chain.
+- Mention inventory policy (e.g., "The unit maintains adequate stock levels to ensure uninterrupted production").""",
+
+            "production_process": base + """
+Explain the Production/Service Process.
+- Describe a standard workflow from raw material intake to finished goods.
+- Mention the use of modern/semi-automatic technology to ensure efficiency.
+- Highlight quality control checks at various stages (raw material inspection, in-process checks, final testing).""",
+
+            "manpower": base + """
+Detail Manpower Requirements.
+- Mention the team composition: Administrative, Skilled, Semi-skilled, and Unskilled staff.
+- Highlight the employment generation potential.
+- Mention that "Skilled labor is available in the vicinity" and that "Training programs are conducted for skill enhancement."
+- Mention welfare measures (PF, ESI) as per norms.""",
+
+            "land_building": base + """
+Describe Land & Building.
+- Describe the location generally (e.g., "Located in a designated industrial area with good connectivity").
+- Mention infrastructure availability: Water, Power, and Road access.
+- State that the premises are suitable for the proposed manufacturing/service activities.""",
+
+            "timeline": base + """
+Provide an Implementation Timeline.
+- Outline key phases: Project initiation, Civil works/Renovation, Machinery installation, Trial runs, and Commercial production.
+- Provide a realistic schedule (e.g., "The project is expected to be fully operational within a standard implementation period").
+- Focus on the readiness for commercial operations.""",
+
             "index_page": base + """
 Create a Table of Contents with page numbers:
 1. Cover Page
@@ -431,25 +578,27 @@ Keep under 500 words, focus on critical decision points."""
                 
                 if remove_blank_pages:
                     # Check each page for content before adding
-                    import pdfplumber
+                    # Use PyPDF2 instead of pdfplumber for speed
                     
                     # First, identify which pages have content
                     pages_to_add = []
-                    with pdfplumber.open(pdf_file) as pdf:
-                        for page_num, page in enumerate(pdf.pages):
+                    try:
+                        reader = PdfReader(pdf_file)
+                        for page_num, page in enumerate(reader.pages):
                             text = page.extract_text() or ""
                             if text.strip():  # Page has content
                                 pages_to_add.append(page_num)
                             else:
                                 blank_pages_removed += 1
                                 print(f"      ⏭️  Skipping blank page {page_num + 1}", file=sys.stderr)
-                    
-                    # Now add only non-blank pages
-                    if pages_to_add:
-                        # Add pages one by one or as ranges
-                        reader = PdfReader(pdf_file)
-                        for page_num in pages_to_add:
-                            merger.append(pdf_file, pages=(page_num, page_num + 1))
+                        
+                        # Now add only non-blank pages
+                        if pages_to_add:
+                            for page_num in pages_to_add:
+                                merger.append(pdf_file, pages=(page_num, page_num + 1))
+                    except Exception as e:
+                        print(f"      ⚠️  Error checking blank pages: {e}. Adding all pages.", file=sys.stderr)
+                        merger.append(pdf_file)
                 else:
                     # Add all pages without checking
                     merger.append(pdf_file)
@@ -521,17 +670,57 @@ Keep under 500 words, focus on critical decision points."""
             
             # Define proper sheet order based on reference PDF structure
             # Sheet names map: (sheet_index_prefix, sheet_name_in_file, display_order)
-            final_sheet_name = 'Final workings' if 'CC6' in template_name else 'Finalworkings'
-            SHEET_ORDER = [
-                ('sheet_4', 'coverpage', 1),           # ALWAYS FIRST
-                ('sheet_3', final_sheet_name, 2),       # Project Cost & Summary
-                ('sheet_5', 'PLBS', 3),                # Balance Sheet (P&L)
-                ('sheet_6', 'RATIO', 4),               # Ratio Analysis
-                ('sheet_9', 'Depsch', 5),              # Depreciation Schedule
-                ('sheet_7', 'MPBF ', 6),                # MPBF Method 1
-                ('sheet_8', 'nayak', 7),               # Nayak Committee (WC Assessment)
-                ('sheet_2', 'wp', 8),                  # Working Capital
-            ]
+            # Determine sheet name based on template format
+            final_sheet_name = get_final_sheet_name(template_name)
+            
+            is_term_loan = 'TERM LOAN' in template_name.upper() or 'TERM_LOAN' in template_name.upper()
+            
+            if is_term_loan:
+                print("ℹ️  Using Term Loan specific sheet order", file=sys.stderr)
+                SHEET_ORDER = [
+                    ('sheet_x', 'Cover page', 1),
+                    ('sheet_x', 'Index', 2),      # Excel Sheet
+                    ('sheet_x', 'profile', 3),    # Excel Sheet
+                    ('sheet_x', 'Descriptive', 4),# AI Narrative Sections Placeholder
+                    ('sheet_x', 'project cost', 5),
+                    ('sheet_x', 'PL BS', 6),
+                    ('sheet_x', 'Graph', 7),
+                    ('sheet_x', 'RATIO', 8),
+                    ('sheet_x', 'FA Sch', 9),
+                    ('sheet_x', 'Dep IT act', 10),
+                    ('sheet_x', 'Loan sch', 11),
+                    ('sheet_x', 'Repayment', 12),
+                    ('sheet_x', 'CFs', 13),
+                    ('sheet_x', 'IRR', 14),
+                    ('sheet_x', 'MIRR', 15),
+                    ('sheet_x', 'NPV', 16),
+                    ('sheet_x', 'PI Index', 17),
+                    ('sheet_x', 'WACC', 18),
+                    ('sheet_x', 'Payback period I', 19),
+                    ('sheet_x', 'Payback period II', 20),
+                    ('sheet_x', 'Altman Z', 21),
+                    ('sheet_x', 'Sensitivity Analysis', 22),
+                    ('sheet_x', 'workings for sensittivity1', 23),
+                    ('sheet_x', 'Workings for Sensitivity2', 24),
+                    ('sheet_x', 'CF workings', 25),
+                    ('sheet_x', 'Final workings', 26),
+                    ('sheet_x', 'MPBF ', 27),
+                    ('sheet_x', 'workings for sensitivity1', 28),
+                    ('sheet_x', 'Gaurantors', 29),
+                    ('sheet_x', 'BEP analysis', 30),
+                    ('sheet_x', 'Sales', 31),
+                ]
+            else:
+                SHEET_ORDER = [
+                    ('sheet_4', 'coverpage', 1),           # ALWAYS FIRST
+                    ('sheet_3', final_sheet_name, 2),       # Project Cost & Summary
+                    ('sheet_5', 'PLBS', 3),                # Balance Sheet (P&L)
+                    ('sheet_6', 'RATIO', 4),               # Ratio Analysis
+                    ('sheet_9', 'Depsch', 5),              # Depreciation Schedule
+                    ('sheet_7', 'MPBF ', 6),                # MPBF Method 1
+                    ('sheet_8', 'nayak', 7),               # Nayak Committee (WC Assessment)
+                    ('sheet_2', 'wp', 8),                  # Working Capital
+                ]
             
             # Define AI sections with their placement in the report
             # Position is relative to Excel sheets in SHEET_ORDER
@@ -541,68 +730,73 @@ Keep under 500 words, focus on critical decision points."""
                     "title": "Index / Table of Contents",
                     "after_sheet": "coverpage",  # After Coverpage sheet
                     "pages": 1
+                },
+                {
+                    "type": "project_profile",
+                    "title": "1. Project Profile Overview",
+                    "after_ai": "index_page",
+                    "pages": 1
+                },
+                {
+                    "type": "constitution",
+                    "title": "2. Constitution of the Firm",
+                    "after_ai": "project_profile",
+                    "pages": 1
+                },
+                {
+                    "type": "product_characteristics",
+                    "title": "3. Key Characteristics of Product",
+                    "after_ai": "constitution",
+                    "pages": 1
+                },
+                {
+                    "type": "swot_analysis",
+                    "title": "4. SWOT Analysis",
+                    "after_ai": "product_characteristics",
+                    "pages": 1
+                },
+                {
+                    "type": "competitors",
+                    "title": "5. Overview of Competitors",
+                    "after_ai": "swot_analysis",
+                    "pages": 1
+                },
+                {
+                    "type": "power_approvals",
+                    "title": "6. Power & Statutory Approvals",
+                    "after_ai": "competitors",
+                    "pages": 1
+                },
+                {
+                    "type": "raw_materials",
+                    "title": "7. Raw Materials",
+                    "after_ai": "power_approvals",
+                    "pages": 1
+                },
+                {
+                    "type": "production_process",
+                    "title": "8. Production Process",
+                    "after_ai": "raw_materials",
+                    "pages": 1
+                },
+                {
+                    "type": "manpower",
+                    "title": "9. Manpower Requirements",
+                    "after_ai": "production_process",
+                    "pages": 1
+                },
+                {
+                    "type": "land_building",
+                    "title": "10. Land & Building",
+                    "after_ai": "manpower",
+                    "pages": 1
+                },
+                {
+                    "type": "timeline",
+                    "title": "11. Implementation Timeline",
+                    "after_ai": "land_building",
+                    "pages": 1
                 }
-                # },
-                # {
-                #     "type": "trading_pl_account",
-                #     "title": "Trading, Profit & Loss Account",
-                #     "after_sheet": "Finalworkings",  # After Final workings sheet
-                #     "pages": 1
-                # },
-                # {
-                #     "type": "balance_sheet_analysis",
-                #     "title": "Balance Sheet Analysis",
-                #     "after_sheet": "PLBS",  # After Balance Sheet
-                #     "pages": 1
-                # },
-                # {
-                #     "type": "admin_selling_expenses",
-                #     "title": "Schedule of Administrative & Selling Expenses",
-                #     "after_sheet": "Finalworkings",  # After Final workings (before P&L)
-                #     "pages": 1
-                # },
-                # {
-                #     "type": "ratio_analysis_part1",
-                #     "title": "Ratio Analysis - Part I (Current Ratio, Debtors Turnover, Gross Profit Ratio)",
-                #     "after_sheet": "RATIO",  # After Ratio sheet
-                #     "pages": 1
-                # },
-                # {
-                #     "type": "ratio_analysis_part2",
-                #     "title": "Ratio Analysis - Part II (Net Profit Ratio, Interest Coverage, Working Capital Turnover, Stock Turnover)",
-                #     "after_ai": "ratio_analysis_part1",  # After Part I
-                #     "pages": 1
-                # },
-                # {
-                #     "type": "ratio_analysis_part3",
-                #     "title": "Ratio Analysis - Part III (TOL/TNW Ratio, Return on Capital Employed)",
-                #     "after_ai": "ratio_analysis_part2",  # After Part II
-                #     "pages": 1
-                # },
-                # {
-                #     "type": "mpbf_methods_1_2",
-                #     "title": "Maximum Permissible Bank Finance - Methods 1 & 2",
-                #     "after_sheet": "MPBF ",  # After MPBF sheet
-                #     "pages": 1
-                # },
-                # {
-                #     "type": "mpbf_turnover_method",
-                #     "title": "Maximum Permissible Bank Finance - Turnover Method",
-                #     "after_ai": "mpbf_methods_1_2",  # After Methods 1 & 2
-                #     "pages": 1
-                # },
-                # {
-                #     "type": "depreciation_calculation",
-                #     "title": "Depreciation Calculation as per Income Tax Act",
-                #     "after_sheet": "Depsch",  # After Depreciation Schedule
-                #     "pages": 2
-                # },
-                # {
-                #     "type": "executive_summary",
-                #     "title": "Executive Summary & Recommendations",
-                #     "position": "end",  # At the very end
-                #     "pages": 2
-                # }
             ]
             
             # Collect all Excel sheet PDFs
@@ -614,29 +808,65 @@ Keep under 500 words, focus on critical decision points."""
                         excel_pdf_map[filename] = pdf_path
             
             print(f"📊 Found {len(excel_pdf_map)} Excel sheet PDFs", file=sys.stderr)
+            if not excel_pdf_map:
+                error_msg = (
+                    "No Excel sheet PDFs were found to merge into the final report. "
+                    "Verify that Excel export succeeded before invoking the AI report generator."
+                )
+                print(f"⚠️  {error_msg}", file=sys.stderr)
+                result["errors"].append(error_msg)
+                return result
             
             # Generate all AI sections upfront
             print(f"\n🤖 Generating AI content sections...", file=sys.stderr)
             ai_content_pdfs = {}
             
-            for section_config in AI_SECTIONS_CONFIG:
-                section_type = section_config["type"]
-                section_title = section_config["title"]
+            if is_term_loan:
+                import concurrent.futures
                 
-                print(f"\n{'─'*60}", file=sys.stderr)
-                print(f"🤖 Generating: {section_title}", file=sys.stderr)
+                # Filter sections to generate
+                sections_to_generate = []
+                for section_config in AI_SECTIONS_CONFIG:
+                    section_type = section_config["type"]
+                    if section_type not in ['index_page', 'project_profile']:
+                        sections_to_generate.append(section_config)
                 
-                content = ""#self.generate_ai_content(section_type, excel_data)
+                print(f"🚀 Starting parallel generation for {len(sections_to_generate)} sections...", file=sys.stderr)
                 
-                # Create individual PDF for this AI section
-                ai_pdf_path = output_path.replace('.pdf', f'_ai_{section_type}.pdf')
-                if self.create_text_pdf([{
-                    "title": section_title,
-                    "content": content
-                }], ai_pdf_path):
-                    ai_content_pdfs[section_type] = ai_pdf_path
-                    result["ai_sections_generated"].append(section_type)
-                    print(f"   ✅ PDF created: {Path(ai_pdf_path).name}", file=sys.stderr)
+                def process_section(section_config):
+                    section_type = section_config["type"]
+                    section_title = section_config["title"]
+                    
+                    print(f"   ⏳ Starting: {section_title}", file=sys.stderr)
+                    try:
+                        content = self.generate_ai_content(section_type, excel_data)
+                        
+                        # Create individual PDF for this AI section
+                        ai_pdf_path = output_path.replace('.pdf', f'_ai_{section_type}.pdf')
+                        if self.create_text_pdf([{
+                            "title": section_title,
+                            "content": content
+                        }], ai_pdf_path):
+                            print(f"   ✅ Completed: {section_title}", file=sys.stderr)
+                            return section_type, ai_pdf_path
+                    except Exception as e:
+                        print(f"   ❌ Failed: {section_title} - {str(e)}", file=sys.stderr)
+                        return None
+                    return None
+
+                # Use ThreadPoolExecutor for parallel execution
+                # Limit max_workers to avoid hitting API rate limits too hard (e.g., 5 concurrent requests)
+                with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+                    future_to_section = {executor.submit(process_section, config): config for config in sections_to_generate}
+                    
+                    for future in concurrent.futures.as_completed(future_to_section):
+                        result_tuple = future.result()
+                        if result_tuple:
+                            sec_type, pdf_path = result_tuple
+                            ai_content_pdfs[sec_type] = pdf_path
+                            result["ai_sections_generated"].append(sec_type)
+            else:
+                print("ℹ️  Skipping AI content generation for non-Term Loan report (CC/OD)", file=sys.stderr)
             
             # Build final PDF sequence according to proper order
             print(f"\n📑 Assembling final report in correct order...", file=sys.stderr)
@@ -645,16 +875,38 @@ Keep under 500 words, focus on critical decision points."""
             
             # Create a map of sheet names to their PDF paths for easy lookup
             sheet_pdf_map = {}
+            
+            # Pre-process all available PDFs to extract their sheet names
+            available_pdf_info = []
+            for filename, path in excel_pdf_map.items():
+                extracted_name = extract_sheet_title_from_filename(filename)
+                normalized_extracted = normalize_identifier(extracted_name)
+                available_pdf_info.append({
+                    'filename': filename,
+                    'path': path,
+                    'extracted_name': extracted_name,
+                    'normalized_name': normalized_extracted
+                })
+
             for prefix, sheet_name, order in SHEET_ORDER:
-                for filename, path in excel_pdf_map.items():
-                    # More robust matching: check prefix, normalized sheet name, or partial matches
-                    normalized_sheet = normalize_sheet_name(sheet_name)
-                    normalized_filename = normalize_sheet_name(filename)
-                    if (filename.startswith(prefix) or 
-                        normalized_sheet in normalized_filename or 
-                        any(word in normalized_filename for word in normalized_sheet.split())):
-                        sheet_pdf_map[sheet_name] = path
+                normalized_sheet = normalize_identifier(sheet_name)
+                
+                # Strategy 1: Exact match on extracted name (Best for "Index" vs "PI Index")
+                best_match = None
+                for info in available_pdf_info:
+                    if info['normalized_name'] == normalized_sheet:
+                        best_match = info['path']
                         break
+                
+                # Strategy 2: Contained match (Fallback for "profile" vs "Project Profile")
+                if not best_match:
+                    for info in available_pdf_info:
+                        if normalized_sheet in info['normalized_name']:
+                            best_match = info['path']
+                            break
+                
+                if best_match:
+                    sheet_pdf_map[sheet_name] = best_match
             
             # Track which AI sections have been added
             added_ai_sections = set()
@@ -696,7 +948,8 @@ Keep under 500 words, focus on critical decision points."""
             # 1. Add Coverpage first (case-insensitive search)
             coverpage_key = None
             for key in sheet_pdf_map.keys():
-                if normalize_sheet_name(key) == 'coverpage':
+                norm_key = normalize_sheet_name(key)
+                if norm_key == 'coverpage' or norm_key == 'cover page':
                     coverpage_key = key
                     break
             
@@ -711,12 +964,38 @@ Keep under 500 words, focus on critical decision points."""
                 # And add chain of AI sections
                 for section_type in added_ai_sections.copy():
                     add_ai_sections_after_ai(section_type)
+            else:
+                # Fallback: If coverpage not found in map but exists in SHEET_ORDER as order 1
+                # Try to find it by order
+                for prefix, sheet_name, order in SHEET_ORDER:
+                    if order == 1 and sheet_name in sheet_pdf_map:
+                        final_pdf_sequence.append(sheet_pdf_map[sheet_name])
+                        result["excel_pdfs_included"].append(Path(sheet_pdf_map[sheet_name]).name)
+                        print(f"   [{position_counter}] Coverpage (by order): {Path(sheet_pdf_map[sheet_name]).name}", file=sys.stderr)
+                        position_counter += 1
+                        break
             
             # 2. Process remaining Excel sheets in order
             for prefix, sheet_name, order in SHEET_ORDER:
                 if order == 1:  # Skip coverpage (already added)
                     continue
                 
+                # Skip excluded sheets
+                if sheet_name.lower() in ['workings for pl1', 'wokings for pl2', 'workings for pl2']:
+                    continue
+
+                # Check if this is an AI section placeholder (Term Loan specific)
+                if is_term_loan and sheet_name == "Descriptive":
+                    # Add all descriptive sections in order
+                    descriptive_sections = [
+                        "constitution", "product_characteristics", "swot_analysis", 
+                        "competitors", "power_approvals", "raw_materials", 
+                        "production_process", "manpower", "land_building", "timeline"
+                    ]
+                    for section in descriptive_sections:
+                        add_ai_section(section)
+                    continue
+
                 # Add the Excel sheet
                 if sheet_name in sheet_pdf_map:
                     final_pdf_sequence.append(sheet_pdf_map[sheet_name])
@@ -748,7 +1027,32 @@ Keep under 500 words, focus on critical decision points."""
                             position_counter += 1
                             break
             
+            missing_excel_files = sorted(
+                set(excel_pdf_map.keys()) - set(result["excel_pdfs_included"])
+            )
+            if missing_excel_files:
+                print("[Final Report] ℹ️  Adding remaining sheet PDFs to honour the requested list:", file=sys.stderr)
+                for missing in missing_excel_files:
+                    pdf_path = excel_pdf_map[missing]
+                    final_pdf_sequence.append(pdf_path)
+                    if missing not in result["excel_pdfs_included"]:
+                        result["excel_pdfs_included"].append(missing)
+                    sheet_label = extract_sheet_title_from_filename(missing)
+                    print(
+                        f"   [{position_counter}] Excel: {sheet_label} ({missing}) [appended]",
+                        file=sys.stderr
+                    )
+                    position_counter += 1
+            else:
+                print("[Final Report] ✅ All generated sheet PDFs are already scheduled for merge", file=sys.stderr)
+
+            total_excel_available = len(excel_pdf_map)
+            total_excel_included = len(result["excel_pdfs_included"])
             print(f"\n📊 Total sections in final report: {len(final_pdf_sequence)}", file=sys.stderr)
+            print(
+                f"[Final Report] Excel sheet PDFs included: {total_excel_included}/{total_excel_available}",
+                file=sys.stderr
+            )
             
             # Merge all PDFs in the correct sequence
             if self.merge_pdfs(final_pdf_sequence, output_path):

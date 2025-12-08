@@ -1,8 +1,50 @@
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const fsPromises = fs.promises;
 const templateMappingService = require('./templateMappingService');
 const logger = require('../utils/logger');
+
+const TEMPLATE_SHEET_CONFIG = {
+  TERM_LOAN_SERVICE_WITHOUT_STOCK: {
+    aliasMap: {
+      finalworking: 'Final workings',
+      finalworkings: 'Final workings',
+      finalwork: 'Final workings',
+      mpbf: 'MPBF ',
+      mpbfformula: 'MPBF ',
+      mpbfmethod1: 'MPBF ',
+      mpbfmethod2: 'MPBF ',
+      workingsforsensitivity1: 'workings for sensitivity1',
+      workingsforsensittivity1: 'workings for sensitivity1',
+      workingsforsensitvity1: 'workings for sensitivity1',
+      gaurantors: 'Gaurantors',
+      guarantors: 'Gaurantors',
+      bepanalysis: 'BEP analysis',
+      sheetone: 'Sheet1',
+      sheet1: 'Sheet1'
+    }
+  },
+  TERM_LOAN_MANUFACTURING_SERVICE_WITH_STOCK: {
+    aliasMap: {
+      finalworking: 'Final workings',
+      finalworkings: 'Final workings',
+      finalwork: 'Final workings',
+      mpbf: 'MPBF ',
+      mpbfformula: 'MPBF ',
+      mpbfmethod1: 'MPBF ',
+      mpbfmethod2: 'MPBF ',
+      workingsforsensitivity1: 'workings for sensitivity1',
+      workingsforsensittivity1: 'workings for sensitivity1',
+      workingsforsensitvity1: 'workings for sensitivity1',
+      gaurantors: 'Gaurantors',
+      guarantors: 'Gaurantors',
+      bepanalysis: 'BEP analysis',
+      sheetone: 'Sheet1',
+      sheet1: 'Sheet1'
+    }
+  }
+};
 
 /**
  * Excel Calculation Service (Python-Powered)
@@ -82,6 +124,30 @@ class ExcelCalculationService {
         logger.debug('Deeply nested formData.formData.excelData format detected', {
           operation: 'extractFormData'
         });
+      } 
+      // Format 3: Section-based structure (Term Loan form)
+      else if (payload.formData) {
+        // Extract all cell references from nested sections
+        const extractCellsFromObject = (obj) => {
+          const cells = {};
+          for (const [key, value] of Object.entries(obj)) {
+            // Check if key is a cell reference (e.g., i7, d118, e241)
+            if (typeof key === 'string' && key.match(/^[d-j]\d+$/i)) {
+              cells[key.toLowerCase()] = value;
+            }
+            // Recursively check nested objects (sections like "General Information", "Schedule for Assets")
+            else if (value && typeof value === 'object' && !Array.isArray(value)) {
+              Object.assign(cells, extractCellsFromObject(value));
+            }
+          }
+          return cells;
+        };
+        
+        cellData = extractCellsFromObject(payload.formData);
+        logger.debug('Section-based format detected, extracted cell references', {
+          operation: 'extractFormData',
+          cellKeys: Object.keys(cellData).length
+        });
       }
     }
 
@@ -95,7 +161,9 @@ class ExcelCalculationService {
       'CC3': /^[b-eh-j]\d+$/,  // b,d,e for fixed assets + h,i,j for main sections
       'CC4': /^[d-eh-j]\d+$/,  // d,e for fixed assets + h,i,j for main sections
       'CC5': /^[d-eh-j]\d+$/,  // d,e for fixed assets + h,i,j for main sections
-      'CC6': /^[d-eh-j]\d+$/   // d,e for fixed assets + h,i,j for main sections
+      'CC6': /^[d-eh-j]\d+$/,  // d,e for fixed assets + h,i,j for main sections
+      'TERM_LOAN_SERVICE_WITHOUT_STOCK': /^[d-eh-j]\d+$/,  // d,e for assets + h,i,j for main sections
+      'TERM_LOAN_MANUFACTURING_SERVICE_WITH_STOCK': /^[d-eh-j]\d+$/  // d,e for assets + h,i,j for main sections
     };
 
     const allowedPattern = templateColumnRules[normalizedTemplateId] || /^[h-j]\d+$/; // Default to h-j for unknown templates
@@ -147,8 +215,8 @@ class ExcelCalculationService {
       normalizedTemplateId
     });
 
-    // CC1, CC2, CC3, CC4, CC5, and CC6 now use cell mappings instead of row mappings, so skip this extraction
-    if (normalizedTemplateId === 'CC1' || normalizedTemplateId === 'CC2' || normalizedTemplateId === 'CC3' || normalizedTemplateId === 'CC4' || normalizedTemplateId === 'CC5' || normalizedTemplateId === 'CC6') {
+    // CC1, CC2, CC3, CC4, CC5, CC6, and TERM_LOAN now use cell mappings instead of row mappings, so skip this extraction
+    if (normalizedTemplateId === 'CC1' || normalizedTemplateId === 'CC2' || normalizedTemplateId === 'CC3' || normalizedTemplateId === 'CC4' || normalizedTemplateId === 'CC5' || normalizedTemplateId === 'CC6' || normalizedTemplateId === 'TERM_LOAN_SERVICE_WITHOUT_STOCK' || normalizedTemplateId === 'TERM_LOAN_MANUFACTURING_SERVICE_WITH_STOCK') {
       logger.info('Fixed assets extraction skipped - using cell mappings', {
         operation: 'extractFixedAssetsSchedule',
         templateId,
@@ -246,6 +314,11 @@ class ExcelCalculationService {
       "Other Assets": "capital_wip"
     };
     
+    // Determine sheet name based on template type
+    const sheetName = (normalizedTemplateId === 'TERM_LOAN_SERVICE_WITHOUT_STOCK' || normalizedTemplateId === 'TERM_LOAN_MANUFACTURING_SERVICE_WITH_STOCK') 
+      ? 'Assumptions' 
+      : 'Assumptions.1';
+
     for (const [categoryName, categoryData] of Object.entries(fixedAssetsSchedule)) {
       if (!categoryData.items || !Array.isArray(categoryData.items)) continue;
       
@@ -265,8 +338,8 @@ class ExcelCalculationService {
       // Write each item in the category
       categoryData.items.forEach((item, index) => {
         const row = startRow + index;
-        updates.push({ sheet: 'Assumptions.1', cell: `d${row}`, value: item.description || '' });
-        updates.push({ sheet: 'Assumptions.1', cell: `e${row}`, value: item.amount || 0 });
+        updates.push({ sheet: sheetName, cell: `d${row}`, value: item.description || '' });
+        updates.push({ sheet: sheetName, cell: `e${row}`, value: item.amount || 0 });
         logger.debug('Fixed asset item mapped', {
           operation: 'extractFixedAssetsSchedule',
           categoryName,
@@ -303,8 +376,16 @@ class ExcelCalculationService {
       });
 
       const updates = [];
+      // Normalize template ID for sheet name determination
+      const normalizedTemplateId = templateMappingService.normalizeTemplateId(templateId);
+      
+      // Determine sheet name based on template type
+      const sheetName = (normalizedTemplateId === 'TERM_LOAN_SERVICE_WITHOUT_STOCK' || normalizedTemplateId === 'TERM_LOAN_MANUFACTURING_SERVICE_WITH_STOCK') 
+        ? 'Assumptions' 
+        : 'Assumptions.1';
+      
       for (const [cell, value] of Object.entries(cellData)) {
-        updates.push({ sheet: 'Assumptions.1', cell, value });
+        updates.push({ sheet: sheetName, cell, value });
       }
       logger.debug('Cell updates prepared', {
         operation: 'applyFormDataAndCalculate',
@@ -398,7 +479,9 @@ class ExcelCalculationService {
       'Format CC5': 'format CC5.xlsx',
       'CC6': 'format CC6.xlsx',
       'frcc6': 'format CC6.xlsx',
-      'Format CC6': 'format CC6.xlsx'
+      'Format CC6': 'format CC6.xlsx',
+      'TERM_LOAN_SERVICE_WITHOUT_STOCK': 'Term loan (Service sector without stock).xls',
+      'TERM_LOAN_MANUFACTURING_SERVICE_WITH_STOCK': 'Term Loan (Manufacturing & Service Sector with stock).xls'
     };
 
     const filename = templateFileMap[templateId] || `${templateId}.xlsx`;
@@ -413,23 +496,48 @@ class ExcelCalculationService {
   }
 
   // Apply arbitrary updates across any sheets and calculate
-  async applyUpdatesAndCalculate(templateId, updatesPayload) {
+  async applyUpdatesAndCalculate(templateId, updatesPayload = {}) {
+    let tempWorkbookPath = null;
     try {
       logger.info('Starting Python calculation (applyUpdates)', {
         operation: 'applyUpdatesAndCalculate',
         templateId
       });
 
+      const {
+        updates = [],
+        recalculate = false,
+        baseExcelPath = null,
+        existingExcelBuffer = null
+      } = updatesPayload || {};
+
       // Expecting updatesPayload = { updates: [{sheet, cell, value}, ...], recalculate?: boolean }
       const inputData = {
-        updates: Array.isArray(updatesPayload?.updates) ? updatesPayload.updates : [],
-        recalculate: Boolean(updatesPayload?.recalculate ?? false), // Default to false, let Excel auto-calculate
+        updates: Array.isArray(updates) ? updates : [],
+        recalculate: Boolean(recalculate ?? false), // Default to false, let Excel auto-calculate
       };
 
-      const templatePath = this.resolveTemplatePath(templateId);
+      let workbookPath = baseExcelPath;
+      if (!workbookPath && existingExcelBuffer) {
+        const bufferData = Buffer.isBuffer(existingExcelBuffer)
+          ? existingExcelBuffer
+          : Buffer.from(existingExcelBuffer, 'base64');
+        workbookPath = await this.saveBufferToTempExcel(bufferData, templateId);
+        tempWorkbookPath = workbookPath;
+        logger.debug('Using staged Excel workbook for updates', {
+          operation: 'applyUpdatesAndCalculate',
+          templateId,
+          workbookPath
+        });
+      }
+
+      if (!workbookPath) {
+        workbookPath = this.resolveTemplatePath(templateId);
+      }
+
       const scriptPath = path.join(this.pythonEnginePath, 'excel_calculator.py');
 
-      const result = await this.runPythonScript(scriptPath, [templatePath, JSON.stringify(inputData)]);
+      const result = await this.runPythonScript(scriptPath, [workbookPath, JSON.stringify(inputData)]);
       logger.debug('Python script execution completed (applyUpdates)', {
         operation: 'applyUpdatesAndCalculate',
         templateId
@@ -443,16 +551,30 @@ class ExcelCalculationService {
         stack: error.stack
       });
       throw new Error('Failed to calculate Excel data using Python engine.');
+    } finally {
+      if (tempWorkbookPath) {
+        try {
+          await fsPromises.unlink(tempWorkbookPath);
+        } catch (cleanupError) {
+          logger.warn('Failed to remove temporary staged Excel file', {
+            operation: 'applyUpdatesAndCalculate',
+            templateId,
+            error: cleanupError.message
+          });
+        }
+      }
     }
   }
 
   // Generate full AI-enhanced report (Grok only, simplified)
-  async generateFullReport(templateId, formDataPayload, apiKey) {
+  async generateFullReport(templateId, formDataPayload, apiKey, options = {}) {
     try {
       logger.info('Starting full report generation with Grok', {
         operation: 'generateFullReport',
         templateId
       });
+
+      const selectedSheets = this.normalizeSelectedSheets(options?.selectedSheets, templateId);
 
       // Always use Grok API key
       let finalApiKey = apiKey || process.env.GROK_API_KEY || process.env.XAI_API_KEY;
@@ -478,7 +600,8 @@ class ExcelCalculationService {
         templateId,
         totalUpdates: updates.length,
         cellUpdates: updates.length - fixedAssetsUpdates.length,
-        fixedAssetsUpdates: fixedAssetsUpdates.length
+        fixedAssetsUpdates: fixedAssetsUpdates.length,
+        selectedSheets
       });
 
       // Build input data for Python script (simplified, Grok only)
@@ -489,6 +612,9 @@ class ExcelCalculationService {
         grokApiKey: finalApiKey,  // Always use Grok
         skipHtmlGeneration: true   // Skip unnecessary HTML generation
       };
+      if (selectedSheets) {
+        inputData.selectedSheets = selectedSheets;
+      }
 
       const templatePath = this.resolveTemplatePath(templateId);
       const scriptPath = path.join(this.pythonEnginePath, 'excel_calculator.py');
@@ -534,7 +660,7 @@ class ExcelCalculationService {
   }
 
   // Generate full AI-enhanced report from existing Excel file
-  async generateFullReportFromFile(excelFilePath, templateId, formDataPayload, apiKey, aiProvider = 'grok') {
+  async generateFullReportFromFile(excelFilePath, templateId, formDataPayload, apiKey, aiProvider = 'grok', options = {}) {
     try {
       logger.info('Starting full report generation from file', {
         operation: 'generateFullReportFromFile',
@@ -542,6 +668,8 @@ class ExcelCalculationService {
         excelFilePath,
         aiProvider
       });
+
+      const selectedSheets = this.normalizeSelectedSheets(options?.selectedSheets, templateId);
 
       // Get API key based on provider
       let finalApiKey = apiKey;
@@ -577,6 +705,9 @@ class ExcelCalculationService {
         skipHtmlGeneration: true,  // Skip HTML generation for full reports (not needed)
         skipJsonExtraction: true,  // Skip JSON data extraction for full reports (not needed)
       };
+      if (selectedSheets) {
+        inputData.selectedSheets = selectedSheets;
+      }
 
       // Add API key based on provider
       if (aiProvider === 'grok') {
@@ -795,6 +926,67 @@ class ExcelCalculationService {
       // If temp dir doesn't exist or other error, don't crash server
       return 0;
     }
+  }
+
+  async saveBufferToTempExcel(buffer, templateId) {
+    const safeTemplateId = (templateId || 'template').replace(/[^a-z0-9-_]/gi, '_');
+    const tempFileName = `${safeTemplateId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.xlsx`;
+    const tempFilePath = path.join(this.tempDir, tempFileName);
+    await fsPromises.mkdir(this.tempDir, { recursive: true });
+    await fsPromises.writeFile(tempFilePath, buffer);
+    return tempFilePath;
+  }
+
+  normalizeSelectedSheets(sheetList, templateId = null) {
+    if (!Array.isArray(sheetList)) {
+      return null;
+    }
+
+    const templateConfig = this.getTemplateSheetConfig(templateId);
+    const aliasMap = templateConfig?.aliasMap || {};
+    const normalizedMap = new Map();
+
+    sheetList.forEach((rawSheet) => {
+      if (typeof rawSheet !== 'string') {
+        return;
+      }
+      const trimmed = rawSheet.trim();
+      if (!trimmed.length) {
+        return;
+      }
+      const canonicalName = this.resolveSheetAlias(trimmed, aliasMap);
+      const sheetKey = this.normalizeSheetIdentifier(canonicalName);
+      if (!sheetKey || normalizedMap.has(sheetKey)) {
+        return;
+      }
+      normalizedMap.set(sheetKey, canonicalName);
+    });
+
+    return normalizedMap.size ? Array.from(normalizedMap.values()) : null;
+  }
+
+  getTemplateSheetConfig(templateId) {
+    if (!templateId) {
+      return null;
+    }
+    const normalizedTemplateId = templateMappingService.normalizeTemplateId(templateId);
+    const lookupKey = (normalizedTemplateId || templateId || '').toUpperCase();
+    return TEMPLATE_SHEET_CONFIG[lookupKey] || null;
+  }
+
+  normalizeSheetIdentifier(name) {
+    if (!name || typeof name !== 'string') {
+      return '';
+    }
+    return name.replace(/[^a-z0-9]/gi, '').toLowerCase();
+  }
+
+  resolveSheetAlias(sheetName, aliasMap = {}) {
+    const key = this.normalizeSheetIdentifier(sheetName);
+    if (key && aliasMap[key]) {
+      return aliasMap[key];
+    }
+    return sheetName;
   }
 }
 

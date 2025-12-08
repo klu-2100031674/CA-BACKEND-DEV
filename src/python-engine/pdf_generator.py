@@ -3,6 +3,45 @@ import json
 import sys
 from fpdf import FPDF
 
+
+def get_final_sheet_name(template_name: str) -> str:
+    """
+    Get the correct 'Final workings' sheet name based on template type.
+    
+    Args:
+        template_name: The template file name or identifier
+        
+    Returns:
+        The exact sheet name to use for this template
+    """
+    template_upper = template_name.upper()
+    
+    # CC1 -> FinalWorkings
+    if 'CC1' in template_upper or 'FORMAT CC1' in template_upper:
+        return 'FinalWorkings'
+    # CC2 -> FinalWorkings
+    elif 'CC2' in template_upper or 'FORMAT CC2' in template_upper:
+        return 'FinalWorkings'
+    # CC3 -> FinalWorkings
+    elif 'CC3' in template_upper or 'FORMAT CC3' in template_upper:
+        return 'FinalWorkings'
+    # CC4 -> Finalworkings
+    elif 'CC4' in template_upper or 'FORMAT CC4' in template_upper:
+        return 'Finalworkings'
+    # CC5 -> FinalWorkings
+    elif 'CC5' in template_upper or 'FORMAT CC5' in template_upper:
+        return 'FinalWorkings'
+    # CC6 -> Final workings (with space)
+    elif 'CC6' in template_upper or 'FORMAT CC6' in template_upper:
+        return 'Final workings'
+    # Term Loan -> Final workings (with space)
+    elif 'TERM LOAN' in template_upper or 'TERM_LOAN' in template_upper:
+        return 'Final workings'
+    # Default fallback
+    else:
+        return 'Finalworkings'
+
+
 # Sheet name normalization utilities
 def normalize_sheet_name(sheet_name: str) -> str:
     """Normalize sheet name by stripping whitespace and converting to lowercase."""
@@ -170,7 +209,8 @@ def generate_pdf(json_data, output_path, template_name='CC1'):
             pdf.add_summary_section(data['meta'])
 
         # Process each sheet
-        final_sheet_name = 'Final workings' if 'CC6' in template_name else 'Finalworkings'
+        # Determine sheet name based on template format
+        final_sheet_name = get_final_sheet_name(template_name)
         important_sheets = ['Assumptions.1', final_sheet_name, 'PLBS', 'RATIO']
         other_sheets = []
         

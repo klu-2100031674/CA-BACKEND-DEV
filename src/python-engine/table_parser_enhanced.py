@@ -7,7 +7,7 @@ Uses ProfessionalTemplate for consistent formatting
 import re
 from typing import List, Dict, Tuple, Any
 from reportlab.lib.units import inch
-from reportlab.platypus import Table, Paragraph
+from reportlab.platypus import Table, Paragraph, ListFlowable, ListItem
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.enums import TA_LEFT, TA_CENTER
 from professional_pdf_template import ProfessionalTemplate
@@ -147,6 +147,87 @@ class TableParser:
         
         return tables
     
+    def parse_latex_table(self, content: str) -> List[Tuple[str, List[List[str]]]]:
+        """
+        Parse LaTeX tables from AI content.
+        
+        Format:
+        \\begin{table}
+        \\caption{Title}
+        \\begin{tabular}{|c|c|}
+        Header1 & Header2 \\\\
+        Row1 & Row2 \\\\
+        \\end{tabular}
+        \\end{table}
+        
+        Returns:
+            List of (table_title, table_data) tuples
+        """
+        tables = []
+        
+        # Pattern to match LaTeX table blocks (capturing title and content)
+        # We look for the tabular environment, and optionally a surrounding table env with caption
+        
+        # Strategy: Find all tabular environments
+        tabular_pattern = r'\\begin\{tabular\}(?:\{.*?\})?(.*?)\\end\{tabular\}'
+        matches = re.finditer(tabular_pattern, content, re.DOTALL | re.IGNORECASE)
+        
+        for match in matches:
+            tabular_content = match.group(1).strip()
+            
+            # Try to find a caption/title nearby (before the tabular)
+            start_pos = match.start()
+            preceding_text = content[:start_pos]
+            
+            # Look for \caption{...} in the preceding 300 chars (inside a table env)
+            caption_match = re.search(r'\\caption\{([^}]+)\}', preceding_text[-300:])
+            title = caption_match.group(1) if caption_match else "Data Table"
+            
+            # Parse rows
+            # Split by \\ (row terminator)
+            rows = tabular_content.split(r'\\')
+            
+            table_data = []
+            for row in rows:
+                row = row.strip()
+                if not row:
+                    continue
+                
+                # Remove \hline and other common commands
+                row = row.replace(r'\hline', '')
+                row = row.replace(r'\toprule', '')
+                row = row.replace(r'\midrule', '')
+                row = row.replace(r'\bottomrule', '')
+                
+                if not row.strip():
+                    continue
+                
+                # Split by & (column separator)
+                # Handle escaped & (\&) - simplistic approach: replace \& with placeholder, split, then restore
+                row_safe = row.replace(r'\%', 'PERCENT_PLACEHOLDER').replace(r'\&', 'AMP_PLACEHOLDER').replace(r'\$', 'DOLLAR_PLACEHOLDER')
+                
+                cells = [cell.strip() for cell in row_safe.split('&')]
+                
+                # Clean up cells and restore special chars
+                clean_cells = []
+                for cell in cells:
+                    cell = cell.replace('AMP_PLACEHOLDER', '&').replace('PERCENT_PLACEHOLDER', '%').replace('DOLLAR_PLACEHOLDER', '$')
+                    
+                    # Remove common LaTeX formatting
+                    cell = re.sub(r'\\textbf\{([^}]+)\}', r'\1', cell)
+                    cell = re.sub(r'\\textit\{([^}]+)\}', r'\1', cell)
+                    cell = re.sub(r'\\underline\{([^}]+)\}', r'\1', cell)
+                    
+                    clean_cells.append(cell.strip())
+                
+                if clean_cells and any(c for c in clean_cells):
+                    table_data.append(clean_cells)
+            
+            if table_data:
+                tables.append((title, table_data))
+                
+        return tables
+
     def extract_tables_from_content(self, content: str) -> Tuple[str, List[Tuple[str, List[List[str]]]]]:
         """
         Extract all tables from content and return sanitized text + table data.
@@ -154,21 +235,32 @@ class TableParser:
         Returns:
             (sanitized_text_without_tables, list_of_tables)
         """
-        # First, try structured markers (highest priority)
-        structured_tables = self.parse_structured_table(content)
+        # 1. Try LaTeX tables (Highest Priority)
+        latex_tables = self.parse_latex_table(content)
+        
+        # Remove LaTeX table blocks
+        # Remove \begin{table}...\end{table} blocks
+        clean_content = re.sub(r'\\begin\{table\}.*?\\end\{table\}', '\n\n[TABLE_PLACEHOLDER]\n\n', 
+                              content, flags=re.DOTALL | re.IGNORECASE)
+        # Also remove standalone tabulars if any remain (that weren't in table envs)
+        clean_content = re.sub(r'\\begin\{tabular\}.*?\\end\{tabular\}', '\n\n[TABLE_PLACEHOLDER]\n\n', 
+                              clean_content, flags=re.DOTALL | re.IGNORECASE)
+
+        # 2. Try structured markers
+        structured_tables = self.parse_structured_table(clean_content)
         
         # Remove structured table blocks from content
-        clean_content = re.sub(r'\[TABLE:[^\]]+\].*?\[/TABLE\]', '[TABLE_PLACEHOLDER]', 
-                              content, flags=re.DOTALL | re.IGNORECASE)
+        clean_content = re.sub(r'\[TABLE:[^\]]+\].*?\[/TABLE\]', '\n\n[TABLE_PLACEHOLDER]\n\n', 
+                              clean_content, flags=re.DOTALL | re.IGNORECASE)
         
-        # Then try markdown tables
+        # 3. Then try markdown tables
         markdown_tables = self.parse_markdown_table(clean_content)
         
         # Remove markdown tables from content (basic pattern)
-        clean_content = re.sub(r'(\|[^\n]+\|\n)+', '[TABLE_PLACEHOLDER]\n', clean_content)
+        clean_content = re.sub(r'(\|[^\n]+\|\n)+', '\n\n[TABLE_PLACEHOLDER]\n\n', clean_content)
         
         # Combine all tables
-        all_tables = structured_tables + markdown_tables
+        all_tables = latex_tables + structured_tables + markdown_tables
         
         # Sanitize remaining content
         clean_content = self.sanitize_html_content(clean_content)
@@ -277,10 +369,64 @@ class TableParser:
         )
         
         return table
+
+    def replace_inline_latex(self, text: str) -> str:
+        """Convert inline LaTeX formatting to ReportLab XML tags."""
+        if not text:
+            return ""
+        # Bold
+        text = re.sub(r'\\textbf\{([^}]+)\}', r'<b>\1</b>', text)
+        # Italic
+        text = re.sub(r'\\textit\{([^}]+)\}', r'<i>\1</i>', text)
+        # Underline
+        text = re.sub(r'\\underline\{([^}]+)\}', r'<u>\1</u>', text)
+        # Escaped characters
+        text = text.replace(r'\%', '%').replace(r'\&', '&').replace(r'\$', '$')
+        return text
+
+    def extract_lists_from_content(self, content: str) -> Tuple[str, List[List[str]]]:
+        """
+        Extract LaTeX lists.
+        Returns (clean_content, list_of_list_items)
+        """
+        lists = []
+        
+        # Pattern for itemize/enumerate
+        pattern = r'\\begin\{(?:itemize|enumerate)\}(.*?)\\end\{(?:itemize|enumerate)\}'
+        
+        def replace_func(match):
+            list_content = match.group(1)
+            # Parse items
+            items = []
+            parts = re.split(r'\\item\s+', list_content)
+            for part in parts:
+                part = part.strip()
+                if part:
+                    items.append(part)
+            
+            if items:
+                lists.append(items)
+                return '\n\n[LIST_PLACEHOLDER]\n\n'
+            return match.group(0)
+            
+        clean_content = re.sub(pattern, replace_func, content, flags=re.DOTALL | re.IGNORECASE)
+        return clean_content, lists
+
+    def create_list_element(self, items: List[str], styles: Dict) -> ListFlowable:
+        """Create a ReportLab ListFlowable from list items."""
+        list_items = []
+        for item_text in items:
+            # Handle inline formatting
+            item_text = self.replace_inline_latex(item_text)
+            # Use a bullet style or body style
+            p = Paragraph(item_text, styles['ProfessionalBody'])
+            list_items.append(ListItem(p))
+        
+        return ListFlowable(list_items, bulletType='bullet', start='circle', leftIndent=20)
     
     def parse_and_render_content(self, content: str, styles: Dict) -> List[Any]:
         """
-        Parse content, extract tables, and return list of Paragraph and Table elements.
+        Parse content, extract tables and lists, and return list of ReportLab flowables.
         
         Args:
             content: AI-generated text content (may contain tables)
@@ -291,13 +437,20 @@ class TableParser:
         """
         elements = []
         
-        # Extract tables and get clean text
+        # Normalize headings
+        content = re.sub(r'(\\section\{[^}]+\})', r'\n\n\1\n\n', content)
+        content = re.sub(r'(\\subsection\{[^}]+\})', r'\n\n\1\n\n', content)
+        content = re.sub(r'(\\subsubsection\{[^}]+\})', r'\n\n\1\n\n', content)
+
+        # 1. Extract tables
         clean_text, tables = self.extract_tables_from_content(content)
-        
-        # Track table index for placeholder replacement
         table_index = 0
         
-        # Split text into paragraphs
+        # 2. Extract lists
+        clean_text, lists = self.extract_lists_from_content(clean_text)
+        list_index = 0
+        
+        # 3. Split text into paragraphs
         paragraphs = clean_text.split('\n\n')
         
         for para_text in paragraphs:
@@ -305,9 +458,8 @@ class TableParser:
             if not para_text:
                 continue
             
-            # Check if this paragraph contains a table placeholder
+            # Handle Table Placeholders
             if '[TABLE_PLACEHOLDER]' in para_text:
-                # Add table if available
                 if table_index < len(tables):
                     title, table_data = tables[table_index]
                     
@@ -325,13 +477,48 @@ class TableParser:
                     
                     table_index += 1
                 
-                # Remove placeholder from text
                 para_text = para_text.replace('[TABLE_PLACEHOLDER]', '').strip()
                 if not para_text:
                     continue
+
+            # Handle List Placeholders
+            if '[LIST_PLACEHOLDER]' in para_text:
+                if list_index < len(lists):
+                    list_items = lists[list_index]
+                    list_elem = self.create_list_element(list_items, styles)
+                    if list_elem:
+                        elements.append(list_elem)
+                    list_index += 1
+                para_text = para_text.replace('[LIST_PLACEHOLDER]', '').strip()
+                if not para_text:
+                    continue
             
-            # Add regular paragraph
+            # Handle Headings
+            # \section{Title} -> Heading1
+            section_match = re.match(r'\\section\{([^}]+)\}', para_text)
+            if section_match:
+                title = section_match.group(1)
+                elements.append(Paragraph(title, styles['Heading1']))
+                continue
+                
+            # \subsection{Title} -> Heading2
+            subsection_match = re.match(r'\\subsection\{([^}]+)\}', para_text)
+            if subsection_match:
+                title = subsection_match.group(1)
+                elements.append(Paragraph(title, styles['Heading2']))
+                continue
+
+            # \subsubsection{Title} -> Heading3
+            subsubsection_match = re.match(r'\\subsubsection\{([^}]+)\}', para_text)
+            if subsubsection_match:
+                title = subsubsection_match.group(1)
+                elements.append(Paragraph(title, styles['Heading3']))
+                continue
+            
+            # Regular Paragraph
             try:
+                # Replace inline LaTeX
+                para_text = self.replace_inline_latex(para_text)
                 # Additional sanitization before creating Paragraph
                 para_text = self.sanitize_html_content(para_text)
                 if para_text:

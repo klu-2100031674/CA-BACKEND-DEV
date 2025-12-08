@@ -12,3 +12,4 @@ pillow
 pywin32
 google-generativeai
 reportlab
+xlrd

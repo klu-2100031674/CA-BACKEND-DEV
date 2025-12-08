@@ -333,14 +333,71 @@ router.post('/templates/:templateId/apply-final', verifyToken, async (req, res) 
       return res.status(400).json({ success: false, error: 'No updates provided' });
     }
 
-    const result = await excelCalculationService.applyUpdatesAndCalculate(templateId, { updates, recalculate });
+    let stagingRecord = null;
+    let existingExcelBuffer = null;
+    try {
+      stagingRecord = await ReportStaging.findOne({
+        user_id: req.user._id,
+        template_id: templateId,
+        status: 'active'
+      }).sort({ createdAt: -1 });
+
+      if (stagingRecord?.excel_data) {
+        existingExcelBuffer = stagingRecord.excel_data;
+      }
+    } catch (stagingError) {
+      logger.warn('Failed to read staging Excel during apply-final', {
+        userId: req.user._id,
+        templateId,
+        error: stagingError.message,
+        operation: 'applyFinalEdits.loadStaging'
+      });
+    }
+
+    const result = await excelCalculationService.applyUpdatesAndCalculate(templateId, {
+      updates,
+      recalculate,
+      existingExcelBuffer
+    });
+
+    if (result?.excelData) {
+      try {
+        const updatedBuffer = Buffer.from(result.excelData, 'base64');
+        if (stagingRecord) {
+          stagingRecord.excel_data = updatedBuffer;
+          if (result.fileName) {
+            stagingRecord.file_name = result.fileName;
+          }
+          await stagingRecord.save();
+        } else {
+          const newRecord = new ReportStaging({
+            user_id: req.user._id,
+            template_id: templateId,
+            excel_data: updatedBuffer,
+            file_name: result.fileName || `${templateId}-final.xlsx`
+          });
+          await newRecord.save();
+        }
+      } catch (stagingSaveError) {
+        logger.warn('Failed to persist recalculated Excel to staging', {
+          userId: req.user._id,
+          templateId,
+          error: stagingSaveError.message,
+          operation: 'applyFinalEdits.saveStaging'
+        });
+      }
+    }
 
     res.json({
       success: true,
       message: 'Final edits applied successfully',
       data: {
         fileName: result.fileName,
-        excelBase64: result.excelData
+        excelBase64: result.excelData,
+        htmlContent: result.htmlContent,
+        htmlJsonData: result.htmlJsonData,
+        pdfBase64: result.pdfData,
+        pdfFileName: result.pdfFileName
       }
     });
   } catch (error) {

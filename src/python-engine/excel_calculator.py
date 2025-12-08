@@ -9,7 +9,7 @@ import datetime
 import os
 import sys
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 import base64
 
 import openpyxl
@@ -38,6 +38,169 @@ except ImportError:
     XL_CALC_AVAILABLE = False
 
 _XL_CUSTOM_FUNCS_REGISTERED = False
+
+
+def get_final_sheet_name(template_name: str) -> str:
+    """
+    Get the correct 'Final workings' sheet name based on template type.
+    
+    Args:
+        template_name: The template file name or identifier
+        
+    Returns:
+        The exact sheet name to use for this template
+    """
+    template_upper = template_name.upper()
+    
+    # CC1 -> FinalWorkings
+    if 'CC1' in template_upper or 'FORMAT CC1' in template_upper:
+        return 'FinalWorkings'
+    # CC2 -> FinalWorkings
+    elif 'CC2' in template_upper or 'FORMAT CC2' in template_upper:
+        return 'FinalWorkings'
+    # CC3 -> FinalWorkings
+    elif 'CC3' in template_upper or 'FORMAT CC3' in template_upper:
+        return 'FinalWorkings'
+    # CC4 -> Finalworkings
+    elif 'CC4' in template_upper or 'FORMAT CC4' in template_upper:
+        return 'Finalworkings'
+    # CC5 -> FinalWorkings
+    elif 'CC5' in template_upper or 'FORMAT CC5' in template_upper:
+        return 'FinalWorkings'
+    # CC6 -> Final workings (with space)
+    elif 'CC6' in template_upper or 'FORMAT CC6' in template_upper:
+        return 'Final workings'
+    # Term Loan -> Final workings (with space)
+    elif 'TERM LOAN' in template_upper or 'TERM_LOAN' in template_upper:
+        return 'Final workings'
+    # Default fallback
+    else:
+        return 'Finalworkings'
+
+
+def extract_sheet_data_with_com(excel_path: str, sheet_name: str = None) -> List[Dict]:
+    """
+    Extract sheet data using Excel COM automation for accurate cell values, formulas, and formatting.
+    This method preserves the exact Excel structure including merged cells and formatting.
+    
+    Args:
+        excel_path: Path to the Excel file
+        sheet_name: Specific sheet to extract (if None, extracts all sheets)
+        
+    Returns:
+        List of sheet objects in Luckysheet format with complete formatting
+    """
+    if not COM_AVAILABLE:
+        print("[COM Extraction] COM not available, falling back to openpyxl", file=sys.stderr)
+        return None
+    
+    try:
+        import win32com.client
+        import pythoncom
+        
+        pythoncom.CoInitialize()
+        excel_app = win32com.client.Dispatch("Excel.Application")
+        excel_app.Visible = False
+        excel_app.DisplayAlerts = False
+        
+        print(f"[COM Extraction] Opening workbook: {excel_path}", file=sys.stderr)
+        wb = excel_app.Workbooks.Open(excel_path)
+        
+        sheets_data = []
+        sheets_to_process = [wb.Worksheets(sheet_name)] if sheet_name else list(wb.Worksheets)
+        
+        for sheet_idx, ws in enumerate(sheets_to_process):
+            try:
+                sheet_name_actual = ws.Name
+                print(f"[COM Extraction] Processing sheet: {sheet_name_actual}", file=sys.stderr)
+                
+                # Get used range to determine actual data bounds
+                used_range = ws.UsedRange
+                max_row = used_range.Rows.Count
+                max_col = used_range.Columns.Count
+                
+                print(f"[COM Extraction] Sheet '{sheet_name_actual}' size: {max_row} rows x {max_col} cols", file=sys.stderr)
+                
+                # Extract all cell data with formatting (batch operations for speed)
+                sheet_data = []
+                merge_info = {}
+                
+                # Get all values and formulas at once (much faster than cell-by-cell)
+                values = used_range.Value
+                formulas = used_range.Formula
+                
+                # Convert to 2D list if single cell
+                if max_row == 1 and max_col == 1:
+                    values = [[values]]
+                    formulas = [[formulas]]
+                elif max_row == 1:
+                    values = [list(values)]
+                    formulas = [list(formulas)]
+                elif max_col == 1:
+                    values = [[v] for v in values]
+                    formulas = [[f] for f in formulas]
+                
+                # Process data row by row with minimal formatting
+                for row_idx in range(max_row):
+                    row_data = []
+                    for col_idx in range(max_col):
+                        cell_value = values[row_idx][col_idx] if values and row_idx < len(values) and col_idx < len(values[row_idx]) else None
+                        cell_formula = formulas[row_idx][col_idx] if formulas and row_idx < len(formulas) and col_idx < len(formulas[row_idx]) else None
+                        
+                        # Only create cell data if there's content
+                        if cell_value is not None or (cell_formula and cell_formula != cell_value):
+                            cell_data = {
+                                'v': cell_value,
+                                'm': str(cell_value) if cell_value is not None else '',
+                            }
+                            # Add formula if different from value
+                            if cell_formula and str(cell_formula).startswith('='):
+                                cell_data['f'] = cell_formula
+                            
+                            row_data.append(cell_data)
+                        else:
+                            row_data.append(None)
+                    
+                    sheet_data.append(row_data)
+                
+                print(f"[COM Extraction] ✓ Sheet '{sheet_name_actual}' extracted successfully", file=sys.stderr)
+                
+                # Build sheet object
+                sheet_obj = {
+                    'name': sheet_name_actual,
+                    'data': sheet_data,
+                    'config': {
+                        'merge': merge_info,
+                        'borderInfo': [],
+                        'rowlen': {},
+                        'columnlen': {}
+                    },
+                    'index': sheet_idx
+                }
+                
+                sheets_data.append(sheet_obj)
+                print(f"[COM Extraction] ✓ Extracted {len(sheet_data)} rows from '{sheet_name_actual}'", file=sys.stderr)
+                
+            except Exception as sheet_err:
+                print(f"[COM Extraction] Error processing sheet: {sheet_err}", file=sys.stderr)
+                continue
+        
+        # Close workbook and quit Excel
+        wb.Close(SaveChanges=False)
+        excel_app.Quit()
+        pythoncom.CoUninitialize()
+        
+        print(f"[COM Extraction] ✓ Successfully extracted {len(sheets_data)} sheets", file=sys.stderr)
+        return sheets_data
+        
+    except Exception as e:
+        print(f"[COM Extraction] ERROR: {e}", file=sys.stderr)
+        try:
+            excel_app.Quit()
+            pythoncom.CoUninitialize()
+        except:
+            pass
+        return None
 
 
 def _ensure_custom_xl_functions_registered():
@@ -124,7 +287,19 @@ def generate_pdf_from_excel_sheet(excel_path: str, sheet_name: str, output_path:
             # Use Excel COM automation for exact formatting preservation
             print(f"[PDF Generator] Using Excel COM automation for exact formatting", file=sys.stderr)
             excel = None
+            workbook = None
+            co_initialized = False
+            pythoncom = None
             try:
+                import pythoncom as _pythoncom
+                pythoncom = _pythoncom
+                try:
+                    pythoncom.CoInitialize()
+                    co_initialized = True
+                    print(f"[PDF Generator] CoInitialize called successfully", file=sys.stderr)
+                except Exception as init_error:
+                    print(f"[PDF Generator] Warning: Failed to CoInitialize COM: {init_error}", file=sys.stderr)
+                
                 print(f"[PDF Generator] Initializing Excel COM...", file=sys.stderr)
                 excel = win32com.client.Dispatch("Excel.Application")
                 try:
@@ -153,8 +328,6 @@ def generate_pdf_from_excel_sheet(excel_path: str, sheet_name: str, output_path:
                 
                 if not sheet_found:
                     print(f"[PDF Generator] ERROR: Sheet '{sheet_name}' not found in workbook (tried case-insensitive matching)", file=sys.stderr)
-                    workbook.Close(SaveChanges=False)
-                    excel.Quit()
                     return False
                 
                 # Export as PDF with optimal settings
@@ -169,10 +342,6 @@ def generate_pdf_from_excel_sheet(excel_path: str, sheet_name: str, output_path:
                 )
                 
                 print(f"[PDF Generator] PDF export completed", file=sys.stderr)
-                workbook.Close(SaveChanges=False)
-                excel.Quit()
-                print(f"[PDF Generator] Excel closed successfully", file=sys.stderr)
-                
                 print(f"[PDF Generator] PDF generated successfully using Excel COM: {output_path}", file=sys.stderr)
                 return True
                 
@@ -180,12 +349,23 @@ def generate_pdf_from_excel_sheet(excel_path: str, sheet_name: str, output_path:
                 print(f"❌ [PDF Generator] Excel COM error: {str(com_error)}", file=sys.stderr)
                 import traceback
                 traceback.print_exc(file=sys.stderr)
+                return False
+            finally:
+                if workbook is not None:
+                    try:
+                        workbook.Close(SaveChanges=False)
+                    except Exception:
+                        pass
                 if excel:
                     try:
                         excel.Quit()
-                    except:
+                    except Exception:
                         pass
-                return False
+                if co_initialized and pythoncom is not None:
+                    try:
+                        pythoncom.CoUninitialize()
+                    except Exception:
+                        pass
         else:
             # Fallback to pandas method (no formatting preservation)
             print(f"⚠️ [PDF Generator] COM not available, using fallback method", file=sys.stderr)
@@ -258,7 +438,7 @@ def generate_pdf_fallback(excel_path: str, sheet_name: str, output_path: str) ->
         return False
 
 
-def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str) -> Dict[str, Any]:
+def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheets: Optional[List[str]] = None) -> Dict[str, Any]:
     """
     Generate individual PDF files for ALL sheets in the Excel workbook (excluding Assumptions sheet).
     Uses Excel COM automation to preserve formatting with better page fitting.
@@ -282,14 +462,53 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str) -> Dict[str, 
         "success_count": 0,
         "failed_count": 0,
         "total_sheets": 0,
-        "excluded_sheets": []
+        "excluded_sheets": [],
+        "filtered_out_sheets": [],
+        "requested_sheets": [],
+        "sheet_status": []
     }
+
+    include_filter = None
+    sheet_status_summary = []
+    requested_status_map = {}
+    if include_sheets:
+        def _normalized(value: str) -> str:
+            return re.sub(r'[\s_\-]+', '', value.strip().lower())
+
+        include_filter = {
+            _normalized(sheet): sheet.strip()
+            for sheet in include_sheets
+            if isinstance(sheet, str) and sheet.strip()
+        }
+        pdf_files["requested_sheets"] = list(include_filter.values())
+        requested_status_map = {
+            norm: {
+                "sheet": original,
+                "status": "pending",
+                "reason": "Sheet not processed"
+            }
+            for norm, original in include_filter.items()
+        }
     
+    pythoncom = None
+    co_initialized = False
+    excel = None
+    workbook = None
     try:
         if not COM_AVAILABLE:
             print(f"❌ Excel COM not available. Cannot generate PDFs with formatting.", file=sys.stderr)
             return pdf_files
         
+        try:
+            import pythoncom as _pythoncom
+            pythoncom = _pythoncom
+            pythoncom.CoInitialize()
+            co_initialized = True
+            print(f"[Multi-PDF Generator] CoInitialize called successfully", file=sys.stderr)
+        except Exception as init_error:
+            print(f"[Multi-PDF Generator] ERROR: Could not initialize COM: {init_error}", file=sys.stderr)
+            raise
+
         # Ensure output directory exists
         os.makedirs(output_dir, exist_ok=True)
         
@@ -298,8 +517,9 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str) -> Dict[str, 
         excel = win32com.client.Dispatch("Excel.Application")
         try:
             excel.Visible = False
+            excel.ScreenUpdating = False
         except Exception as e:
-            print(f"[Multi-PDF Generator] Warning: Could not set Excel.Visible to False: {e}", file=sys.stderr)
+            print(f"[Multi-PDF Generator] Warning: Could not set Excel.Visible/ScreenUpdating to False: {e}", file=sys.stderr)
         excel.DisplayAlerts = False
         
         workbook = excel.Workbooks.Open(os.path.abspath(excel_path))
@@ -314,10 +534,32 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str) -> Dict[str, 
             sheet = workbook.Sheets(sheet_idx)
             sheet_name = sheet.Name
             
+            normalized_sheet = sheet_name.strip()
+            normalized_key = re.sub(r'[\s_\-]+', '', normalized_sheet.lower())
+
             # Skip excluded sheets (like Assumptions)
             if sheet_name in EXCLUDED_SHEETS:
                 print(f"[{sheet_idx}/{total_sheets}] ⏭️  Skipping sheet: '{sheet_name}' (excluded)", file=sys.stderr)
                 pdf_files["excluded_sheets"].append(sheet_name)
+                if include_filter and normalized_key in requested_status_map:
+                    requested_status_map[normalized_key]["status"] = "failed"
+                    requested_status_map[normalized_key]["reason"] = "Sheet excluded from PDF generation"
+                else:
+                    sheet_status_summary.append({
+                        "sheet": sheet_name,
+                        "status": "excluded",
+                        "reason": "Sheet excluded from PDF generation"
+                    })
+                continue
+
+            if include_filter and normalized_key not in include_filter:
+                print(f"[{sheet_idx}/{total_sheets}] ⏭️  Skipping sheet: '{sheet_name}' (not in requested list)", file=sys.stderr)
+                pdf_files["filtered_out_sheets"].append(sheet_name)
+                sheet_status_summary.append({
+                    "sheet": sheet_name,
+                    "status": "filtered",
+                    "reason": "Sheet not included in requested list"
+                })
                 continue
             
             print(f"[{sheet_idx}/{total_sheets}] Processing sheet: '{sheet_name}'", file=sys.stderr)
@@ -373,6 +615,16 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str) -> Dict[str, 
                         "status": "success"
                     }
                     pdf_files["success_count"] += 1
+                    if include_filter:
+                        if normalized_key in requested_status_map:
+                            requested_status_map[normalized_key]["status"] = "success"
+                            requested_status_map[normalized_key]["reason"] = "PDF generated successfully"
+                    else:
+                        sheet_status_summary.append({
+                            "sheet": sheet_name,
+                            "status": "success",
+                            "reason": "PDF generated successfully"
+                        })
                 else:
                     print(f"   ❌ PDF file not created", file=sys.stderr)
                     pdf_files["sheets"][sheet_name] = {
@@ -380,6 +632,17 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str) -> Dict[str, 
                         "error": "PDF file not created"
                     }
                     pdf_files["failed_count"] += 1
+                    failure_reason = "PDF file not created"
+                    if include_filter:
+                        if normalized_key in requested_status_map:
+                            requested_status_map[normalized_key]["status"] = "failed"
+                            requested_status_map[normalized_key]["reason"] = failure_reason
+                    else:
+                        sheet_status_summary.append({
+                            "sheet": sheet_name,
+                            "status": "failed",
+                            "reason": failure_reason
+                        })
                     
             except Exception as sheet_error:
                 print(f"   ❌ Error generating PDF for sheet '{sheet_name}': {str(sheet_error)}", file=sys.stderr)
@@ -388,19 +651,45 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str) -> Dict[str, 
                     "error": str(sheet_error)
                 }
                 pdf_files["failed_count"] += 1
+                failure_reason = str(sheet_error)
+                if include_filter:
+                    if normalized_key in requested_status_map:
+                        requested_status_map[normalized_key]["status"] = "failed"
+                        requested_status_map[normalized_key]["reason"] = failure_reason
+                else:
+                    sheet_status_summary.append({
+                        "sheet": sheet_name,
+                        "status": "failed",
+                        "reason": failure_reason
+                    })
         
         # Close workbook and Excel
         workbook.Close(SaveChanges=False)
+        workbook = None
         excel.Quit()
+        excel = None
         
         print(f"\n{'─'*80}", file=sys.stderr)
         print(f"✅ PDF Generation Complete", file=sys.stderr)
         print(f"   Total Sheets: {pdf_files['total_sheets']}", file=sys.stderr)
+        if pdf_files['requested_sheets']:
+            print(f"   Requested: {len(pdf_files['requested_sheets'])} ({', '.join(pdf_files['requested_sheets'])})", file=sys.stderr)
         print(f"   Excluded: {len(pdf_files['excluded_sheets'])} ({', '.join(pdf_files['excluded_sheets']) if pdf_files['excluded_sheets'] else 'none'})", file=sys.stderr)
+        if pdf_files['filtered_out_sheets']:
+            print(f"   Filtered Out: {len(pdf_files['filtered_out_sheets'])} ({', '.join(pdf_files['filtered_out_sheets'])})", file=sys.stderr)
         print(f"   Successful: {pdf_files['success_count']}", file=sys.stderr)
         print(f"   Failed: {pdf_files['failed_count']}", file=sys.stderr)
         print(f"{'='*80}\n", file=sys.stderr)
         
+        if include_filter:
+            for norm_key, status_entry in requested_status_map.items():
+                if status_entry["status"] == "pending":
+                    status_entry["status"] = "failed"
+                    status_entry["reason"] = "Requested sheet not found in workbook"
+            pdf_files["sheet_status"] = list(requested_status_map.values())
+        else:
+            pdf_files["sheet_status"] = sheet_status_summary
+
         return pdf_files
         
     except Exception as e:
@@ -408,6 +697,23 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str) -> Dict[str, 
         import traceback
         traceback.print_exc(file=sys.stderr)
         return pdf_files
+    finally:
+        if workbook is not None:
+            try:
+                workbook.Close(SaveChanges=False)
+            except Exception:
+                pass
+        if excel is not None:
+            try:
+                excel.Quit()
+            except Exception:
+                pass
+        if co_initialized and pythoncom is not None:
+            try:
+                pythoncom.CoUninitialize()
+                print(f"[Multi-PDF Generator] CoUninitialize completed", file=sys.stderr)
+            except Exception as cleanup_error:
+                print(f"[Multi-PDF Generator] Warning: CoUninitialize failed: {cleanup_error}", file=sys.stderr)
 
 def generate_html_from_excel_com(excel_path: str, sheet_name: str) -> tuple:
     """
@@ -1123,7 +1429,7 @@ def generate_html_from_excel_com(excel_path: str, sheet_name: str) -> tuple:
                 is_header = True
             elif any(keyword in first_value for keyword in ["total", "net", "grand"]):
                 is_total = True
-            
+            # Cells will be editable when unlocked in Excel; no need for inline markers
             # Build row HTML
             row_class = ""
             if is_header:
@@ -1216,6 +1522,17 @@ def generate_html_from_excel_com(excel_path: str, sheet_name: str) -> tuple:
                     attrs.append(f"class='{class_attr}'")
                 if style_attr:
                     attrs.append(f"style='{style_attr}'")
+                attrs.append(f"data-cell=\"R{row_idx}C{col_idx}\"")
+                attrs.append(f"data-sheet=\"{actual_sheet_name}\"")
+                is_cell_unlocked = False
+                try:
+                    # Excel sets Locked=True by default; unlocked cells are allowed to edit
+                    is_cell_unlocked = not bool(cell.Locked)
+                except Exception:
+                    is_cell_unlocked = False
+
+                if is_cell_unlocked and col_idx > 1:
+                    attrs.append("data-editable=\"true\"")
                 
                 attr_str = " " + " ".join(attrs) if attrs else ""
                 html_parts.append(f"    <td{attr_str}{merge_attrs}>{formatted_value}</td>")
@@ -2083,7 +2400,23 @@ def generate_html_from_excel_sheet(excel_path: str, sheet_name: str):
                     cell_classes.append("currency")
                 
                 class_attr = " ".join(cell_classes) if cell_classes else ""
-                html_parts.append(f"    <td class='{class_attr}'>{formatted_value}</td>")
+                attr_parts = []
+                if class_attr:
+                    attr_parts.append(f"class='{class_attr}'")
+                attr_parts.append(f"data-cell=\"R{row_idx + 1}C{col_idx}\"")
+                attr_parts.append(f"data-sheet=\"{actual_sheet_name}\"")
+
+                is_cell_unlocked = False
+                try:
+                    cell_obj = sheet.cell(row=row_idx + 1, column=col_idx)
+                    is_cell_unlocked = not bool(getattr(cell_obj.protection, 'locked', True))
+                except Exception:
+                    is_cell_unlocked = False
+
+                if is_cell_unlocked and col_idx > 1:
+                    attr_parts.append("data-editable=\"true\"")
+                attr_str = " " + " ".join(attr_parts) if attr_parts else ""
+                html_parts.append(f"    <td{attr_str}>{formatted_value}</td>")
             
             html_parts.append("  </tr>")
         
@@ -2307,6 +2640,72 @@ def _collect_updates(workbook, updates: List[Dict[str, Any]]):
     return applied
 
 
+def _normalize_cell_reference(cell_addr: str) -> str:
+    if not cell_addr:
+        return ''
+    return _r1c1_to_a1(cell_addr).upper()
+
+
+def _apply_updates_via_com(excel_path: str, updates: List[Dict[str, Any]], save_as_path: str = None):
+    if not COM_AVAILABLE:
+        raise RuntimeError('COM automation is not available on this host')
+
+    import win32com.client
+    import pythoncom
+
+    pythoncom.CoInitialize()
+    excel_app = None
+    wb_com = None
+    applied_updates = []
+    final_path = save_as_path or excel_path
+
+    try:
+        excel_app = win32com.client.Dispatch("Excel.Application")
+        excel_app.Visible = False
+        excel_app.DisplayAlerts = False
+        excel_app.ScreenUpdating = False
+
+        wb_com = excel_app.Workbooks.Open(excel_path)
+
+        for update in updates or []:
+            try:
+                sheet_name = update.get('sheet', wb_com.Worksheets(1).Name)
+                cell_ref = _normalize_cell_reference(update.get('cell', ''))
+                value = update.get('value')
+                if not cell_ref:
+                    continue
+                ws = wb_com.Worksheets(sheet_name)
+                ws.Range(cell_ref).Value = value
+                applied_updates.append(update)
+                print(f"[COM Update] {sheet_name}!{cell_ref} = {value}", file=sys.stderr)
+            except Exception as update_err:
+                print(f"[COM Update] Failed to update {update}: {update_err}", file=sys.stderr)
+
+        wb_com.Application.Calculation = -4105  # xlCalculationAutomatic
+        wb_com.Application.CalculateFullRebuild()
+
+        if save_as_path:
+            wb_com.SaveAs(save_as_path, FileFormat=51)
+            final_path = save_as_path
+        else:
+            wb_com.Save()
+            final_path = excel_path
+    finally:
+        if wb_com is not None:
+            try:
+                wb_com.Close(SaveChanges=False)
+            except Exception:
+                pass
+        if excel_app is not None:
+            try:
+                excel_app.Quit()
+            except Exception:
+                pass
+        pythoncom.CoUninitialize()
+
+    return final_path, applied_updates
+
+
 def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
     meta: Dict[str, Any] = {
         'templatePath': _abs_path(excel_path),
@@ -2314,53 +2713,126 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
     }
 
     try:
-        workbook = openpyxl.load_workbook(excel_path)
-        applied_updates = _collect_updates(workbook, input_data.get('updates', []))
-
-        # Use TEMP_DIR environment variable, fallback to system temp directory
-        import tempfile
-        output_dir = os.getenv('TEMP_DIR', tempfile.gettempdir())
-        os.makedirs(output_dir, exist_ok=True)
-
-        timestamp = datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
-        template_name = os.path.splitext(os.path.basename(excel_path))[0]
-        output_path = _abs_path(
-            os.path.join(output_dir, f'{template_name}-updated-{timestamp}.xlsx')
-        )
-
-        workbook.save(output_path)
+        # Check file extension
+        file_ext = os.path.splitext(excel_path)[1].lower()
         
-        # CRITICAL: Force Excel to recalculate all formulas using COM
-        print(f"[Excel Calculator] Forcing formula recalculation via COM...", file=sys.stderr)
-        try:
+        if file_ext == '.xls':
+            # For .xls files, prefer COM over pandas/openpyxl for better accuracy
             if COM_AVAILABLE:
-                import win32com.client
-                excel_app = win32com.client.Dispatch("Excel.Application")
-                excel_app.Visible = False
-                excel_app.DisplayAlerts = False
+                print(f"[Excel Calculator] Loading .xls file with COM Excel automation: {excel_path}", file=sys.stderr)
+                import tempfile
+
+                output_dir = os.getenv('TEMP_DIR', tempfile.gettempdir())
+                os.makedirs(output_dir, exist_ok=True)
+
+                timestamp = datetime.datetime.now(datetime.UTC).strftime('%Y%m%dT%H%M%SZ')
+                template_name = os.path.splitext(os.path.basename(excel_path))[0]
+                output_path = _abs_path(
+                    os.path.join(output_dir, f'{template_name}-updated-{timestamp}.xlsx')
+                )
+
+                output_path, applied_updates = _apply_updates_via_com(
+                    excel_path,
+                    input_data.get('updates', []),
+                    save_as_path=output_path
+                )
+
+                print(f"[Excel Calculator] ✓ .xls file processed with COM and saved as .xlsx", file=sys.stderr)
+
+                # Load the saved .xlsx file for further processing
+                workbook = openpyxl.load_workbook(output_path, data_only=True)
                 
-                wb_com = excel_app.Workbooks.Open(output_path)
-                wb_com.Application.Calculation = -4105  # xlCalculationAutomatic
-                wb_com.Application.CalculateFullRebuild()  # Force full recalculation
-                wb_com.Save()
-                wb_com.Close(SaveChanges=True)
-                excel_app.Quit()
-                
-                print(f"[Excel Calculator] ✓ Formulas recalculated successfully", file=sys.stderr)
             else:
-                print(f"[Excel Calculator] ⚠ COM not available, formulas NOT recalculated", file=sys.stderr)
-        except Exception as calc_error:
-            print(f"[Excel Calculator] ⚠ Formula recalculation failed: {calc_error}", file=sys.stderr)
-        
-        # Strip formulas by reloading with data_only=True
-        print(f"[Excel Calculator] Stripping formulas by reloading with data_only=True...", file=sys.stderr)
-        try:
-            workbook.close()
-            workbook = load_workbook(output_path, data_only=True)
-            workbook.save(output_path)
-            print(f"[Excel Calculator] ✓ Formulas stripped successfully", file=sys.stderr)
-        except Exception as strip_error:
-            print(f"[Excel Calculator] ⚠ Formula stripping failed: {strip_error}", file=sys.stderr)
+                # Fallback to pandas for .xls files when COM not available
+                print(f"[Excel Calculator] COM not available, using pandas to convert .xls to .xlsx: {excel_path}", file=sys.stderr)
+                import pandas as pd
+                
+                # Read all sheets from .xls file
+                xls_data = pd.read_excel(excel_path, sheet_name=None, engine='xlrd')
+                
+                # Use TEMP_DIR environment variable, fallback to system temp directory
+                import tempfile
+                output_dir = os.getenv('TEMP_DIR', tempfile.gettempdir())
+                os.makedirs(output_dir, exist_ok=True)
+                
+                timestamp = datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
+                template_name = os.path.splitext(os.path.basename(excel_path))[0]
+                temp_xlsx_path = _abs_path(
+                    os.path.join(output_dir, f'{template_name}-converted-{timestamp}.xlsx')
+                )
+                
+                # Write to .xlsx format using pandas
+                with pd.ExcelWriter(temp_xlsx_path, engine='openpyxl') as writer:
+                    for sheet_name, df in xls_data.items():
+                        df.to_excel(writer, sheet_name=sheet_name, index=False)
+                
+                print(f"[Excel Calculator] ✓ Converted .xls to .xlsx using pandas", file=sys.stderr)
+                
+                # Now load with openpyxl and continue normal processing
+                workbook = openpyxl.load_workbook(temp_xlsx_path)
+                applied_updates = _collect_updates(workbook, input_data.get('updates', []))
+                
+                output_path = _abs_path(
+                    os.path.join(output_dir, f'{template_name}-updated-{timestamp}.xlsx')
+                )
+                
+                workbook.save(output_path)
+                
+                # Try to recalculate formulas if COM becomes available
+                print(f"[Excel Calculator] Attempting formula recalculation...", file=sys.stderr)
+                try:
+                    if COM_AVAILABLE:
+                        import win32com.client
+                        excel_app = win32com.client.Dispatch("Excel.Application")
+                        excel_app.Visible = False
+                        excel_app.DisplayAlerts = False
+                        
+                        wb_com = excel_app.Workbooks.Open(output_path)
+                        wb_com.Application.Calculation = -4105
+                        wb_com.Application.CalculateFullRebuild()
+                        wb_com.Save()
+                        wb_com.Close(SaveChanges=True)
+                        excel_app.Quit()
+                        
+                        print(f"[Excel Calculator] ✓ Formulas recalculated successfully", file=sys.stderr)
+                except Exception as calc_error:
+                    print(f"[Excel Calculator] ⚠ Formula recalculation failed: {calc_error}", file=sys.stderr)
+                
+                # Reload with data_only=True to strip formulas
+                workbook.close()
+                workbook = load_workbook(output_path, data_only=True)
+                workbook.save(output_path)
+        else:
+            # Handle .xlsx files
+            import tempfile
+            output_dir = os.getenv('TEMP_DIR', tempfile.gettempdir())
+            os.makedirs(output_dir, exist_ok=True)
+
+            timestamp = datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
+            template_name = os.path.splitext(os.path.basename(excel_path))[0]
+            output_path = _abs_path(
+                os.path.join(output_dir, f'{template_name}-updated-{timestamp}.xlsx')
+            )
+
+            if COM_AVAILABLE:
+                print("[Excel Calculator] Applying .xlsx updates via COM automation", file=sys.stderr)
+                output_path, applied_updates = _apply_updates_via_com(
+                    excel_path,
+                    input_data.get('updates', []),
+                    save_as_path=output_path
+                )
+                workbook = openpyxl.load_workbook(output_path, data_only=True)
+                print("[Excel Calculator] ✓ .xlsx file processed with COM", file=sys.stderr)
+            else:
+                print("[Excel Calculator] ⚠ COM unavailable, falling back to openpyxl", file=sys.stderr)
+                workbook = openpyxl.load_workbook(excel_path)
+                applied_updates = _collect_updates(workbook, input_data.get('updates', []))
+                workbook.save(output_path)
+                try:
+                    workbook.close()
+                except Exception:
+                    pass
+                workbook = load_workbook(output_path, data_only=True)
 
         # Read the Excel file as bytes and encode to base64
         with open(output_path, 'rb') as f:
@@ -2370,60 +2842,74 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
         # Also extract JSON data for browser display in Luckysheet format (skip if requested)
         json_output = []
         if not input_data.get('skipJsonExtraction', False):
-            try:
-                import pandas as pd
-                all_sheets = pd.read_excel(output_path, sheet_name=None, engine='openpyxl')
-                json_output = []
-                for sheet_name, df in all_sheets.items():
-                    try:
-                        df_cleaned = df.replace([pd.NA, np.inf, -np.inf], None)
-                        df_cleaned = df_cleaned.where(pd.notna(df_cleaned), None)
+            # For Term Loan templates, use COM extraction for better accuracy
+            template_upper = template_name.upper()
+            use_com_extraction = 'TERM LOAN' in template_upper or 'TERM_LOAN' in template_upper
+            
+            if use_com_extraction and COM_AVAILABLE:
+                print("[JSON Extraction] Using COM method for Term Loan template", file=sys.stderr)
+                json_output = extract_sheet_data_with_com(output_path)
+                if json_output is None:
+                    print("[JSON Extraction] COM extraction failed, falling back to pandas", file=sys.stderr)
+                    use_com_extraction = False
+            
+            if not use_com_extraction or json_output is None:
+                # Fallback to pandas-based extraction
+                print("[JSON Extraction] Using pandas method", file=sys.stderr)
+                try:
+                    import pandas as pd
+                    all_sheets = pd.read_excel(output_path, sheet_name=None, engine='openpyxl')
+                    json_output = []
+                    for sheet_name, df in all_sheets.items():
+                        try:
+                            df_cleaned = df.replace([pd.NA, np.inf, -np.inf], None)
+                            df_cleaned = df_cleaned.where(pd.notna(df_cleaned), None)
 
-                        # Convert to Luckysheet format
-                        sheet_data = []
-                        max_rows = len(df_cleaned)
-                        max_cols = len(df_cleaned.columns) if max_rows > 0 else 0
-                        
-                        for row_idx in range(max_rows):
-                            row_data = []
-                            for col_idx in range(max_cols):
-                                try:
-                                    value = df_cleaned.iloc[row_idx, col_idx] if row_idx < len(df_cleaned) else None
-                                    if value is not None and not pd.isna(value):
-                                        cell_data = {
-                                            'v': value,
-                                            'm': str(value) if value is not None else ''
-                                        }
-                                    else:
-                                        cell_data = None
-                                    row_data.append(cell_data)
-                                except Exception as cell_error:
-                                    print(f"Error processing cell {row_idx},{col_idx}: {cell_error}", file=sys.stderr)
-                                    row_data.append(None)
-                            sheet_data.append(row_data)
-                        
-                        sheet_obj = {
-                            'name': sheet_name,
-                            'data': sheet_data,
-                            'config': {
-                                'merge': {},
-                                'borderInfo': [],
-                                'rowlen': {},
-                                'columnlen': {}
-                            },
-                            'index': len(json_output)  # sheet index
-                        }
-                        json_output.append(sheet_obj)
-                    except Exception as sheet_error:
-                        print(f"Error processing sheet {sheet_name}: {sheet_error}", file=sys.stderr)
-                        # Skip this sheet
-                        continue
-            except Exception as json_error:
-                print(f"Error generating JSON data: {json_error}", file=sys.stderr)
-                json_output = []  # Fallback to empty array
+                            # Convert to Luckysheet format
+                            sheet_data = []
+                            max_rows = len(df_cleaned)
+                            max_cols = len(df_cleaned.columns) if max_rows > 0 else 0
+                            
+                            for row_idx in range(max_rows):
+                                row_data = []
+                                for col_idx in range(max_cols):
+                                    try:
+                                        value = df_cleaned.iloc[row_idx, col_idx] if row_idx < len(df_cleaned) else None
+                                        if value is not None and not pd.isna(value):
+                                            cell_data = {
+                                                'v': value,
+                                                'm': str(value) if value is not None else ''
+                                            }
+                                        else:
+                                            cell_data = None
+                                        row_data.append(cell_data)
+                                    except Exception as cell_error:
+                                        print(f"Error processing cell {row_idx},{col_idx}: {cell_error}", file=sys.stderr)
+                                        row_data.append(None)
+                                sheet_data.append(row_data)
+                            
+                            sheet_obj = {
+                                'name': sheet_name,
+                                'data': sheet_data,
+                                'config': {
+                                    'merge': {},
+                                    'borderInfo': [],
+                                    'rowlen': {},
+                                    'columnlen': {}
+                                },
+                                'index': len(json_output)  # sheet index
+                            }
+                            json_output.append(sheet_obj)
+                        except Exception as sheet_error:
+                            print(f"Error processing sheet {sheet_name}: {sheet_error}", file=sys.stderr)
+                            # Skip this sheet
+                            continue
+                except Exception as json_error:
+                    print(f"Error generating JSON data: {json_error}", file=sys.stderr)
+                    json_output = []  # Fallback to empty array
 
-        # Determine sheet name based on template
-        final_sheet_name = 'Final workings' if 'CC6' in template_name else 'Finalworkings'
+        # Determine sheet name based on template format
+        final_sheet_name = get_final_sheet_name(template_name)
 
         # Generate PDF for Final workings sheet directly from Excel
         pdf_base64 = None
@@ -2485,8 +2971,48 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
                 
                 # Generate PDFs for all sheets
                 print("[Full Report] Step 1: Generating PDFs for all Excel sheets...", file=sys.stderr)
-                sheet_pdfs = generate_pdfs_for_all_sheets(output_path, pdfs_dir)
+                selected_sheets = input_data.get('selectedSheets')
+                sheet_pdfs = generate_pdfs_for_all_sheets(
+                    output_path,
+                    pdfs_dir,
+                    selected_sheets
+                )
+                
+                # Fallback: If no sheets were generated and selectedSheets was provided, try generating ALL sheets
+                if sheet_pdfs.get('success_count', 0) == 0 and selected_sheets:
+                    print("[Full Report] ⚠️  No sheets matched the selection. Falling back to generating ALL sheets.", file=sys.stderr)
+                    sheet_pdfs = generate_pdfs_for_all_sheets(
+                        output_path,
+                        pdfs_dir,
+                        None  # No filter
+                    )
+                
                 print(f"[Full Report] Generated {sheet_pdfs['success_count']} sheet PDFs", file=sys.stderr)
+
+                requested_status_entries = sheet_pdfs.get('sheet_status') or []
+                requested_total = len(requested_status_entries)
+                if requested_total:
+                    success_entries = [entry for entry in requested_status_entries if entry.get('status') == 'success']
+                    failure_entries = [entry for entry in requested_status_entries if entry.get('status') != 'success']
+                    print(
+                        f"[Full Report] Sheet inclusion summary -> Requested: {requested_total}, "
+                        f"Success: {len(success_entries)}, Failed: {len(failure_entries)}",
+                        file=sys.stderr
+                    )
+                    for failure in failure_entries:
+                        reason = failure.get('reason') or 'Unknown reason'
+                        sheet_label = failure.get('sheet') or 'Unnamed sheet'
+                        print(f"[Full Report]    ✗ {sheet_label}: {reason}", file=sys.stderr)
+                else:
+                    print(
+                        "[Full Report] Sheet inclusion summary unavailable (no requested sheets specified)",
+                        file=sys.stderr
+                    )
+                if sheet_pdfs.get('success_count', 0) == 0:
+                    raise RuntimeError(
+                        "Failed to generate any Excel sheet PDFs for the AI report. "
+                        "Please review the Excel COM automation logs for details."
+                    )
                 
                 # Prepare Excel data for AI
                 excel_data = {

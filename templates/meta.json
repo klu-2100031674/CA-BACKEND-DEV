@@ -109,5 +109,41 @@
         "No Of Years": 1,
         "Type of Report": "CC"
     }
+},
+{
+    "name": "Term Loan (Service sector without stock)",
+    "id": "TERM_LOAN_SERVICE_WITHOUT_STOCK",
+    "description": "Term Loan Application for Service Sector (Without Stock)",
+    "version": "1.0.0",
+    "author": "CA",
+    "initialHide": ["Assumptions 1", "Working for PL & BS", "Workings for PLBS", "cover page", "PLBS", "RATIO", "CF's", "MPBF ", "Nayak Committee Recommandation", "nayak", "Dep sch", "Sheet3", "Sheet2", "Loan Sch", "Repayment sch"],
+    "initialRemoveFormulas": ["Final workings"],
+    "afterGenerateRemoveFormulas": ["Assumptions 1", "Working for PL & BS", "Workings for PLBS", "cover page", "PLBS", "RATIO", "CF's", "MPBF ", "Nayak Committee Recommandation", "nayak", "Dep sch", "Final workings", "Sheet3", "Sheet2", "Loan Sch", "Repayment sch"],
+    "afterGenerateHide": ["Assumptions.1", "Assumptions 1"],
+    "afterGenerateLock": ["cover page"],
+    "lastModified": "2025-11-27T12:00:00Z",
+    "createdAt": "2025-11-27T12:00:00Z",
+    "properties": {
+        "No Of Years": 8,
+        "Type of Report": "TERM_LOAN"
+    }
+},
+{
+    "name": "Term Loan (Manufacturing & Service Sector with stock)",
+    "id": "TERM_LOAN_MANUFACTURING_SERVICE_WITH_STOCK",
+    "description": "Term Loan Application for Manufacturing & Service Sector (With Stock)",
+    "version": "1.0.0",
+    "author": "CA",
+    "initialHide": ["Assumptions 1", "Working for PL & BS", "Workings for PLBS", "cover page", "PLBS", "RATIO", "CF's", "MPBF ", "Nayak Committee Recommandation", "nayak", "Dep sch", "Sheet3", "Sheet2", "Loan Sch", "Repayment sch"],
+    "initialRemoveFormulas": ["Final workings"],
+    "afterGenerateRemoveFormulas": ["Assumptions 1", "Working for PL & BS", "Workings for PLBS", "cover page", "PLBS", "RATIO", "CF's", "MPBF ", "Nayak Committee Recommandation", "nayak", "Dep sch", "Final workings", "Sheet3", "Sheet2", "Loan Sch", "Repayment sch"],
+    "afterGenerateHide": ["Assumptions.1", "Assumptions 1"],
+    "afterGenerateLock": ["cover page"],
+    "lastModified": "2025-12-07T12:00:00Z",
+    "createdAt": "2025-12-07T12:00:00Z",
+    "properties": {
+        "No Of Years": 8,
+        "Type of Report": "TERM_LOAN"
+    }
 }
 ]

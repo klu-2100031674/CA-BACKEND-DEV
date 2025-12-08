@@ -624,13 +624,20 @@ function runPythonScript(scriptPath, args, pythonExecutable) {
 exports.downloadFullReport = async (req, res, next) => {
   try {
     const { templateId } = req.params;
-    const formData = req.body;
-    const grokApiKey = req.body.grokApiKey || req.body.apiKey || process.env.GROK_API_KEY || process.env.XAI_API_KEY;
+    const requestPayload = req.body || {};
+    const { selectedSheets, ...formData } = requestPayload;
+    const normalizedSelectedSheets = Array.isArray(selectedSheets)
+      ? selectedSheets
+          .filter((sheet) => typeof sheet === 'string' && sheet.trim().length)
+          .map((sheet) => sheet.trim())
+      : null;
+    const grokApiKey = requestPayload.grokApiKey || requestPayload.apiKey || process.env.GROK_API_KEY || process.env.XAI_API_KEY;
 
     logger.business('Generating full AI-enhanced report (Grok-only)', {
       userId: req.user ? req.user._id : null,
       templateId,
       operation: 'downloadFullReport',
+      selectedSheets: normalizedSelectedSheets,
       creditsRequired: 100
     });
 
@@ -699,7 +706,8 @@ exports.downloadFullReport = async (req, res, next) => {
         templateId,
         formData, // Still pass formData for any additional context
         grokApiKey,
-        'grok'
+        'grok',
+        { selectedSheets: normalizedSelectedSheets }
       );
 
       usedExistingExcel = true;
@@ -725,7 +733,8 @@ exports.downloadFullReport = async (req, res, next) => {
       result = await excelCalculationService.generateFullReport(
         templateId,
         formData,
-        grokApiKey
+        grokApiKey,
+        { selectedSheets: normalizedSelectedSheets }
       );
     }
 

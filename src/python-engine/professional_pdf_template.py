@@ -49,21 +49,25 @@ class ProfessionalTemplate:
         self.primary_font = 'Trebuchet-MS'
         self.font_bold = 'Trebuchet-MS-Bold'
         
-        try:
-            # Common Windows font paths
-            font_paths = [
-                'C:/Windows/Fonts/trebuc.ttf',
-                'C:/Windows/Fonts/trebucbd.ttf',
-            ]
-            
-            if os.path.exists(font_paths[0]):
-                pdfmetrics.registerFont(TTFont('Trebuchet-MS', font_paths[0]))
-            if os.path.exists(font_paths[1]):
-                pdfmetrics.registerFont(TTFont('Trebuchet-MS-Bold', font_paths[1]))
-        except:
-            # Fallback to Helvetica if Trebuchet not available
-            self.primary_font = 'Helvetica'
-            self.font_bold = 'Helvetica-Bold'
+        # Only register if not already registered to save time
+        registered_fonts = pdfmetrics.getRegisteredFontNames()
+        
+        if 'Trebuchet-MS' not in registered_fonts:
+            try:
+                # Common Windows font paths
+                font_paths = [
+                    'C:/Windows/Fonts/trebuc.ttf',
+                    'C:/Windows/Fonts/trebucbd.ttf',
+                ]
+                
+                if os.path.exists(font_paths[0]):
+                    pdfmetrics.registerFont(TTFont('Trebuchet-MS', font_paths[0]))
+                if os.path.exists(font_paths[1]):
+                    pdfmetrics.registerFont(TTFont('Trebuchet-MS-Bold', font_paths[1]))
+            except:
+                # Fallback to Helvetica if Trebuchet not available
+                self.primary_font = 'Helvetica'
+                self.font_bold = 'Helvetica-Bold'
     
     def create_header_footer(self, canvas_obj, doc):
         """Draw header and footer on each page"""

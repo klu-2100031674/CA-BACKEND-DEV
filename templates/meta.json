@@ -145,5 +145,23 @@
         "No Of Years": 8,
         "Type of Report": "TERM_LOAN"
     }
+},
+{
+    "name": "Term Loan + CC Loan",
+    "id": "TERM_LOAN_CC",
+    "description": "Term Loan + CC Loan Application",
+    "version": "1.0.0",
+    "author": "CA",
+    "initialHide": ["Assumptions 1", "Working for PL & BS", "Workings for PLBS", "cover page", "PLBS", "RATIO", "CF's", "MPBF ", "Nayak Committee Recommandation", "nayak", "Dep sch", "Sheet3", "Sheet2", "Loan Sch", "Repayment sch"],
+    "initialRemoveFormulas": ["Final workings"],
+    "afterGenerateRemoveFormulas": ["Assumptions 1", "Working for PL & BS", "Workings for PLBS", "cover page", "PLBS", "RATIO", "CF's", "MPBF ", "Nayak Committee Recommandation", "nayak", "Dep sch", "Final workings", "Sheet3", "Sheet2", "Loan Sch", "Repayment sch"],
+    "afterGenerateHide": ["Assumptions.1", "Assumptions 1"],
+    "afterGenerateLock": ["cover page"],
+    "lastModified": "2025-12-08T12:00:00Z",
+    "createdAt": "2025-12-08T12:00:00Z",
+    "properties": {
+        "No Of Years": 8,
+        "Type of Report": "TERM_LOAN"
+    }
 }
 ]

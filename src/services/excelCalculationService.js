@@ -305,17 +305,20 @@ class ExcelCalculationService {
       "Plant and Machinery": "plant_machinery",
       "Service Equipment": "service_equipment",
       "Civil works & Shed Construction": "shed_civil",
+      "Shed Construction and Civil works": "shed_civil",
       "Land": "land",
       "Electrical Items & fittings": "electrical",
       "Electronic Items": "electronic",
       "Furniture and Fittings": "furniture",
       "Vehicles": "vehicles",
-      "Live stock": "other_assets",
-      "Other Assets": "capital_wip"
+      "Live stock": (normalizedTemplateId === 'TERM_LOAN_CC') ? "live_stock" : "other_assets",
+      "Other Assets": (normalizedTemplateId === 'TERM_LOAN_CC') ? "other_assets" : "capital_wip",
+      "Other Assets (Nil Depreciation)": "other_assets_nil",
+      "Non Current Assets (Deposits , Advances etc)": "non_current_assets"
     };
     
     // Determine sheet name based on template type
-    const sheetName = (normalizedTemplateId === 'TERM_LOAN_SERVICE_WITHOUT_STOCK' || normalizedTemplateId === 'TERM_LOAN_MANUFACTURING_SERVICE_WITH_STOCK') 
+    const sheetName = (normalizedTemplateId === 'TERM_LOAN_SERVICE_WITHOUT_STOCK' || normalizedTemplateId === 'TERM_LOAN_MANUFACTURING_SERVICE_WITH_STOCK' || normalizedTemplateId === 'TERM_LOAN_CC') 
       ? 'Assumptions' 
       : 'Assumptions.1';
 
@@ -380,7 +383,7 @@ class ExcelCalculationService {
       const normalizedTemplateId = templateMappingService.normalizeTemplateId(templateId);
       
       // Determine sheet name based on template type
-      const sheetName = (normalizedTemplateId === 'TERM_LOAN_SERVICE_WITHOUT_STOCK' || normalizedTemplateId === 'TERM_LOAN_MANUFACTURING_SERVICE_WITH_STOCK') 
+      const sheetName = (normalizedTemplateId === 'TERM_LOAN_SERVICE_WITHOUT_STOCK' || normalizedTemplateId === 'TERM_LOAN_MANUFACTURING_SERVICE_WITH_STOCK' || normalizedTemplateId === 'TERM_LOAN_CC') 
         ? 'Assumptions' 
         : 'Assumptions.1';
       
@@ -481,7 +484,8 @@ class ExcelCalculationService {
       'frcc6': 'format CC6.xlsx',
       'Format CC6': 'format CC6.xlsx',
       'TERM_LOAN_SERVICE_WITHOUT_STOCK': 'Term loan (Service sector without stock).xls',
-      'TERM_LOAN_MANUFACTURING_SERVICE_WITH_STOCK': 'Term Loan (Manufacturing & Service Sector with stock).xls'
+      'TERM_LOAN_MANUFACTURING_SERVICE_WITH_STOCK': 'Term Loan (Manufacturing & Service Sector with stock).xls',
+      'TERM_LOAN_CC': 'Term Loan + CC Loan.xls'
     };
 
     const filename = templateFileMap[templateId] || `${templateId}.xlsx`;
@@ -820,10 +824,14 @@ class ExcelCalculationService {
       };
       
     } catch (parseError) {
+      const rawResultPreview = typeof rawResult === 'string' 
+        ? rawResult.substring(0, 500) 
+        : (rawResult ? JSON.stringify(rawResult).substring(0, 500) : 'null');
+
       logger.error('JSON parse error in transformPythonResult', {
         operation: 'transformPythonResult',
         parseError: parseError.message,
-        rawResultPreview: rawResult?.substring(0, 500)
+        rawResultPreview
       });
       
       // Try to extract error from raw result if it contains error information

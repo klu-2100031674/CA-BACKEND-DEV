@@ -9,6 +9,7 @@ import datetime
 import os
 import sys
 import re
+import uuid
 from typing import Any, Dict, List, Optional
 import base64
 
@@ -100,11 +101,21 @@ def extract_sheet_data_with_com(excel_path: str, sheet_name: str = None) -> List
         
         pythoncom.CoInitialize()
         excel_app = win32com.client.Dispatch("Excel.Application")
-        excel_app.Visible = False
-        excel_app.DisplayAlerts = False
+        try:
+            excel_app.Visible = False
+        except Exception:
+            pass # Ignore if Visible property cannot be set
+        try:
+            excel_app.DisplayAlerts = False
+        except Exception:
+            pass
+        try:
+            excel_app.AskToUpdateLinks = False
+        except Exception:
+            pass
         
         print(f"[COM Extraction] Opening workbook: {excel_path}", file=sys.stderr)
-        wb = excel_app.Workbooks.Open(excel_path)
+        wb = excel_app.Workbooks.Open(excel_path, ReadOnly=True)
         
         sheets_data = []
         sheets_to_process = [wb.Worksheets(sheet_name)] if sheet_name else list(wb.Worksheets)
@@ -306,12 +317,19 @@ def generate_pdf_from_excel_sheet(excel_path: str, sheet_name: str, output_path:
                     excel.Visible = False
                 except Exception as e:
                     print(f"[PDF Generator] Warning: Could not set Excel.Visible to False: {e}", file=sys.stderr)
-                excel.DisplayAlerts = False
+                try:
+                    excel.DisplayAlerts = False
+                except Exception:
+                    pass
+                try:
+                    excel.AskToUpdateLinks = False
+                except Exception:
+                    pass
                 print(f"[PDF Generator] Excel COM initialized successfully", file=sys.stderr)
                 
                 # Open workbook
                 print(f"[PDF Generator] Opening workbook: {os.path.abspath(excel_path)}", file=sys.stderr)
-                workbook = excel.Workbooks.Open(os.path.abspath(excel_path))
+                workbook = excel.Workbooks.Open(os.path.abspath(excel_path), ReadOnly=True)
                 print(f"[PDF Generator] Workbook opened, total sheets: {workbook.Sheets.Count}", file=sys.stderr)
                 
                 # Find and select the sheet (case-insensitive matching)
@@ -520,9 +538,16 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheet
             excel.ScreenUpdating = False
         except Exception as e:
             print(f"[Multi-PDF Generator] Warning: Could not set Excel.Visible/ScreenUpdating to False: {e}", file=sys.stderr)
-        excel.DisplayAlerts = False
+        try:
+            excel.DisplayAlerts = False
+        except Exception:
+            pass
+        try:
+            excel.AskToUpdateLinks = False
+        except Exception:
+            pass
         
-        workbook = excel.Workbooks.Open(os.path.abspath(excel_path))
+        workbook = excel.Workbooks.Open(os.path.abspath(excel_path), ReadOnly=True)
         total_sheets = workbook.Sheets.Count
         pdf_files["total_sheets"] = total_sheets
         
@@ -729,9 +754,16 @@ def generate_html_from_excel_com(excel_path: str, sheet_name: str) -> tuple:
             excel.Visible = False
         except Exception as e:
             print(f"[HTML COM Generator] Warning: Could not set Excel.Visible to False: {e}", file=sys.stderr)
-        excel.DisplayAlerts = False
+        try:
+            excel.DisplayAlerts = False
+        except Exception:
+            pass
+        try:
+            excel.AskToUpdateLinks = False
+        except Exception:
+            pass
         
-        wb = excel.Workbooks.Open(os.path.abspath(excel_path))
+        wb = excel.Workbooks.Open(os.path.abspath(excel_path), ReadOnly=True)
         
         # Get all sheet names
         available_sheets = [ws.Name for ws in wb.Worksheets]
@@ -2499,47 +2531,12 @@ def generate_html_from_excel_sheet(excel_path: str, sheet_name: str):
             "    this.style.outlineOffset = '-2px';",
             "  });",
             "});",
-            "",
-            "// Add keyboard navigation",
-            "document.addEventListener('keydown', (e) => {",
-            "  if (e.ctrlKey && e.key === 'p') {",
-            "    e.preventDefault();",
-            "    window.print();",
-            "  }",
-            "});",
-            "",
-            "// Performance monitoring",
-            "if (window.performance) {",
-            "  const perfData = window.performance.timing;",
-            "  const pageLoadTime = perfData.loadEventEnd - perfData.navigationStart;",
-            "  console.log('%c⚡ Page Load Time:', 'color: #10b981; font-weight: 600;', pageLoadTime + 'ms');",
-            "}",
-            "",
-            "// Add animation observer for elements",
-            "const observerOptions = {",
-            "  threshold: 0.1,",
-            "  rootMargin: '0px 0px -50px 0px'",
-            "};",
-            "",
-            "const observer = new IntersectionObserver((entries) => {",
-            "  entries.forEach(entry => {",
-            "    if (entry.isIntersecting) {",
-            "      entry.target.style.opacity = '1';",
-            "      entry.target.style.transform = 'translateY(0)';",
-            "    }",
-            "  });",
-            "}, observerOptions);",
-            "",
-            "document.querySelectorAll('.stat-card, .table-wrapper').forEach(el => {",
-            "  el.style.opacity = '0';",
-            "  el.style.transform = 'translateY(20px)';",
-            "  el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';",
-            "  observer.observe(el);",
-            "});",
             "</script>",
             "</body>",
             "</html>"
         ])
+        
+
         
         html_content = "\n".join(html_parts)
         print(f"[HTML Generator] SUCCESS: HTML generated using FALLBACK with professional styling ({len(html_content)} chars)", file=sys.stderr)
@@ -2661,11 +2658,24 @@ def _apply_updates_via_com(excel_path: str, updates: List[Dict[str, Any]], save_
 
     try:
         excel_app = win32com.client.Dispatch("Excel.Application")
-        excel_app.Visible = False
-        excel_app.DisplayAlerts = False
-        excel_app.ScreenUpdating = False
+        try:
+            excel_app.Visible = False
+        except Exception:
+            pass
+        try:
+            excel_app.DisplayAlerts = False
+        except Exception:
+            pass
+        try:
+            excel_app.AskToUpdateLinks = False
+        except Exception:
+            pass
+        try:
+            excel_app.ScreenUpdating = False
+        except Exception:
+            pass
 
-        wb_com = excel_app.Workbooks.Open(excel_path)
+        wb_com = excel_app.Workbooks.Open(excel_path, ReadOnly=True)
 
         for update in updates or []:
             try:
@@ -2681,7 +2691,10 @@ def _apply_updates_via_com(excel_path: str, updates: List[Dict[str, Any]], save_
             except Exception as update_err:
                 print(f"[COM Update] Failed to update {update}: {update_err}", file=sys.stderr)
 
-        wb_com.Application.Calculation = -4105  # xlCalculationAutomatic
+        try:
+            wb_com.Application.Calculation = -4105  # xlCalculationAutomatic
+        except Exception:
+            pass
         wb_com.Application.CalculateFullRebuild()
 
         if save_as_path:
@@ -2726,9 +2739,10 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
                 os.makedirs(output_dir, exist_ok=True)
 
                 timestamp = datetime.datetime.now(datetime.UTC).strftime('%Y%m%dT%H%M%SZ')
+                unique_id = str(uuid.uuid4())[:8]
                 template_name = os.path.splitext(os.path.basename(excel_path))[0]
                 output_path = _abs_path(
-                    os.path.join(output_dir, f'{template_name}-updated-{timestamp}.xlsx')
+                    os.path.join(output_dir, f'{template_name}-updated-{timestamp}-{unique_id}.xlsx')
                 )
 
                 output_path, applied_updates = _apply_updates_via_com(
@@ -2784,11 +2798,24 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
                     if COM_AVAILABLE:
                         import win32com.client
                         excel_app = win32com.client.Dispatch("Excel.Application")
-                        excel_app.Visible = False
-                        excel_app.DisplayAlerts = False
+                        try:
+                            excel_app.Visible = False
+                        except Exception:
+                            pass
+                        try:
+                            excel_app.DisplayAlerts = False
+                        except Exception:
+                            pass
+                        try:
+                            excel_app.AskToUpdateLinks = False
+                        except Exception:
+                            pass
                         
                         wb_com = excel_app.Workbooks.Open(output_path)
-                        wb_com.Application.Calculation = -4105
+                        try:
+                            wb_com.Application.Calculation = -4105
+                        except Exception:
+                            pass
                         wb_com.Application.CalculateFullRebuild()
                         wb_com.Save()
                         wb_com.Close(SaveChanges=True)
@@ -2809,9 +2836,10 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
             os.makedirs(output_dir, exist_ok=True)
 
             timestamp = datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
+            unique_id = str(uuid.uuid4())[:8]
             template_name = os.path.splitext(os.path.basename(excel_path))[0]
             output_path = _abs_path(
-                os.path.join(output_dir, f'{template_name}-updated-{timestamp}.xlsx')
+                os.path.join(output_dir, f'{template_name}-updated-{timestamp}-{unique_id}.xlsx')
             )
 
             if COM_AVAILABLE:

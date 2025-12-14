@@ -59,10 +59,10 @@ def get_final_sheet_name(template_name: str) -> str:
     # CC2 -> FinalWorkings
     elif 'CC2' in template_upper or 'FORMAT CC2' in template_upper:
         return 'FinalWorkings'
-    # CC3 -> FinalWorkings
+    # CC3 -> Finalworkings (lowercase 'w')
     elif 'CC3' in template_upper or 'FORMAT CC3' in template_upper:
-        return 'FinalWorkings'
-    # CC4 -> Finalworkings
+        return 'Finalworkings'
+    # CC4 -> Finalworkings (lowercase 'w')
     elif 'CC4' in template_upper or 'FORMAT CC4' in template_upper:
         return 'Finalworkings'
     # CC5 -> FinalWorkings
@@ -2676,14 +2676,25 @@ def _apply_updates_via_com(excel_path: str, updates: List[Dict[str, Any]], save_
             pass
 
         wb_com = excel_app.Workbooks.Open(excel_path, ReadOnly=True)
+        
+        # Get list of available sheet names for matching
+        available_sheets = [wb_com.Worksheets(i).Name for i in range(1, wb_com.Worksheets.Count + 1)]
+        print(f"[COM Update] Available sheets: {available_sheets}", file=sys.stderr)
 
         for update in updates or []:
             try:
-                sheet_name = update.get('sheet', wb_com.Worksheets(1).Name)
+                requested_sheet = update.get('sheet', wb_com.Worksheets(1).Name)
                 cell_ref = _normalize_cell_reference(update.get('cell', ''))
                 value = update.get('value')
                 if not cell_ref:
                     continue
+                
+                # Find the matching sheet name (handles case and space differences)
+                sheet_name = find_sheet_match(requested_sheet, available_sheets)
+                if not sheet_name:
+                    print(f"[COM Update] Sheet '{requested_sheet}' not found, trying direct access", file=sys.stderr)
+                    sheet_name = requested_sheet
+                
                 ws = wb_com.Worksheets(sheet_name)
                 ws.Range(cell_ref).Value = value
                 applied_updates.append(update)

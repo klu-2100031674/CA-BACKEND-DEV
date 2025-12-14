@@ -14,8 +14,8 @@ const logger = require('../utils/logger');
 class AIReportGenerationService {
   constructor() {
     this.pythonEnginePath = path.join(__dirname, '../python-engine');
-    this.pythonExecutable = 'C:\\Users\\jithe\\AppData\\Local\\Programs\\Python\\Python312\\python.exe';
-    this.tempDir = path.join(__dirname, '../../temp');
+    this.pythonExecutable = path.join(this.pythonEnginePath, '.venv', 'Scripts', 'python.exe');
+    this.tempDir = path.join(process.env.TEMP_DIR || path.join(__dirname, '../..'), 'temp');
     this.geminiApiKey = process.env.GEMINI_API_KEY || null;
   }
 
@@ -196,7 +196,7 @@ print(json.dumps(result))
    */
   runPythonScript(scriptPath, args) {
     return new Promise((resolve, reject) => {
-      const pythonProcess = spawn(this.pythonExecutable, [scriptPath, ...args]);
+      const pythonProcess = spawn(this.pythonExecutable, [scriptPath, ...args], { cwd: this.pythonEnginePath });
 
       let stdout = '';
       let stderr = '';

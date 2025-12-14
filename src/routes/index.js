@@ -15,6 +15,11 @@ const reportRoutes = require('./reports'); // Changed from reportRoutes to repor
 const commissionRoutes = require('./commissions');
 const schemeEligibilityRoutes = require('./schemeEligibility');
 const excelFilesRoutes = require('./excelFiles');
+const withdrawalRoutes = require('./withdrawals');
+const reportPricingRoutes = require('./reportPricing');
+const templateConfigRoutes = require('./templateConfig');
+const adminReportsRoutes = require('./adminReports');
+const notificationRoutes = require('./notifications');
 // const adminRoutes = require('./admin');
 
 // API health check
@@ -42,6 +47,11 @@ router.use('/reports', reportRoutes);
 router.use('/commissions', commissionRoutes);
 router.use('/scheme-eligibility', schemeEligibilityRoutes);
 router.use('/excel-files', excelFilesRoutes);
+router.use('/withdrawals', withdrawalRoutes);
+router.use('/report-pricing', reportPricingRoutes);
+router.use('/template-config', templateConfigRoutes);
+router.use('/admin-reports', adminReportsRoutes);
+router.use('/notifications', notificationRoutes);
 // router.use('/admin', adminRoutes);
 
 module.exports = router;

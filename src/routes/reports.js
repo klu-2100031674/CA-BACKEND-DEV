@@ -9,36 +9,15 @@ const { verifyToken } = require('../middleware/auth');
 const { alterTemplateJson } = require('../services/jsonAlterService');
 const excelCalculationService = require('../services/excelCalculationService');
 const reportController = require('../controllers/reportController');
+const templateService = require('../services/templateService');
 const logger = require('../utils/logger');
 const router = express.Router();
 
 logger.info('Reports route module loaded');
 
-let templatesCache = null;
-let cacheTimestamp = null;
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-
+// Use template service for loading templates
 async function loadTemplates() {
-  if (templatesCache && cacheTimestamp && (Date.now() - cacheTimestamp < CACHE_DURATION)) {
-    return templatesCache;
-  }
-  
-  try {
-    const metaPath = path.join(__dirname, '../../templates/meta.json');
-    logger.debug('Loading templates from cache or file', { metaPath });
-    const metaData = await fs.readFile(metaPath, 'utf8');
-    templatesCache = JSON.parse(metaData);
-    cacheTimestamp = Date.now();
-    logger.info('Templates loaded successfully', { templateCount: templatesCache.length });
-    return templatesCache;
-  } catch (error) {
-    logger.error('Failed to load templates', {
-      error: error.message,
-      metaPath: path.join(__dirname, '../../templates/meta.json'),
-      operation: 'loadTemplates'
-    });
-    throw new Error('Failed to load templates: ' + error.message);
-  }
+  return await templateService.loadTemplates();
 }
 
 router.get('/templates', async (req, res) => {
@@ -434,10 +413,8 @@ router.post('/', verifyToken, async (req, res) => {
       operation: 'createReport'
     });
     
-    const wallet = await Wallet.findOne({ user_id: req.user._id });
-    if (!wallet || wallet.report_credits < 1) {
-      return res.status(400).json({ error: 'Insufficient report credits', error_code: 'INSUFFICIENT_REPORT_CREDITS'});
-    }
+    // Note: Payment is now handled separately via /create-payment-order and /verify-payment endpoints
+    // This endpoint creates draft reports without requiring upfront payment
     
     // Generate the Excel data
     let excelData = null;
@@ -482,16 +459,11 @@ router.post('/', verifyToken, async (req, res) => {
     // Note: The final Excel JSON will be uploaded separately via the upload-json endpoint
     // This keeps the initial report creation lightweight
     
-    wallet.report_credits -= 1;
-    await wallet.save();
-    
     logger.business('Report created successfully', {
       userId: req.user._id,
       reportId: report._id,
       title,
       templateId,
-      creditsDeducted: 1,
-      remainingCredits: wallet.report_credits,
       operation: 'createReport'
     });
     
@@ -522,10 +494,22 @@ router.post('/', verifyToken, async (req, res) => {
 
 router.get('/', verifyToken, async (req, res) => {
   try {
-    const query = req.user.role === 'admin' ? {} : { user_id: req.user._id };
+    let query;
+    
+    // Admin can see all reports
+    if (req.user.role === 'admin' || req.user.role === 'super_admin') {
+      query = {};
+    } else {
+      // Regular users can only see their own APPROVED reports
+      query = { 
+        user_id: req.user._id,
+        validation_status: 'approved'
+      };
+    }
     
     const reports = await Report.find(query)
       .populate('user_id', 'name email')
+      .select('-excel_data -json_data') // Don't send large binary/JSON data in list
       .sort({ createdAt: -1 });
     
     res.json({
@@ -542,18 +526,34 @@ router.get('/', verifyToken, async (req, res) => {
   }
 });
 
-router.get('/:reportId', async (req, res) => {
+router.get('/:reportId', verifyToken, async (req, res) => {
   logger.debug('Report retrieval requested', {
     reportId: req.params.reportId,
+    userId: req.user?._id,
     operation: 'getReportById'
   });
   try {
     const { reportId } = req.params;
-    // Allow access to any report without authentication
     const report = await Report.findOne({ _id: reportId }).populate('user_id', 'name email');
     
     if (!report) {
       return res.status(404).json({ error: 'Report not found' });
+    }
+    
+    // Check access permissions
+    const isAdmin = req.user.role === 'admin' || req.user.role === 'super_admin';
+    const isOwner = report.user_id._id.toString() === req.user._id.toString();
+    
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    // Regular users can only access approved reports
+    if (!isAdmin && report.validation_status !== 'approved') {
+      return res.status(403).json({ 
+        error: 'Report is not yet approved',
+        message: 'This report is pending validation. You will be notified once it is approved.'
+      });
     }
     
     res.json(report);
@@ -819,7 +819,7 @@ router.get('/:reportId/download-decompressed', async (req, res) => {
   }
 });
 
-// Download Excel file from database
+// Download Excel file from R2 cloud storage or database (legacy)
 router.get('/:reportId/download-excel', async (req, res) => {
   try {
     const { reportId } = req.params;
@@ -829,17 +829,30 @@ router.get('/:reportId/download-excel', async (req, res) => {
       return res.status(404).json({ error: 'Report not found' });
     }
     
-    if (!report.excel_data) {
-      return res.status(404).json({ error: 'Excel data not found for this report' });
-    }
-    
-    // Set headers for Excel display in browser
     const fileName = `${reportId}_${report.templateId}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
     
-    // Send the Excel buffer
-    res.send(report.excel_data);
+    // If excel_file_url is R2 URL (cloud storage)
+    if (report.excel_file_url && report.excel_file_url.includes('r2.cloudflarestorage.com')) {
+      const r2Service = require('../services/cloudflareR2Service');
+      const key = r2Service.extractKeyFromUrl(report.excel_file_url);
+      
+      if (key) {
+        const fileBuffer = await r2Service.downloadFile(key);
+        return res.send(fileBuffer);
+      }
+    }
+    
+    // Fallback: Excel data stored in database (legacy)
+    if (report.excel_data) {
+      return res.send(report.excel_data);
+    }
+    
+    return res.status(404).json({ 
+      error: 'Excel data not found',
+      message: 'Please regenerate this report with the new cloud storage system'
+    });
   } catch (error) {
     logger.error('Error downloading Excel', {
       reportId: req.params.reportId,
@@ -918,9 +931,221 @@ router.get('/:reportId/finalworkings-sheet', async (req, res) => {
 });
 
 /**
+ * @route   POST /api/reports/create-payment-order
+ * @desc    Create Razorpay order for report payment (before final generation)
+ * @access  Private
+ */
+router.post('/create-payment-order', verifyToken, async (req, res) => {
+  try {
+    const { template_id, report_title, stage_id, amount: clientAmount, selected_sheets } = req.body;
+    
+    if (!template_id) {
+      return res.status(400).json({ success: false, error: 'template_id is required' });
+    }
+    
+    console.log(`💰 [create-payment-order] Request for template: "${template_id}"`, {
+      clientAmount,
+      selectedSheetsCount: selected_sheets?.length || 0
+    });
+    
+    let amount;
+    
+    // Use amount from client if provided (user selected custom sheets)
+    if (clientAmount && clientAmount > 0) {
+      amount = clientAmount;
+      console.log(`✅ [create-payment-order] Using client-calculated amount: ₹${amount}`);
+      if (selected_sheets && selected_sheets.length > 0) {
+        console.log(`📋 [create-payment-order] Selected sheets:`, selected_sheets.map(s => s.sheet_name));
+      }
+    } else {
+      // Fallback: Get pricing from template configuration
+      const TemplateConfig = require('../models/TemplateConfig');
+      const lookupId = template_id.toUpperCase();
+      console.log(`🔍 [create-payment-order] Looking up template pricing for: "${lookupId}"`);
+      
+      const template = await TemplateConfig.findOne({ template_id: lookupId, is_active: true });
+      
+      if (template && template.pricing) {
+        amount = template.pricing.effective_price || template.pricing.total_price || template.pricing.base_price || 100;
+        console.log(`✅ [create-payment-order] Found template pricing: ₹${amount}`);
+      } else {
+        amount = 100; // Default fallback
+        console.log(`⚠️ [create-payment-order] No template pricing found, using default ₹${amount}`);
+      }
+    }
+    
+    console.log(`💵 [create-payment-order] Final amount: ₹${amount}`);
+    
+    // Create draft report entry
+    const report = new Report({
+      user_id: req.user._id,
+      title: report_title || `Report - ${template_id}`,
+      templateId: template_id,
+      report_type: template_id,
+      payment: {
+        status: 'pending',
+        amount: amount,
+        currency: 'INR'
+      },
+      validation_status: 'pending_payment',
+      status: 'draft'
+    });
+    
+    await report.save();
+    
+    // Create Razorpay order if available
+    let razorpayOrder = null;
+    const Razorpay = require('razorpay');
+    const razorpayEnabled = process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET;
+    
+    if (razorpayEnabled) {
+      const razorpay = new Razorpay({
+        key_id: process.env.RAZORPAY_KEY_ID,
+        key_secret: process.env.RAZORPAY_KEY_SECRET
+      });
+      
+      razorpayOrder = await razorpay.orders.create({
+        amount: amount * 100, // Convert to paise
+        currency: 'INR',
+        receipt: `report_${report._id}`,
+        notes: {
+          report_id: report._id.toString(),
+          template_id: template_id,
+          user_id: req.user._id.toString()
+        }
+      });
+      
+      report.payment.razorpay_order_id = razorpayOrder.id;
+      await report.save();
+    }
+    
+    logger.business('Payment order created for report', {
+      userId: req.user._id,
+      reportId: report._id,
+      template_id,
+      amount,
+      razorpayEnabled,
+      operation: 'createReportPaymentOrder'
+    });
+    
+    res.json({
+      success: true,
+      data: {
+        report_id: report._id,
+        amount,
+        currency: 'INR',
+        razorpay_order_id: razorpayOrder?.id,
+        razorpay_key_id: process.env.RAZORPAY_KEY_ID,
+        template_id,
+        report_title: report.title
+      }
+    });
+    
+  } catch (error) {
+    logger.error('Error creating payment order', {
+      userId: req.user._id,
+      error: error.message,
+      stack: error.stack,
+      operation: 'createReportPaymentOrder'
+    });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * @route   POST /api/reports/:reportId/verify-payment
+ * @desc    Verify Razorpay payment and update report status
+ * @access  Private
+ */
+router.post('/:reportId/verify-payment', verifyToken, async (req, res) => {
+  try {
+    const { reportId } = req.params;
+    const { razorpay_payment_id, razorpay_order_id, razorpay_signature } = req.body;
+    
+    const report = await Report.findById(reportId);
+    
+    if (!report) {
+      return res.status(404).json({ success: false, error: 'Report not found' });
+    }
+    
+    if (report.user_id.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, error: 'Unauthorized' });
+    }
+    
+    // Verify Razorpay signature
+    const crypto = require('crypto');
+    const generatedSignature = crypto
+      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || '')
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest('hex');
+    
+    if (generatedSignature !== razorpay_signature) {
+      return res.status(400).json({ success: false, error: 'Invalid payment signature' });
+    }
+    
+    // Update report payment status
+    report.payment.status = 'completed';
+    report.payment.razorpay_payment_id = razorpay_payment_id;
+    report.payment.razorpay_signature = razorpay_signature;
+    report.payment.paid_at = new Date();
+    report.validation_status = 'pending_validation'; // Move to next stage
+    await report.save();
+    
+    // Create order record for tracking
+    const Order = require('../models/Order');
+    const order = new Order({
+      user_id: req.user._id,
+      report_id: report._id,
+      template_id: report.templateId,
+      report_title: report.title,
+      pack_type: 'report',
+      credits: 1,
+      amount_paid: report.payment.amount,
+      currency: report.payment.currency,
+      status: 'paid',
+      payment_info: {
+        rzp_order_id: razorpay_order_id,
+        rzp_payment_id: razorpay_payment_id,
+        rzp_signature: razorpay_signature,
+        captured: true
+      }
+    });
+    await order.save();
+    
+    logger.business('Payment verified successfully', {
+      userId: req.user._id,
+      reportId: report._id,
+      orderId: order._id,
+      amount: report.payment.amount,
+      operation: 'verifyReportPayment'
+    });
+    
+    res.json({
+      success: true,
+      message: 'Payment verified successfully',
+      data: {
+        report_id: report._id,
+        payment_status: report.payment.status,
+        order_id: order._id
+      }
+    });
+    
+  } catch (error) {
+    logger.error('Error verifying payment', {
+      userId: req.user._id,
+      reportId: req.params.reportId,
+      error: error.message,
+      stack: error.stack,
+      operation: 'verifyReportPayment'
+    });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
  * @route   POST /api/reports/templates/:templateId/download-full-report
- * @desc    Generate full AI-enhanced report with Excel sheets
- * @access  Public (optional authentication)
+ * @desc    Generate full AI-enhanced report with Excel sheets (requires payment)
+ * @access  Private
  */
 router.post('/templates/:templateId/download-full-report', verifyToken, reportController.downloadFullReport);
 

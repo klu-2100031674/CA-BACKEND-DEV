@@ -1,8 +1,16 @@
+/**
+ * @deprecated Wallet/credit system is deprecated in favor of pay-per-report model
+ * These endpoints are kept for backward compatibility only
+ * New system: Users pay for each report individually via Razorpay
+ */
 const express = require('express');
 const Wallet = require('../models/Wallet');
 const { verifyToken, requireRole } = require('../middleware/auth');
 const router = express.Router();
 
+/**
+ * @deprecated Use report-based payment system instead
+ */
 // Get current user's wallet
 router.get('/me', verifyToken, async (req, res) => {
   try {

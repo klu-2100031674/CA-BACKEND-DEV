@@ -637,8 +637,7 @@ exports.downloadFullReport = async (req, res, next) => {
       userId: req.user ? req.user._id : null,
       templateId,
       operation: 'downloadFullReport',
-      selectedSheets: normalizedSelectedSheets,
-      creditsRequired: 100
+      selectedSheets: normalizedSelectedSheets
     });
 
     // Validate Grok API key first
@@ -649,27 +648,29 @@ exports.downloadFullReport = async (req, res, next) => {
       });
     }
 
-    // Check wallet credits (100 credits for AI report)
-    const wallet = await Wallet.findOne({ user_id: req.user._id });
-    if (!wallet || wallet.report_credits < 100) {
-      return res.status(400).json({
+    // Check if payment has been made for this report
+    // Look for a report with pending_validation status or paid payment status
+    const Report = require('../models/Report');
+    const report = await Report.findOne({
+      user_id: req.user._id,
+      templateId: templateId,
+      'payment.status': 'completed',
+      validation_status: { $in: ['pending_validation', 'draft'] }
+    }).sort({ createdAt: -1 });
+
+    if (!report) {
+      return res.status(402).json({
         success: false,
-        error: 'Insufficient report credits. AI report generation requires 100 credits.',
-        error_code: 'INSUFFICIENT_REPORT_CREDITS',
-        required_credits: 100,
-        available_credits: wallet ? wallet.report_credits : 0
+        error: 'Payment required. Please complete payment before generating the final report.',
+        error_code: 'PAYMENT_REQUIRED'
       });
     }
 
-    // Deduct 100 credits from wallet immediately after validation
-    wallet.report_credits -= 100;
-    await wallet.save();
-
-    logger.business('Credits deducted for AI report generation', {
+    logger.business('Payment verified for AI report generation', {
       userId: req.user._id,
       templateId,
-      creditsDeducted: 100,
-      remainingCredits: wallet.report_credits,
+      reportId: report._id,
+      amountPaid: report.payment.amount,
       operation: 'downloadFullReport'
     });
 
@@ -770,53 +771,95 @@ exports.downloadFullReport = async (req, res, next) => {
       reportFileName: result.fullReportFileName
     });
 
+    // Upload Excel and PDF to Cloudflare R2
+    const r2Service = require('../services/cloudflareR2Service');
+    const userEmail = req.user.email || req.user._id.toString();
+    
+    try {
+      // Upload Excel file to R2
+      const excelUrl = await r2Service.uploadExcel({
+        fileBuffer: Buffer.from(result.excelData, 'base64'),
+        userEmail: userEmail,
+        fileName: result.fileName,
+      });
+
+      // Upload PDF file to R2
+      const pdfUrl = await r2Service.uploadPDF({
+        fileBuffer: Buffer.from(result.fullReportData, 'base64'),
+        userEmail: userEmail,
+        fileName: result.fullReportFileName,
+      });
+
+      // Save R2 URLs to both Report and ExcelFile models
+      if (!report) {
+        throw new Error('Report not found - cannot save R2 URLs');
+      }
+
+      // Update Report model with R2 URLs
+      report.excel_file_id = excelFile._id;
+      report.excel_file_url = excelUrl; // R2 URL
+      report.pdf_file_url = pdfUrl; // R2 URL
+      
+      // Update ExcelFile model with R2 URLs
+      excelFile.excel_r2_url = excelUrl;
+      excelFile.pdf_r2_url = pdfUrl;
+      
+      logger.info('Saving R2 URLs to report and excelFile', {
+        userId: req.user._id,
+        reportId: report._id,
+        excelFileId: excelFile._id,
+        excelUrl,
+        pdfUrl,
+      });
+
+      await Promise.all([report.save(), excelFile.save()]);
+
+      logger.info('✅ Files uploaded to Cloudflare R2 and URLs saved to database', {
+        userId: req.user._id,
+        reportId: report._id,
+        excelFileId: excelFile._id,
+        excelUrl,
+        pdfUrl,
+      });
+    } catch (r2Error) {
+      logger.error('R2 upload failed, falling back to local storage', {
+        error: r2Error.message,
+        reportId: report._id,
+      });
+      // Fallback: save to database as before
+      if (report) {
+        report.excel_file_id = excelFile._id;
+        report.excel_data = Buffer.from(result.excelData, 'base64');
+        await report.save();
+      }
+    }
+
     logger.business('AI report generated and saved successfully', {
       userId: req.user._id,
       templateId,
       fileId: excelFile._id,
-      creditsDeducted: 100,
-      remainingCredits: wallet.report_credits,
+      reportId: report._id,
+      amountPaid: report.payment.amount,
       usedExistingExcel,
       operation: 'downloadFullReport'
     });
 
-    // Return success response with file ID and PDF download data only
+    // Return success response - report submitted for validation
+    // Do NOT send file URLs or download links to frontend
     res.json({
       success: true,
-      message: usedExistingExcel 
-        ? 'AI-enhanced full report generated successfully using existing Excel data'
-        : 'AI-enhanced full report generated successfully',
+      message: 'Report generated and submitted for validation',
       data: {
-        fileId: excelFile._id,
-        fullReportFileName: result.fullReportFileName,
-        fullReportUrl: `/api/reports/download/${excelFile._id}/ai-report`
+        report_id: report._id,
+        validation_status: report.validation_status,
+        message: 'Your report has been submitted for validation. You will receive an email notification once it is approved.'
       }
     });
 
   } catch (error) {
-    // Refund credits if they were deducted but report generation failed
-    try {
-      if (wallet && wallet.report_credits !== undefined) {
-        wallet.report_credits += 100;
-        await wallet.save();
-        logger.warn('Credits refunded due to report generation failure', {
-          userId: req.user ? req.user._id : null,
-          templateId: req.params.templateId,
-          creditsRefunded: 100,
-          newBalance: wallet.report_credits,
-          operation: 'downloadFullReport'
-        });
-      }
-    } catch (refundError) {
-      logger.error('Failed to refund credits after report generation error', {
-        userId: req.user ? req.user._id : null,
-        templateId: req.params.templateId,
-        refundError: refundError.message,
-        originalError: error.message,
-        operation: 'downloadFullReport'
-      });
-    }
-
+    // Note: No credit refund needed with pay-per-report model
+    // Payment is verified before report generation starts
+    
     logger.error('Error in downloadFullReport', {
       userId: req.user ? req.user._id : null,
       templateId: req.params.templateId,

@@ -49,7 +49,7 @@ class ExcelFileService {
         user_id: userId,
         template_id: templateId,
         file_name: fileName,
-        file_data: buffer,
+        // file_data: buffer, // Removed - files now stored in R2 cloud storage
         file_size: fileSize || buffer.length,
         generated_by: generatedBy,
         stage,
@@ -58,7 +58,7 @@ class ExcelFileService {
         formatted_wc_data: formattedWCData,
         html_content: htmlContent,
         html_json_data: htmlJsonData,
-        pdf_data: pdfData,
+        // pdf_data: pdfData, // Removed - PDFs now stored in R2 cloud storage
         pdf_file_name: pdfFileName,
         meta
       });

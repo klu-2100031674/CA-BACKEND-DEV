@@ -43,6 +43,60 @@ const TEMPLATE_SHEET_CONFIG = {
       sheetone: 'Sheet1',
       sheet1: 'Sheet1'
     }
+  },
+  // CC1 and CC2 use "FinalWorkings" (no space)
+  CC1: {
+    aliasMap: {
+      finalworking: 'FinalWorkings',
+      finalworkings: 'FinalWorkings',
+      'final workings': 'FinalWorkings',
+      'final working': 'FinalWorkings'
+    }
+  },
+  CC2: {
+    aliasMap: {
+      finalworking: 'FinalWorkings',
+      finalworkings: 'FinalWorkings',
+      'final workings': 'FinalWorkings',
+      'final working': 'FinalWorkings'
+    }
+  },
+  // CC3 and CC4 use "Finalworkings" (lowercase w)
+  CC3: {
+    aliasMap: {
+      finalworking: 'Finalworkings',
+      finalworkings: 'Finalworkings',
+      'final workings': 'Finalworkings',
+      'final working': 'Finalworkings',
+      'FinalWorkings': 'Finalworkings'
+    }
+  },
+  CC4: {
+    aliasMap: {
+      finalworking: 'Finalworkings',
+      finalworkings: 'Finalworkings',
+      'final workings': 'Finalworkings',
+      'final working': 'Finalworkings',
+      'FinalWorkings': 'Finalworkings'
+    }
+  },
+  // CC5 uses "FinalWorkings" (no space)
+  CC5: {
+    aliasMap: {
+      finalworking: 'FinalWorkings',
+      finalworkings: 'FinalWorkings',
+      'final workings': 'FinalWorkings',
+      'final working': 'FinalWorkings'
+    }
+  },
+  // CC6 uses "Final workings" (with space)
+  CC6: {
+    aliasMap: {
+      finalworking: 'Final workings',
+      finalworkings: 'Final workings',
+      'final workings': 'Final workings',
+      'final working': 'Final workings'
+    }
   }
 };
 
@@ -115,15 +169,33 @@ class ExcelCalculationService {
     // Format 2: Nested formData structure (from frontend)
     if (payload && payload.formData) {
       if (payload.formData.excelData) {
-        cellData = payload.formData.excelData;
+        cellData = { ...payload.formData.excelData };
         logger.debug('Nested formData.excelData format detected', {
           operation: 'extractFormData'
         });
+        
+        // Also merge Loan Percentage Cells if present (for Term Loan forms)
+        if (payload.formData['Loan Percentage Cells']) {
+          Object.assign(cellData, payload.formData['Loan Percentage Cells']);
+          logger.debug('Merged Loan Percentage Cells into cellData', {
+            operation: 'extractFormData',
+            loanCells: Object.keys(payload.formData['Loan Percentage Cells'])
+          });
+        }
       } else if (payload.formData.formData && payload.formData.formData.excelData) {
-        cellData = payload.formData.formData.excelData;
+        cellData = { ...payload.formData.formData.excelData };
         logger.debug('Deeply nested formData.formData.excelData format detected', {
           operation: 'extractFormData'
         });
+        
+        // Also merge Loan Percentage Cells if present
+        if (payload.formData.formData['Loan Percentage Cells']) {
+          Object.assign(cellData, payload.formData.formData['Loan Percentage Cells']);
+          logger.debug('Merged Loan Percentage Cells into cellData (deep)', {
+            operation: 'extractFormData',
+            loanCells: Object.keys(payload.formData.formData['Loan Percentage Cells'])
+          });
+        }
       } 
       // Format 3: Section-based structure (Term Loan form)
       else if (payload.formData) {
@@ -131,8 +203,8 @@ class ExcelCalculationService {
         const extractCellsFromObject = (obj) => {
           const cells = {};
           for (const [key, value] of Object.entries(obj)) {
-            // Check if key is a cell reference (e.g., i7, d118, e241)
-            if (typeof key === 'string' && key.match(/^[d-j]\d+$/i)) {
+            // Check if key is a cell reference (e.g., i7, d118, e241, k28)
+            if (typeof key === 'string' && key.match(/^[d-k]\d+$/i)) {
               cells[key.toLowerCase()] = value;
             }
             // Recursively check nested objects (sections like "General Information", "Schedule for Assets")
@@ -162,8 +234,9 @@ class ExcelCalculationService {
       'CC4': /^[d-eh-j]\d+$/,  // d,e for fixed assets + h,i,j for main sections
       'CC5': /^[d-eh-j]\d+$/,  // d,e for fixed assets + h,i,j for main sections
       'CC6': /^[d-eh-j]\d+$/,  // d,e for fixed assets + h,i,j for main sections
-      'TERM_LOAN_SERVICE_WITHOUT_STOCK': /^[d-eh-j]\d+$/,  // d,e for assets + h,i,j for main sections
-      'TERM_LOAN_MANUFACTURING_SERVICE_WITH_STOCK': /^[d-eh-j]\d+$/  // d,e for assets + h,i,j for main sections
+      'TERM_LOAN_SERVICE_WITHOUT_STOCK': /^[d-eh-jk]\d+$/,  // d,e for assets + h,i,j for main sections + k for loan percentages
+      'TERM_LOAN_MANUFACTURING_SERVICE_WITH_STOCK': /^[d-eh-jk]\d+$/,  // d,e for assets + h,i,j for main sections + k for loan percentages
+      'TERM_LOAN_CC': /^[d-eh-jk]\d+$/  // d,e for assets + h,i,j for main sections + k for loan percentages
     };
 
     const allowedPattern = templateColumnRules[normalizedTemplateId] || /^[h-j]\d+$/; // Default to h-j for unknown templates
@@ -805,10 +878,10 @@ class ExcelCalculationService {
       const meta = result._meta || {};
       const verificationCopy = meta.verificationCopy ? path.normalize(meta.verificationCopy) : null;
       const verificationFileName = verificationCopy ? path.basename(verificationCopy) : null;
-      const fileUrl = verificationFileName ? `/temp/${verificationFileName}` : null;
+      // Note: Files now stored in Cloudflare R2 cloud storage, not temp folder
 
       return {
-        relativePath: fileUrl,
+        relativePath: null, // R2 URLs stored in database
         fileName: verificationFileName,
         excelData: result.excelData,
         jsonData: result.jsonData,
@@ -904,7 +977,7 @@ class ExcelCalculationService {
     });
   }
 
-  // Housekeeping: delete temp files older than N hours from backend/temp
+  // Housekeeping: delete any remaining temp files (legacy - files now stored in R2 cloud)
   async cleanupTempFiles(maxAgeHours = 24) {
     const fs = require('fs').promises;
     try {

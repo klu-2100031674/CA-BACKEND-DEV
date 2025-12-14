@@ -33,8 +33,8 @@ app.use(express.urlencoded({ extended: true, limit: config.MAX_FILE_SIZE }));
 //   });
 // }
 
-// Static files (for temp and upload files)
-app.use('/temp', express.static(path.join(__dirname, '../temp')));
+// Static files (for upload files)
+// Removed /temp - now using Cloudflare R2 cloud storage
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // API Routes

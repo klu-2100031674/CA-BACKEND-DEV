@@ -10,7 +10,20 @@ const transporter = nodemailer.createTransport({
 
 // Helper function to check if email is a test email
 const isTestEmail = (email) => {
-  return email && email.toLowerCase().endsWith('@test.com');
+  if (!email) return false;
+
+  const testPatterns = [
+    '@test.com',
+    '@example.com',
+    '@mailinator.com',
+    '@10minutemail.com',
+    '@temp-mail.org',
+    '@guerrillamail.com',
+    '@maildrop.cc'
+  ];
+
+  const lowerEmail = email.toLowerCase();
+  return testPatterns.some(pattern => lowerEmail.endsWith(pattern));
 };
 
 const sendVerificationEmail = async (email, token) => {
@@ -370,6 +383,130 @@ const sendReportWithAttachment = async (email, name, reportDetails, pdfBuffer = 
   await transporter.sendMail(mailOptions);
 };
 
+const sendInvoiceEmail = async (email, name, report, payment) => {
+  // Skip sending email for test accounts
+  if (isTestEmail(email)) {
+    console.log(`Skipping invoice email for test account: ${email}`);
+    return;
+  }
+
+  try {
+    // Generate invoice PDF using the Python script
+    const { spawn } = require('child_process');
+    const path = require('path');
+    const fs = require('fs').promises;
+    const crypto = require('crypto');
+
+    // Create temp directory if it doesn't exist
+    const tempDir = path.join(__dirname, '../temp');
+    try {
+      await fs.access(tempDir);
+    } catch {
+      await fs.mkdir(tempDir, { recursive: true });
+    }
+
+    // Generate unique filename
+    const invoiceId = crypto.randomBytes(8).toString('hex');
+    const invoicePath = path.join(tempDir, `invoice-${invoiceId}.pdf`);
+
+    // Prepare payment data for Python script
+    const paymentData = {
+      razorpay_order_id: payment.razorpay_order_id,
+      razorpay_payment_id: payment.razorpay_payment_id,
+      amount: payment.amount,
+      currency: payment.currency,
+      status: payment.status,
+      paid_at: payment.paid_at
+    };
+
+    // Call Python script to generate invoice
+    const pythonProcess = spawn('python', [
+      path.join(__dirname, '../python-engine/pdf_generator.py'),
+      'invoice',
+      JSON.stringify(paymentData),
+      invoicePath
+    ]);
+
+    return new Promise((resolve, reject) => {
+      pythonProcess.on('close', async (code) => {
+        if (code === 0) {
+          try {
+            // Read the generated PDF
+            const pdfBuffer = await fs.readFile(invoicePath);
+
+            // Send email with invoice attachment
+            const mailOptions = {
+              from: process.env.EMAIL_USER,
+              to: email,
+              subject: `Invoice for Your Report - ${report.title}`,
+              html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                  <h2 style="color: #7C3AED;">Payment Successful!</h2>
+                  <p>Dear ${name},</p>
+                  <p>Thank you for your payment. Your report has been processed successfully.</p>
+
+                  <div style="background-color: #F3F4F6; padding: 20px; margin: 20px 0; border-radius: 8px;">
+                    <h3 style="margin-top: 0; color: #374151;">Payment Details:</h3>
+                    <ul style="list-style: none; padding: 0;">
+                      <li style="margin: 8px 0;"><strong>Report:</strong> ${report.title}</li>
+                      <li style="margin: 8px 0;"><strong>Amount:</strong> ₹${payment.amount.toLocaleString('en-IN')}</li>
+                      <li style="margin: 8px 0;"><strong>Payment ID:</strong> ${payment.razorpay_payment_id}</li>
+                      <li style="margin: 8px 0;"><strong>Date:</strong> ${new Date(payment.paid_at).toLocaleDateString('en-IN', { dateStyle: 'long' })}</li>
+                    </ul>
+                  </div>
+
+                  <p>Your invoice is attached to this email. You can also download your report from your dashboard.</p>
+                  <p>If you have any questions, please contact our support team.</p>
+
+                  <div style="text-align: center; margin: 30px 0;">
+                    <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/reports"
+                       style="background: linear-gradient(135deg, #8B5CF6, #7C3AED); color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600;">
+                      View Reports
+                    </a>
+                  </div>
+
+                  <hr style="border: none; border-top: 1px solid #E5E7EB; margin: 30px 0;">
+                  <p style="color: #6B7280; font-size: 12px; text-align: center;">
+                    Thank you for using CA Excel Report Generation Service!
+                  </p>
+                </div>
+              `,
+              attachments: [{
+                filename: `invoice-${report.title}.pdf`,
+                content: pdfBuffer,
+                contentType: 'application/pdf'
+              }]
+            };
+
+            await transporter.sendMail(mailOptions);
+            console.log(`Invoice email sent successfully to ${email}`);
+
+            // Clean up temp file
+            fs.unlink(invoicePath).catch(console.error);
+
+            resolve();
+          } catch (error) {
+            console.error('Error sending invoice email:', error);
+            reject(error);
+          }
+        } else {
+          console.error('Python script failed to generate invoice for email');
+          reject(new Error('Failed to generate invoice PDF'));
+        }
+      });
+
+      pythonProcess.on('error', (error) => {
+        console.error('Error running Python script for invoice email:', error);
+        reject(error);
+      });
+    });
+
+  } catch (error) {
+    console.error('Error in sendInvoiceEmail:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   sendVerificationEmail,
   sendWelcomeEmail,
@@ -379,5 +516,6 @@ module.exports = {
   sendWithdrawalStatusNotification,
   sendReportApprovalEmail,
   sendReportRejectionEmail,
-  sendReportWithAttachment
+  sendReportWithAttachment,
+  sendInvoiceEmail
 };

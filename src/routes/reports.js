@@ -500,22 +500,38 @@ router.get('/', verifyToken, async (req, res) => {
     if (req.user.role === 'admin' || req.user.role === 'super_admin') {
       query = {};
     } else {
-      // Regular users can only see their own APPROVED reports
+      // Regular users can see their own APPROVED and PENDING_VALIDATION reports
       query = { 
         user_id: req.user._id,
-        validation_status: 'approved'
+        validation_status: { $in: ['approved', 'pending_validation'] }
       };
     }
     
     const reports = await Report.find(query)
       .populate('user_id', 'name email')
-      .select('-excel_data -json_data') // Don't send large binary/JSON data in list
+      .select('_id title templateId validation_status createdAt updatedAt payment excel_file_url pdf_file_url json_file_url user_id report_type client_name client_details')
       .sort({ createdAt: -1 });
+    
+    // For regular users, remove download URLs for pending reports
+    let filteredReports = reports;
+    if (req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+      filteredReports = reports.map(report => {
+        const reportObj = report.toObject();
+        if (report.validation_status === 'pending_validation') {
+          // Remove download URLs for pending reports
+          reportObj.excel_file_url = null;
+          reportObj.pdf_file_url = null;
+          reportObj.json_file_url = null;
+          reportObj.compressed_json_url = null;
+        }
+        return reportObj;
+      });
+    }
     
     res.json({
       success: true,
-      data: reports,
-      message: `Found ${reports.length} reports`
+      data: filteredReports,
+      message: `Found ${filteredReports.length} reports`
     });
   } catch (error) {
     res.status(500).json({ 
@@ -1088,7 +1104,7 @@ router.post('/:reportId/verify-payment', verifyToken, async (req, res) => {
     report.payment.razorpay_payment_id = razorpay_payment_id;
     report.payment.razorpay_signature = razorpay_signature;
     report.payment.paid_at = new Date();
-    report.validation_status = 'pending_validation'; // Move to next stage
+    report.validation_status = 'pending_validation'; // move to next state
     await report.save();
     
     // Create order record for tracking
@@ -1118,6 +1134,22 @@ router.post('/:reportId/verify-payment', verifyToken, async (req, res) => {
       orderId: order._id,
       amount: report.payment.amount,
       operation: 'verifyReportPayment'
+    });
+    
+    // Send invoice email asynchronously (don't block response)
+    const mailService = require('../services/mailService');
+    mailService.sendInvoiceEmail(
+      req.user.email,
+      req.user.name,
+      report,
+      report.payment
+    ).catch(error => {
+      logger.error('Failed to send invoice email', {
+        userId: req.user._id,
+        reportId: report._id,
+        error: error.message,
+        operation: 'sendInvoiceEmail'
+      });
     });
     
     res.json({

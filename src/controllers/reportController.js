@@ -413,6 +413,7 @@ exports.getReports = async (req, res, next) => {
 
     const reports = await Report.find(query)
       .populate('user_id', 'name email')
+      .select('_id title templateId validation_status createdAt updatedAt payment.amount payment.status excel_file_url pdf_file_url json_file_url')
       .sort({ createdAt: -1 });
 
     res.json({

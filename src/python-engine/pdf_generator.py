@@ -269,13 +269,167 @@ def generate_pdf(json_data, output_path, template_name='CC1'):
         print(f"Error generating PDF: {str(e)}")
         return False
 
+def generate_invoice_pdf(payment_data, output_path):
+    """
+    Generate an invoice PDF with payment details.
+
+    Args:
+        payment_data: Dictionary containing payment information
+        output_path: Path to save the generated PDF
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        pdf = FPDF()
+        pdf.add_page()
+
+        # Header
+        pdf.set_font('Arial', 'B', 20)
+        pdf.cell(0, 15, 'INVOICE', 0, 1, 'C')
+        pdf.ln(10)
+
+        # Company Info
+        pdf.set_font('Arial', 'B', 12)
+        pdf.cell(0, 8, 'CA Excel - Financial Report Generation', 0, 1, 'L')
+        pdf.set_font('Arial', '', 10)
+        pdf.cell(0, 6, 'Professional Excel Report Services', 0, 1, 'L')
+        pdf.cell(0, 6, 'Email: support@caexcel.com', 0, 1, 'L')
+        pdf.ln(10)
+
+        # Invoice Details
+        pdf.set_font('Arial', 'B', 12)
+        pdf.cell(0, 8, 'Invoice Details', 0, 1, 'L')
+        pdf.ln(5)
+
+        # Create a table-like structure
+        pdf.set_font('Arial', '', 10)
+
+        # Invoice Number
+        pdf.cell(50, 8, 'Invoice Number:', 0, 0, 'L')
+        pdf.cell(0, 8, f"INV-{payment_data.get('razorpay_order_id', 'N/A')}", 0, 1, 'L')
+
+        # Date
+        pdf.cell(50, 8, 'Date:', 0, 0, 'L')
+        paid_at = payment_data.get('paid_at', '')
+        if paid_at:
+            # Format the date
+            from datetime import datetime
+            try:
+                date_obj = datetime.fromisoformat(paid_at.replace('Z', '+00:00'))
+                formatted_date = date_obj.strftime('%B %d, %Y')
+            except:
+                formatted_date = paid_at
+        else:
+            formatted_date = 'N/A'
+        pdf.cell(0, 8, formatted_date, 0, 1, 'L')
+
+        # Payment ID
+        pdf.cell(50, 8, 'Payment ID:', 0, 0, 'L')
+        pdf.cell(0, 8, payment_data.get('razorpay_payment_id', 'N/A'), 0, 1, 'L')
+
+        # Order ID
+        pdf.cell(50, 8, 'Order ID:', 0, 0, 'L')
+        pdf.cell(0, 8, payment_data.get('razorpay_order_id', 'N/A'), 0, 1, 'L')
+
+        pdf.ln(10)
+
+        # Service Details
+        pdf.set_font('Arial', 'B', 12)
+        pdf.cell(0, 8, 'Service Details', 0, 1, 'L')
+        pdf.ln(5)
+
+        # Table Header
+        pdf.set_font('Arial', 'B', 10)
+        pdf.set_fill_color(240, 240, 240)
+        pdf.cell(100, 10, 'Description', 1, 0, 'L', True)
+        pdf.cell(30, 10, 'Qty', 1, 0, 'C', True)
+        pdf.cell(30, 10, 'Rate', 1, 0, 'R', True)
+        pdf.cell(30, 10, 'Amount', 1, 1, 'R', True)
+
+        # Table Content
+        pdf.set_font('Arial', '', 10)
+        pdf.cell(100, 10, 'Excel Report Generation Service', 1, 0, 'L')
+        pdf.cell(30, 10, '1', 1, 0, 'C')
+        amount = payment_data.get('amount', 0)
+        currency = payment_data.get('currency', 'INR')
+        amount_inr = amount  # Amount is already in rupees
+        pdf.cell(30, 10, f'{amount_inr:.2f}', 1, 0, 'R')
+        pdf.cell(30, 10, f'{amount_inr:.2f}', 1, 1, 'R')
+
+        # Total
+        pdf.set_font('Arial', 'B', 10)
+        pdf.cell(160, 10, 'Total:', 1, 0, 'R')
+        pdf.cell(30, 10, f'{amount_inr:.2f} {currency}', 1, 1, 'R')
+
+        pdf.ln(15)
+
+        # Payment Status
+        pdf.set_font('Arial', 'B', 12)
+        pdf.cell(0, 8, 'Payment Status', 0, 1, 'L')
+        pdf.ln(5)
+
+        pdf.set_font('Arial', '', 10)
+        status = payment_data.get('status', 'unknown')
+        status_color = {
+            'completed': 'PAID',
+            'pending': 'PENDING',
+            'failed': 'FAILED'
+        }.get(status, status.upper())
+
+        pdf.cell(50, 8, 'Status:', 0, 0, 'L')
+        pdf.set_font('Arial', 'B', 10)
+        pdf.cell(0, 8, status_color, 0, 1, 'L')
+
+        pdf.ln(20)
+
+        # Footer
+        pdf.set_font('Arial', 'I', 8)
+        pdf.cell(0, 6, 'Thank you for using CA Excel services!', 0, 1, 'C')
+        pdf.cell(0, 6, 'For any queries, please contact support@caexcel.com', 0, 1, 'C')
+
+        pdf.output(output_path)
+        return True
+
+    except Exception as e:
+        print(f"Error generating invoice PDF: {str(e)}")
+        return False
+
 if __name__ == '__main__':
-    json_input_string = sys.argv[1]
-    output_file_path = sys.argv[2]
-    template_name = sys.argv[3] if len(sys.argv) > 3 else 'CC1'
-    
-    success = generate_pdf(json_input_string, output_file_path, template_name)
-    if success:
-        print("PDF generated successfully")
+    if len(sys.argv) < 3:
+        print("Usage: python pdf_generator.py <command> <input> <output> [template_name]")
+        sys.exit(1)
+
+    command = sys.argv[1]
+
+    if command == 'invoice':
+        # Generate invoice PDF
+        payment_data_string = sys.argv[2]
+        output_file_path = sys.argv[3]
+
+        try:
+            payment_data = json.loads(payment_data_string)
+            success = generate_invoice_pdf(payment_data, output_file_path)
+            if success:
+                print("Invoice PDF generated successfully")
+            else:
+                print("Failed to generate invoice PDF")
+                sys.exit(1)
+        except json.JSONDecodeError as e:
+            print(f"Invalid JSON input: {e}")
+            sys.exit(1)
+        except Exception as e:
+            print(f"Error generating invoice: {e}")
+            sys.exit(1)
     else:
-        print("Failed to generate PDF")
+        # Original PDF generation for reports
+        json_input_string = sys.argv[1]
+        output_file_path = sys.argv[2]
+        template_name = sys.argv[3] if len(sys.argv) > 3 else 'CC1'
+
+        success = generate_pdf(json_input_string, output_file_path, template_name)
+        if success:
+            print("PDF generated successfully")
+        else:
+            print("Failed to generate PDF")
+            sys.exit(1)

@@ -104,7 +104,7 @@ router.get('/', verifyToken, requireRole(['admin', 'super_admin']), async (req, 
       Report.find(filter)
         .populate('user_id', 'name email phone role')
         .populate('validated_by', 'name email')
-        .select('-excel_data -json_data') // Exclude large fields
+        .select('_id title templateId validation_status createdAt updatedAt payment report_type user_id validated_by approval_email_sent excel_file_url pdf_file_url json_file_url')
         .sort(sort)
         .skip(skip)
         .limit(parseInt(limit))
@@ -141,7 +141,7 @@ router.get('/pending', verifyToken, requireRole(['admin', 'super_admin']), async
     const [reports, total] = await Promise.all([
       Report.find({ validation_status: 'pending_validation' })
         .populate('user_id', 'name email phone role')
-        .select('-excel_data -json_data')
+        .select('_id title templateId validation_status createdAt updatedAt payment report_type user_id approval_email_sent')
         .sort('-createdAt')
         .skip(skip)
         .limit(parseInt(limit))
@@ -162,6 +162,169 @@ router.get('/pending', verifyToken, requireRole(['admin', 'super_admin']), async
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Get payment analytics for reports
+ * GET /admin-reports/payments
+ */
+router.get('/payments', verifyToken, requireRole(['admin', 'super_admin']), async (req, res) => {
+  try {
+    const { period = 'all', page = 1, limit = 50 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Define date ranges
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const weekAgo = new Date(today);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    const monthAgo = new Date(today);
+    monthAgo.setDate(monthAgo.getDate() - 30);
+
+    let dateFilter = {};
+    let periodLabel = 'All Time';
+
+    switch (period) {
+      case 'today':
+        dateFilter = { 'payment.paid_at': { $gte: today } };
+        periodLabel = 'Today';
+        break;
+      case 'yesterday':
+        dateFilter = {
+          'payment.paid_at': {
+            $gte: yesterday,
+            $lt: today
+          }
+        };
+        periodLabel = 'Yesterday';
+        break;
+      case 'week':
+        dateFilter = { 'payment.paid_at': { $gte: weekAgo } };
+        periodLabel = 'Last 7 Days';
+        break;
+      case 'month':
+        dateFilter = { 'payment.paid_at': { $gte: monthAgo } };
+        periodLabel = 'Last 30 Days';
+        break;
+      default:
+        // No date filter for 'all'
+        break;
+    }
+
+    // Base filter for completed payments
+    const baseFilter = {
+      'payment.status': 'completed',
+      ...dateFilter
+    };
+
+    // Get total count and stats
+    const [totalCount, totalRevenue, todayRevenue, weekRevenue, monthRevenue] = await Promise.all([
+      Report.countDocuments(baseFilter),
+      Report.aggregate([
+        { $match: { 'payment.status': 'completed' } },
+        { $group: { _id: null, total: { $sum: '$payment.amount' } } }
+      ]),
+      Report.aggregate([
+        { $match: { 'payment.status': 'completed', 'payment.paid_at': { $gte: today } } },
+        { $group: { _id: null, total: { $sum: '$payment.amount' } } }
+      ]),
+      Report.aggregate([
+        { $match: { 'payment.status': 'completed', 'payment.paid_at': { $gte: weekAgo } } },
+        { $group: { _id: null, total: { $sum: '$payment.amount' } } }
+      ]),
+      Report.aggregate([
+        { $match: { 'payment.status': 'completed', 'payment.paid_at': { $gte: monthAgo } } },
+        { $group: { _id: null, total: { $sum: '$payment.amount' } } }
+      ])
+    ]);
+
+    // Get paginated payments with user details
+    const payments = await Report.find(baseFilter)
+      .populate('user_id', 'name email')
+      .select('_id title templateId payment user_id createdAt')
+      .sort({ 'payment.paid_at': -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .lean();
+
+    // Group payments by date for better organization
+    const groupedPayments = {};
+    payments.forEach(payment => {
+      const date = new Date(payment.payment.paid_at);
+      const dateKey = date.toISOString().split('T')[0]; // YYYY-MM-DD format
+
+      if (!groupedPayments[dateKey]) {
+        groupedPayments[dateKey] = {
+          date: dateKey,
+          displayDate: date.toLocaleDateString('en-IN', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          }),
+          payments: [],
+          totalAmount: 0,
+          count: 0
+        };
+      }
+
+      groupedPayments[dateKey].payments.push({
+        id: payment._id,
+        title: payment.title,
+        templateId: payment.templateId,
+        user: {
+          name: payment.user_id?.name || 'Unknown',
+          email: payment.user_id?.email || 'N/A'
+        },
+        amount: payment.payment.amount,
+        currency: payment.payment.currency,
+        paymentId: payment.payment.razorpay_payment_id,
+        orderId: payment.payment.razorpay_order_id,
+        paidAt: payment.payment.paid_at,
+        createdAt: payment.createdAt
+      });
+
+      groupedPayments[dateKey].totalAmount += payment.payment.amount;
+      groupedPayments[dateKey].count += 1;
+    });
+
+    // Convert to array and sort by date (newest first)
+    const groupedPaymentsArray = Object.values(groupedPayments).sort((a, b) =>
+      new Date(b.date) - new Date(a.date)
+    );
+
+    res.json({
+      success: true,
+      data: {
+        period: periodLabel,
+        summary: {
+          total_payments: totalCount,
+          total_revenue: totalRevenue[0]?.total || 0,
+          today_revenue: todayRevenue[0]?.total || 0,
+          week_revenue: weekRevenue[0]?.total || 0,
+          month_revenue: monthRevenue[0]?.total || 0
+        },
+        payments: groupedPaymentsArray,
+        pagination: {
+          current_page: parseInt(page),
+          total_pages: Math.ceil(totalCount / parseInt(limit)),
+          total_count: totalCount,
+          per_page: parseInt(limit)
+        }
+      },
+      message: `Found ${totalCount} payments for ${periodLabel.toLowerCase()}`
+    });
+
+  } catch (error) {
+    console.error('Error fetching payment analytics:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Failed to fetch payment analytics'
+    });
   }
 });
 

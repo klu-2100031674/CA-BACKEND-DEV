@@ -6,6 +6,7 @@ const bankDetailsSchema = new Schema({
   account_number: { type: String },
   ifsc_code: { type: String },
   bank_name: { type: String },
+  branch: { type: String },
   upi_id: { type: String },
   phone_pe_number: { type: String }
 }, { _id: false });

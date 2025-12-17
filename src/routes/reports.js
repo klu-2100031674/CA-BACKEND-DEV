@@ -499,6 +499,9 @@ router.get('/', verifyToken, async (req, res) => {
     // Admin can see all reports
     if (req.user.role === 'admin' || req.user.role === 'super_admin') {
       query = {};
+    } else if (req.user.role === 'agent') {
+      // Agents can see their own reports only
+      query = { user_id: req.user._id };
     } else {
       // Regular users can see their own APPROVED and PENDING_VALIDATION reports
       query = { 
@@ -1127,6 +1130,53 @@ router.post('/:reportId/verify-payment', verifyToken, async (req, res) => {
       }
     });
     await order.save();
+    
+    // Create commission for agent if user was referred
+    if (req.user.agent_id) {
+      const User = require('../models/User');
+      const Commission = require('../models/Commission');
+      const Wallet = require('../models/Wallet');
+      
+      const agent = await User.findById(req.user.agent_id);
+      if (agent && agent.role === 'agent') {
+        // Get agent's commission rate (default 10%)
+        const commissionRate = agent.commission_rate || 10;
+        const commissionAmount = (report.payment.amount * commissionRate) / 100;
+        
+        // Create commission record
+        const commission = new Commission({
+          agent_id: req.user.agent_id,
+          user_id: req.user._id,
+          order_id: order._id,
+          rate_percent: commissionRate,
+          base_amount: report.payment.amount,
+          commission_amount: commissionAmount,
+          status: 'accrued'
+        });
+        await commission.save();
+        
+        // Credit commission to agent's wallet
+        let agentWallet = await Wallet.findOne({ user_id: req.user.agent_id });
+        if (!agentWallet) {
+          agentWallet = new Wallet({ user_id: req.user.agent_id });
+        }
+        const oldBalance = agentWallet.commission_balance || 0;
+        agentWallet.commission_balance += commissionAmount;
+        await agentWallet.save();
+        
+        logger.business('Commission created and credited to agent wallet', {
+          agentId: req.user.agent_id,
+          userId: req.user._id,
+          orderId: order._id,
+          commissionId: commission._id,
+          commissionAmount,
+          commissionRate,
+          oldBalance,
+          newBalance: agentWallet.commission_balance,
+          operation: 'createCommissionOnPayment'
+        });
+      }
+    }
     
     logger.business('Payment verified successfully', {
       userId: req.user._id,

@@ -5,6 +5,7 @@ const walletSchema = new Schema({
   user_id: { type: Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
   report_credits: { type: Number, default: 0, min: 0 },
   enquiry_credits: { type: Number, default: 0, min: 0 },
+  commission_balance: { type: Number, default: 0, min: 0 }, // Available commission balance for agents
   notes: { type: String }
 }, { timestamps: true });
 

@@ -15,6 +15,8 @@ const corsOptions = {
 
     // Default allowed origins
     const defaultOrigins = [
+      "http://localhost:5173",
+      "http://localhost:5174", // Add localhost:5174
       'https://ca-front-end-dev.onrender.com',
       'https://ca-front-end-dev.onrender.com/'
     ];
@@ -30,18 +32,21 @@ const corsOptions = {
       allowedOrigins
     });
 
-    // In development, allow localhost origins
-    if (process.env.NODE_ENV === 'development') {
+    // In development OR when accessing from localhost (for local testing)
+    if (process.env.NODE_ENV === 'development' || (origin && origin.includes('localhost'))) {
       const allowedDevOrigins = [
         'http://localhost:3000',
         'http://localhost:5173',
+        'http://localhost:5174', // Add localhost:5174
         'http://127.0.0.1:3000',
-        'http://127.0.0.1:5173'
+        'http://127.0.0.1:5173',
+        'http://127.0.0.1:5174'  // Add 127.0.0.1:5174
       ];
       if (allowedDevOrigins.includes(origin) || (origin && origin.includes('localhost'))) {
-        logger.info('CORS allowed for development origin', {
+        logger.info('CORS allowed for localhost origin', {
           operation: 'corsOriginCheck',
-          origin
+          origin,
+          nodeEnv: process.env.NODE_ENV
         });
         return callback(null, true);
       }

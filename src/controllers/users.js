@@ -25,6 +25,26 @@ exports.getProfile = async (req, res, next) => {
       });
     }
 
+    // Generate referral code for agents if it doesn't exist
+    if (user.role === 'agent' && !user.referral_code) {
+      user.referral_code = `AG${user.name.substring(0, 3).toUpperCase()}${Date.now().toString(36).toUpperCase()}`;
+      await user.save();
+      logger.info('Generated referral code for agent', {
+        userId: req.user._id,
+        referralCode: user.referral_code
+      });
+    }
+
+    logger.info('Get profile response', {
+      userId: req.user._id,
+      role: user.role,
+      hasReferralCode: !!user.referral_code,
+      referralCode: user.referral_code,
+      hasBankDetails: !!user.bank_details,
+      bankDetailsKeys: user.bank_details ? Object.keys(user.bank_details) : null,
+      bankDetails: user.bank_details
+    });
+
     res.json({
       success: true,
       data: user
@@ -48,7 +68,14 @@ exports.getProfile = async (req, res, next) => {
  */
 exports.updateProfile = async (req, res, next) => {
   try {
-    const { name, company_name, phone, address, profile_logo, company_logo } = req.body;
+    const { name, company_name, phone, address, profile_logo, company_logo, mobile, bank_details, upi_details } = req.body;
+
+    logger.info('Update profile request', {
+      userId: req.user._id,
+      hasBankDetails: !!bank_details,
+      bankDetailsKeys: bank_details ? Object.keys(bank_details) : null,
+      bankDetails: bank_details
+    });
 
     const updateData = {};
     if (name !== undefined) updateData.name = name;
@@ -57,6 +84,15 @@ exports.updateProfile = async (req, res, next) => {
     if (address !== undefined) updateData.address = address;
     if (profile_logo !== undefined) updateData.profile_logo = profile_logo;
     if (company_logo !== undefined) updateData.company_logo = company_logo;
+    if (mobile !== undefined) updateData.mobile = mobile;
+    if (bank_details !== undefined) {
+      // Merge upi_details into bank_details if it exists for backward compatibility
+      updateData.bank_details = { ...bank_details };
+      if (upi_details && upi_details.upi_id) {
+        updateData.bank_details.upi_id = upi_details.upi_id;
+      }
+    }
+    if (upi_details !== undefined && !bank_details) updateData.upi_details = upi_details;
 
     const user = await User.findByIdAndUpdate(
       req.user._id,

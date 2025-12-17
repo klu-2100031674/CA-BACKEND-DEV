@@ -25,7 +25,19 @@ const withdrawalSchema = new Schema({
   admin_remarks: { type: String },
   processed_by: { type: Schema.Types.ObjectId, ref: 'User' },
   processed_at: { type: Date },
-  transaction_id: { type: String } // For tracking payment
+  transaction_id: { type: String }, // For tracking payment
+
+  // Razorpay payout details
+  razorpay_payout_id: { type: String },
+  razorpay_contact_id: { type: String },
+  razorpay_fund_account_id: { type: String },
+  payout_status: { type: String }, // Razorpay payout status
+  payout_failure_reason: { type: String },
+
+  // Payment link details (alternative to direct payout)
+  payment_link_id: { type: String },
+  payment_link_url: { type: String },
+  payment_link_status: { type: String }
 }, { timestamps: true });
 
 // Index for faster queries

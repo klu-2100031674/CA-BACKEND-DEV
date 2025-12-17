@@ -11,4 +11,7 @@ const commissionSchema = new Schema({
   status: { type: String, enum: ['accrued', 'paid'], default: 'accrued' }
 }, { timestamps: true });
 
+const config = require('../config/environment');
+
+
 module.exports = mongoose.model('Commission', commissionSchema);

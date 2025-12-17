@@ -37,6 +37,9 @@ app.use(express.urlencoded({ extended: true, limit: config.MAX_FILE_SIZE }));
 // Removed /temp - now using Cloudflare R2 cloud storage
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+// Invoice files
+app.use('/invoices', express.static(path.join(__dirname, '../invoices')));
+
 // API Routes
 app.use('/api', routes);
 

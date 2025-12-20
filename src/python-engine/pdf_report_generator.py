@@ -8,17 +8,19 @@ import os
 import sys
 import json
 import re
+import io
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 import openai
 import google.generativeai as genai
-from PyPDF2 import PdfMerger, PdfReader
+from PyPDF2 import PdfMerger, PdfReader, PdfWriter
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch, mm
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, Table, TableStyle, KeepTogether
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY, TA_RIGHT
+from reportlab.pdfgen import canvas
 from ai_resource_parser import AIResourceParser
 
 
@@ -110,16 +112,18 @@ from professional_pdf_template import ProfessionalTemplate, COLORS
 class AIReportGenerator:
     """Generate comprehensive reports with AI-enhanced content."""
     
-    def __init__(self, api_key: str, provider: str = "perplexity"):
+    def __init__(self, api_key: str, provider: str = "perplexity", signature_path: str = None):
         """
         Initialize the AI Report Generator.
         
         Args:
             api_key: AI API key (Perplexity or Grok)
             provider: AI provider to use ("perplexity" or "grok")
+            signature_path: Path to admin signature image
         """
         self.api_key = api_key
         self.provider = provider.lower()
+        self.signature_path = signature_path
         self.ai_parser = AIResourceParser()
         self.knowledge_base = None
         
@@ -150,6 +154,55 @@ class AIReportGenerator:
             raise ValueError(f"Unsupported AI provider: {provider}. Use 'perplexity', 'grok', or 'gemini'")
         
         print(f"🤖 Using model: {self.model}", file=sys.stderr)
+
+    def stamp_signature_on_pdf(self, input_pdf_path: str, output_pdf_path: str) -> bool:
+        """
+        Stamp the admin signature onto every page of a PDF file.
+        Used for Excel-generated PDF pages.
+        """
+        if not self.signature_path or not os.path.exists(self.signature_path):
+            return False
+            
+        try:
+            # Create a temporary PDF with the signature at the correct position
+            packet = io.BytesIO()
+            # Use A4 as default, but we'll adjust to actual page size later if needed
+            can = canvas.Canvas(packet, pagesize=A4)
+            
+            # Position: bottom left (matching professional_pdf_template.py)
+            # x=25mm, y=15mm (footer_y - 5mm where footer_y=20mm)
+            sig_width = 30*mm
+            sig_height = 12*mm
+            # Use mask='auto' for transparency support
+            can.drawImage(self.signature_path, 25*mm, 15*mm, 
+                         width=sig_width, height=sig_height, 
+                         mask='auto', preserveAspectRatio=True)
+            can.save()
+            
+            # Move to the beginning of the buffer
+            packet.seek(0)
+            new_pdf = PdfReader(packet)
+            signature_page = new_pdf.pages[0]
+            
+            # Read the existing PDF
+            existing_pdf = PdfReader(open(input_pdf_path, "rb"))
+            output = PdfWriter()
+            
+            # Add the signature to every page
+            for i in range(len(existing_pdf.pages)):
+                page = existing_pdf.pages[i]
+                # Merge the signature onto the page
+                page.merge_page(signature_page)
+                output.add_page(page)
+            
+            # Write the result
+            with open(output_pdf_path, "wb") as outputStream:
+                output.write(outputStream)
+            
+            return True
+        except Exception as e:
+            print(f"Error stamping signature on PDF: {e}", file=sys.stderr)
+            return False
     
     def load_knowledge_base(self):
         """Load or create the AI knowledge base from resource PDFs."""
@@ -499,7 +552,7 @@ Keep under 500 words, focus on critical decision points."""
             print(f"\n📄 Creating professional PDF with {len(content_sections)} sections", file=sys.stderr)
             
             # Initialize professional template and table parser
-            prof_template = ProfessionalTemplate()
+            prof_template = ProfessionalTemplate(signature_path=self.signature_path)
             from table_parser_enhanced import TableParser
             table_parser = TableParser(prof_template)
             
@@ -663,6 +716,8 @@ Keep under 500 words, focus on critical decision points."""
             "excel_pdfs_included": [],
             "errors": []
         }
+        
+        temp_files_to_cleanup = []
         
         try:
             # Load knowledge base
@@ -954,9 +1009,11 @@ Keep under 500 words, focus on critical decision points."""
                     break
             
             if coverpage_key:
-                final_pdf_sequence.append(sheet_pdf_map[coverpage_key])
-                result["excel_pdfs_included"].append(Path(sheet_pdf_map[coverpage_key]).name)
-                print(f"   [{position_counter}] Coverpage: {Path(sheet_pdf_map[coverpage_key]).name}", file=sys.stderr)
+                pdf_path = sheet_pdf_map[coverpage_key]
+                # Coverpage never gets a signature
+                final_pdf_sequence.append(pdf_path)
+                result["excel_pdfs_included"].append(Path(pdf_path).name)
+                print(f"   [{position_counter}] Coverpage: {Path(pdf_path).name}", file=sys.stderr)
                 position_counter += 1
                 
                 # Add AI sections that come after coverpage
@@ -969,9 +1026,11 @@ Keep under 500 words, focus on critical decision points."""
                 # Try to find it by order
                 for prefix, sheet_name, order in SHEET_ORDER:
                     if order == 1 and sheet_name in sheet_pdf_map:
-                        final_pdf_sequence.append(sheet_pdf_map[sheet_name])
-                        result["excel_pdfs_included"].append(Path(sheet_pdf_map[sheet_name]).name)
-                        print(f"   [{position_counter}] Coverpage (by order): {Path(sheet_pdf_map[sheet_name]).name}", file=sys.stderr)
+                        pdf_path = sheet_pdf_map[sheet_name]
+                        # Coverpage never gets a signature
+                        final_pdf_sequence.append(pdf_path)
+                        result["excel_pdfs_included"].append(Path(pdf_path).name)
+                        print(f"   [{position_counter}] Coverpage (by order): {Path(pdf_path).name}", file=sys.stderr)
                         position_counter += 1
                         break
             
@@ -998,7 +1057,17 @@ Keep under 500 words, focus on critical decision points."""
 
                 # Add the Excel sheet
                 if sheet_name in sheet_pdf_map:
-                    final_pdf_sequence.append(sheet_pdf_map[sheet_name])
+                    pdf_path = sheet_pdf_map[sheet_name]
+                    
+                    # Stamp signature if it's not Coverpage or Index
+                    norm_name = sheet_name.lower().strip()
+                    if self.signature_path and norm_name not in ['coverpage', 'cover page', 'index', 'index page', 'cover']:
+                        stamped_path = pdf_path.replace('.pdf', '_stamped.pdf')
+                        if self.stamp_signature_on_pdf(pdf_path, stamped_path):
+                            pdf_path = stamped_path
+                            temp_files_to_cleanup.append(stamped_path)
+                            
+                    final_pdf_sequence.append(pdf_path)
                     if Path(sheet_pdf_map[sheet_name]).name not in result["excel_pdfs_included"]:
                         result["excel_pdfs_included"].append(Path(sheet_pdf_map[sheet_name]).name)
                     print(f"   [{position_counter}] Excel: {sheet_name} ({Path(sheet_pdf_map[sheet_name]).name})", file=sys.stderr)
@@ -1034,10 +1103,19 @@ Keep under 500 words, focus on critical decision points."""
                 print("[Final Report] ℹ️  Adding remaining sheet PDFs to honour the requested list:", file=sys.stderr)
                 for missing in missing_excel_files:
                     pdf_path = excel_pdf_map[missing]
+                    
+                    # Stamp signature if it's not Coverpage or Index
+                    sheet_label = extract_sheet_title_from_filename(missing)
+                    norm_label = sheet_label.lower().strip()
+                    if self.signature_path and norm_label not in ['coverpage', 'cover page', 'index', 'index page', 'cover']:
+                        stamped_path = pdf_path.replace('.pdf', '_stamped.pdf')
+                        if self.stamp_signature_on_pdf(pdf_path, stamped_path):
+                            pdf_path = stamped_path
+                            temp_files_to_cleanup.append(stamped_path)
+                            
                     final_pdf_sequence.append(pdf_path)
                     if missing not in result["excel_pdfs_included"]:
                         result["excel_pdfs_included"].append(missing)
-                    sheet_label = extract_sheet_title_from_filename(missing)
                     print(
                         f"   [{position_counter}] Excel: {sheet_label} ({missing}) [appended]",
                         file=sys.stderr
@@ -1063,6 +1141,11 @@ Keep under 500 words, focus on critical decision points."""
                 for ai_pdf in ai_content_pdfs.values():
                     if os.path.exists(ai_pdf):
                         os.unlink(ai_pdf)
+                
+                # Clean up other temporary files (like stamped PDFs)
+                for temp_file in temp_files_to_cleanup:
+                    if os.path.exists(temp_file):
+                        os.unlink(temp_file)
             
             print(f"\n{'='*80}", file=sys.stderr)
             print(f"✅ REPORT GENERATION COMPLETE", file=sys.stderr)
@@ -1092,6 +1175,7 @@ if __name__ == "__main__":
     parser.add_argument('--output', required=True, help='Output PDF path')
     parser.add_argument('--excel-data', help='JSON file with Excel computed data')
     parser.add_argument('--template-name', default='CC1', help='Template name (e.g., CC6)')
+    parser.add_argument('--signature', help='Path to admin signature image')
     
     args = parser.parse_args()
     
@@ -1102,7 +1186,7 @@ if __name__ == "__main__":
             excel_data = json.load(f)
     
     # Generate report
-    generator = AIReportGenerator(args.api_key, provider=args.provider)
+    generator = AIReportGenerator(args.api_key, provider=args.provider, signature_path=args.signature)
     result = generator.generate_full_report(
         excel_pdfs_dir=args.excel_pdfs_dir,
         excel_data=excel_data,

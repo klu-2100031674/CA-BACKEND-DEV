@@ -1,12 +1,39 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const Report = require('../models/Report');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
 const { verifyToken, requireRole } = require('../middleware/auth');
 const mailService = require('../services/mailService');
+const r2Service = require('../services/cloudflareR2Service');
+const pdfGenerationService = require('../services/pdfGenerationService');
 const path = require('path');
 const fs = require('fs');
+
+// Configure multer for Excel file uploads (25MB limit)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 25 * 1024 * 1024 // 25 MB
+  },
+  fileFilter: (req, file, cb) => {
+    // Only allow Excel files
+    const allowedMimes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+      'application/vnd.ms-excel', // .xls
+      'application/octet-stream' // Some browsers may send this
+    ];
+    const allowedExts = ['.xlsx', '.xls'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    
+    if (allowedMimes.includes(file.mimetype) || allowedExts.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only Excel files (.xlsx, .xls) are allowed'), false);
+    }
+  }
+});
 
 // ============================================================================
 // ADMIN REPORT MANAGEMENT ROUTES
@@ -112,10 +139,39 @@ router.get('/', verifyToken, requireRole(['admin', 'super_admin']), async (req, 
       Report.countDocuments(filter)
     ]);
 
+    // Process reports to add signed URLs for R2 storage
+    const processedReports = await Promise.all(reports.map(async (report) => {
+      const reportObj = { ...report };
+
+      // Generate signed URLs for R2 files
+      if (reportObj.excel_file_url && reportObj.excel_file_url.includes('r2.cloudflarestorage.com')) {
+        const key = r2Service.extractKeyFromUrl(reportObj.excel_file_url);
+        if (key) {
+          reportObj.excel_file_url = await r2Service.generatePresignedUrl(key);
+        }
+      }
+      
+      if (reportObj.pdf_file_url && reportObj.pdf_file_url.includes('r2.cloudflarestorage.com')) {
+        const key = r2Service.extractKeyFromUrl(reportObj.pdf_file_url);
+        if (key) {
+          reportObj.pdf_file_url = await r2Service.generatePresignedUrl(key);
+        }
+      }
+
+      if (reportObj.json_file_url && reportObj.json_file_url.includes('r2.cloudflarestorage.com')) {
+        const key = r2Service.extractKeyFromUrl(reportObj.json_file_url);
+        if (key) {
+          reportObj.json_file_url = await r2Service.generatePresignedUrl(key);
+        }
+      }
+
+      return reportObj;
+    }));
+
     res.json({
       success: true,
       data: {
-        reports,
+        reports: processedReports,
         pagination: {
           current_page: parseInt(page),
           total_pages: Math.ceil(total / parseInt(limit)),
@@ -344,9 +400,33 @@ router.get('/:id', verifyToken, requireRole(['admin', 'super_admin']), async (re
       return res.status(404).json({ error: 'Report not found' });
     }
 
+    const reportObj = { ...report };
+
+    // Generate signed URLs for R2 files
+    if (reportObj.excel_file_url && reportObj.excel_file_url.includes('r2.cloudflarestorage.com')) {
+      const key = r2Service.extractKeyFromUrl(reportObj.excel_file_url);
+      if (key) {
+        reportObj.excel_file_url = await r2Service.generatePresignedUrl(key);
+      }
+    }
+    
+    if (reportObj.pdf_file_url && reportObj.pdf_file_url.includes('r2.cloudflarestorage.com')) {
+      const key = r2Service.extractKeyFromUrl(reportObj.pdf_file_url);
+      if (key) {
+        reportObj.pdf_file_url = await r2Service.generatePresignedUrl(key);
+      }
+    }
+
+    if (reportObj.json_file_url && reportObj.json_file_url.includes('r2.cloudflarestorage.com')) {
+      const key = r2Service.extractKeyFromUrl(reportObj.json_file_url);
+      if (key) {
+        reportObj.json_file_url = await r2Service.generatePresignedUrl(key);
+      }
+    }
+
     res.json({
       success: true,
-      data: report
+      data: reportObj
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -515,6 +595,52 @@ router.patch('/:id/approve', verifyToken, requireRole(['admin', 'super_admin']),
     report.validated_at = new Date();
     report.validation_notes = validation_notes;
     report.status = 'completed';
+
+    // If admin has a signature, regenerate the PDF to include it
+    if (req.user.signature_url) {
+      try {
+        console.log(`[Admin Approve] Admin has signature, regenerating PDF for report ${report._id}`);
+        
+        // 1. Download current Excel from R2
+        const excelKey = r2Service.extractKeyFromUrl(report.excel_file_url);
+        if (excelKey) {
+          const excelBuffer = await r2Service.downloadFile(excelKey);
+          
+          // 2. Regenerate PDF
+          const grokApiKey = process.env.GROK_API_KEY || process.env.XAI_API_KEY;
+          const pdfResult = await pdfGenerationService.regeneratePdfFromExcel({
+            excelBuffer: excelBuffer,
+            templateId: report.templateId,
+            selectedSheets: report.requested_sheets,
+            grokApiKey: grokApiKey,
+            jsonData: report.json_data,
+            templateName: report.templateId,
+            signatureUrl: req.user.signature_url
+          });
+          
+          if (pdfResult.success) {
+            // 3. Upload new PDF
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const pdfFileName = `${report.templateId}_approved_${timestamp}.pdf`;
+            const userEmail = report.user_id?.email || report.user_id?._id?.toString() || 'unknown';
+            
+            const newPdfUrl = await r2Service.uploadPDF({
+              fileBuffer: pdfResult.pdfBuffer,
+              userEmail: userEmail,
+              fileName: pdfFileName
+            });
+            
+            // 4. Update report with new PDF URL
+            report.pdf_file_url = newPdfUrl;
+            console.log(`[Admin Approve] PDF regenerated and uploaded: ${newPdfUrl}`);
+          }
+        }
+      } catch (regenError) {
+        console.error(`[Admin Approve] Failed to regenerate PDF with signature:`, regenError);
+        // Continue with approval even if regeneration fails
+      }
+    }
+
     await report.save();
 
     // Create notification
@@ -620,6 +746,195 @@ router.patch('/:id/reject', verifyToken, requireRole(['admin', 'super_admin']), 
     res.status(500).json({ error: error.message });
   }
 });
+
+/**
+ * Upload revised Excel and regenerate PDF
+ * POST /admin-reports/:id/upload-revised-excel
+ * 
+ * Only allowed when report is in 'under_review' status.
+ * Admin must click "Start Review" first before uploading revised Excel.
+ */
+router.post('/:id/upload-revised-excel', 
+  verifyToken, 
+  requireRole(['admin', 'super_admin']), 
+  upload.single('excel'),
+  async (req, res) => {
+    const reportId = req.params.id;
+    const { revision_notes } = req.body;
+    
+    // Store original URLs for potential rollback
+    let originalExcelUrl = null;
+    let originalPdfUrl = null;
+    let newExcelUrl = null;
+    let newPdfUrl = null;
+    
+    try {
+      // Validate file
+      if (!req.file) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'Excel file is required' 
+        });
+      }
+
+      const excelBuffer = req.file.buffer;
+      
+      // Find report
+      const report = await Report.findById(reportId);
+      
+      if (!report) {
+        return res.status(404).json({ 
+          success: false,
+          error: 'Report not found' 
+        });
+      }
+
+      // Check status - must be under_review
+      if (report.validation_status !== 'under_review') {
+        return res.status(400).json({ 
+          success: false,
+          error: 'Report must be under review to upload revised Excel. Click "Start Review" first.' 
+        });
+      }
+
+      // Store original URLs for revision history and potential rollback
+      originalExcelUrl = report.excel_file_url;
+      originalPdfUrl = report.pdf_file_url;
+
+      console.log(`[Admin Upload] Starting revised Excel upload for report ${reportId}`);
+      console.log(`[Admin Upload] Original Excel URL: ${originalExcelUrl}`);
+      console.log(`[Admin Upload] Original PDF URL: ${originalPdfUrl}`);
+
+      // Get user email for R2 path
+      const user = await User.findById(report.user_id);
+      const userEmail = user?.email || report.user_id.toString();
+
+      // Step 1: Upload revised Excel to R2
+      console.log(`[Admin Upload] Uploading revised Excel to R2...`);
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const excelFileName = `${report.templateId}_revised_${timestamp}.xlsx`;
+      
+      newExcelUrl = await r2Service.uploadExcel({
+        fileBuffer: excelBuffer,
+        userEmail: userEmail,
+        fileName: excelFileName
+      });
+      
+      console.log(`[Admin Upload] New Excel uploaded: ${newExcelUrl}`);
+
+      // Step 2: Regenerate PDF from the new Excel (with AI content and proper sheet ordering)
+      console.log(`[Admin Upload] Regenerating PDF from revised Excel...`);
+      
+      // Get Grok API key from environment (same as reportController)
+      const grokApiKey = process.env.GROK_API_KEY || process.env.XAI_API_KEY;
+      
+      if (!grokApiKey) {
+        console.warn(`[Admin Upload] No Grok API key found. PDF will be generated without AI content.`);
+      }
+      
+      const pdfResult = await pdfGenerationService.regeneratePdfFromExcel({
+        excelBuffer: excelBuffer,
+        templateId: report.templateId,
+        selectedSheets: report.requested_sheets, // Use stored sheets from original generation
+        grokApiKey: grokApiKey,
+        jsonData: report.json_data, // Pass stored JSON data for AI context
+        htmlData: null, // HTML data is not typically stored
+        templateName: report.templateId, // Use templateId as template name
+        signatureUrl: req.user.signature_url // Pass admin signature URL
+      });
+
+      if (!pdfResult.success) {
+        // PDF generation failed - attempt rollback
+        console.error(`[Admin Upload] PDF generation failed: ${pdfResult.error}`);
+        console.log(`[Admin Upload] New Excel is already uploaded. Keeping it but notifying admin.`);
+        
+        // Update report with new Excel but keep old PDF reference
+        // Add revision entry noting the failure
+        report.excel_file_url = newExcelUrl;
+        report.revision_history = report.revision_history || [];
+        report.revision_history.push({
+          revised_at: new Date(),
+          revised_by: req.user._id,
+          revision_notes: `Excel uploaded but PDF regeneration failed: ${pdfResult.error}. Old PDF retained.`,
+          old_excel_url: originalExcelUrl,
+          old_pdf_url: originalPdfUrl
+        });
+        await report.save();
+
+        return res.status(500).json({
+          success: false,
+          error: `PDF regeneration failed: ${pdfResult.error}`,
+          partial_success: true,
+          message: 'Excel was uploaded but PDF could not be regenerated. Please try regenerating PDF manually or upload a corrected Excel file.',
+          data: {
+            new_excel_url: newExcelUrl,
+            current_pdf_url: originalPdfUrl
+          }
+        });
+      }
+
+      // Step 3: Upload regenerated PDF to R2
+      console.log(`[Admin Upload] Uploading regenerated PDF to R2...`);
+      const pdfFileName = pdfResult.pdfFileName || `${report.templateId}_revised_${timestamp}.pdf`;
+      
+      newPdfUrl = await r2Service.uploadPDF({
+        fileBuffer: pdfResult.pdfBuffer,
+        userEmail: userEmail,
+        fileName: pdfFileName
+      });
+      
+      console.log(`[Admin Upload] New PDF uploaded: ${newPdfUrl}`);
+
+      // Step 4: Update report with new URLs and revision history
+      report.excel_file_url = newExcelUrl;
+      report.pdf_file_url = newPdfUrl;
+      
+      // Add to revision history
+      report.revision_history = report.revision_history || [];
+      report.revision_history.push({
+        revised_at: new Date(),
+        revised_by: req.user._id,
+        revision_notes: revision_notes || 'Admin uploaded revised Excel',
+        old_excel_url: originalExcelUrl,
+        old_pdf_url: originalPdfUrl
+      });
+
+      await report.save();
+
+      console.log(`[Admin Upload] Report ${reportId} updated successfully`);
+
+      // Create notification for user
+      await Notification.createNotification({
+        user_id: report.user_id,
+        type: 'report_revised',
+        title: 'Report Updated',
+        message: `Your report "${report.title}" has been revised by admin.`,
+        data: { report_id: report._id }
+      });
+
+      res.json({
+        success: true,
+        message: 'Revised Excel uploaded and PDF regenerated successfully',
+        data: {
+          report_id: report._id,
+          new_excel_url: newExcelUrl,
+          new_pdf_url: newPdfUrl,
+          sheets_processed: pdfResult.sheetsProcessed,
+          revision_count: report.revision_history.length
+        }
+      });
+
+    } catch (error) {
+      console.error(`[Admin Upload] Error: ${error.message}`);
+      console.error(error.stack);
+      
+      res.status(500).json({ 
+        success: false,
+        error: error.message 
+      });
+    }
+  }
+);
 
 /**
  * Bulk approve reports

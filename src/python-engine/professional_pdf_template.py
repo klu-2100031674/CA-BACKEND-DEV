@@ -40,10 +40,12 @@ class ProfessionalTemplate:
     """Professional PDF template with consistent formatting"""
     
     def __init__(self, company_name="FINVOIS OPEN BUSINESS SOLUTIONS LLP", 
-                 contact="9618221011", tagline="MSME & DPR Consultants"):
+                 contact="9618221011", tagline="MSME & DPR Consultants",
+                 signature_path=None):
         self.company_name = company_name
         self.contact = contact
         self.tagline = tagline
+        self.signature_path = signature_path
         
         # Try to register Trebuchet MS (Windows font)
         self.primary_font = 'Trebuchet-MS'
@@ -119,6 +121,20 @@ class ProfessionalTemplate:
         canvas_obj.setFillColor(COLORS['text_black'])
         page_num = canvas_obj.getPageNumber()
         canvas_obj.drawRightString(width - 25*mm, footer_y, f"Page {page_num}")
+        
+        # Draw signature if provided (bottom left corner)
+        if self.signature_path and os.path.exists(self.signature_path):
+            try:
+                # Position: bottom left, inside the borders
+                # Width: 30mm, Height: auto (max 15mm)
+                sig_width = 30*mm
+                sig_height = 12*mm
+                # Use mask='auto' for transparency support
+                canvas_obj.drawImage(self.signature_path, 25*mm, footer_y - 5*mm, 
+                                   width=sig_width, height=sig_height, 
+                                   mask='auto', preserveAspectRatio=True)
+            except Exception as e:
+                print(f"Error drawing signature: {e}")
         
         canvas_obj.restoreState()
     

@@ -10,6 +10,7 @@ const { alterTemplateJson } = require('../services/jsonAlterService');
 const excelCalculationService = require('../services/excelCalculationService');
 const reportController = require('../controllers/reportController');
 const templateService = require('../services/templateService');
+const r2Service = require('../services/cloudflareR2Service');
 const logger = require('../utils/logger');
 const router = express.Router();
 
@@ -515,26 +516,48 @@ router.get('/', verifyToken, async (req, res) => {
       .select('_id title templateId validation_status createdAt updatedAt payment excel_file_url pdf_file_url json_file_url user_id report_type client_name client_details')
       .sort({ createdAt: -1 });
     
-    // For regular users, remove download URLs for pending reports
-    let filteredReports = reports;
-    if (req.user.role !== 'admin' && req.user.role !== 'super_admin') {
-      filteredReports = reports.map(report => {
-        const reportObj = report.toObject();
-        if (report.validation_status === 'pending_validation') {
-          // Remove download URLs for pending reports
-          reportObj.excel_file_url = null;
-          reportObj.pdf_file_url = null;
-          reportObj.json_file_url = null;
-          reportObj.compressed_json_url = null;
-        }
+    // Process reports to add signed URLs for R2 storage and filter for regular users
+    const processedReports = await Promise.all(reports.map(async (report) => {
+      const reportObj = report.toObject();
+      
+      // For regular users, remove download URLs for pending reports
+      if (req.user.role !== 'admin' && req.user.role !== 'super_admin' && report.validation_status === 'pending_validation') {
+        reportObj.excel_file_url = null;
+        reportObj.pdf_file_url = null;
+        reportObj.json_file_url = null;
+        reportObj.compressed_json_url = null;
         return reportObj;
-      });
-    }
+      }
+
+      // Generate signed URLs for R2 files
+      if (reportObj.excel_file_url && reportObj.excel_file_url.includes('r2.cloudflarestorage.com')) {
+        const key = r2Service.extractKeyFromUrl(reportObj.excel_file_url);
+        if (key) {
+          reportObj.excel_file_url = await r2Service.generatePresignedUrl(key);
+        }
+      }
+      
+      if (reportObj.pdf_file_url && reportObj.pdf_file_url.includes('r2.cloudflarestorage.com')) {
+        const key = r2Service.extractKeyFromUrl(reportObj.pdf_file_url);
+        if (key) {
+          reportObj.pdf_file_url = await r2Service.generatePresignedUrl(key);
+        }
+      }
+
+      if (reportObj.json_file_url && reportObj.json_file_url.includes('r2.cloudflarestorage.com')) {
+        const key = r2Service.extractKeyFromUrl(reportObj.json_file_url);
+        if (key) {
+          reportObj.json_file_url = await r2Service.generatePresignedUrl(key);
+        }
+      }
+
+      return reportObj;
+    }));
     
     res.json({
       success: true,
-      data: filteredReports,
-      message: `Found ${filteredReports.length} reports`
+      data: processedReports,
+      message: `Found ${processedReports.length} reports`
     });
   } catch (error) {
     res.status(500).json({ 
@@ -574,8 +597,32 @@ router.get('/:reportId', verifyToken, async (req, res) => {
         message: 'This report is pending validation. You will be notified once it is approved.'
       });
     }
+
+    const reportObj = report.toObject();
+
+    // Generate signed URLs for R2 files
+    if (reportObj.excel_file_url && reportObj.excel_file_url.includes('r2.cloudflarestorage.com')) {
+      const key = r2Service.extractKeyFromUrl(reportObj.excel_file_url);
+      if (key) {
+        reportObj.excel_file_url = await r2Service.generatePresignedUrl(key);
+      }
+    }
     
-    res.json(report);
+    if (reportObj.pdf_file_url && reportObj.pdf_file_url.includes('r2.cloudflarestorage.com')) {
+      const key = r2Service.extractKeyFromUrl(reportObj.pdf_file_url);
+      if (key) {
+        reportObj.pdf_file_url = await r2Service.generatePresignedUrl(key);
+      }
+    }
+
+    if (reportObj.json_file_url && reportObj.json_file_url.includes('r2.cloudflarestorage.com')) {
+      const key = r2Service.extractKeyFromUrl(reportObj.json_file_url);
+      if (key) {
+        reportObj.json_file_url = await r2Service.generatePresignedUrl(key);
+      }
+    }
+    
+    res.json(reportObj);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

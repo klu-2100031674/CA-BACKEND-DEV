@@ -2,6 +2,7 @@ const Report = require('../models/Report');
 const Wallet = require('../models/Wallet');
 const excelCalculationService = require('../services/excelCalculationService');
 const excelFileService = require('../services/excelFileService');
+const r2Service = require('../services/cloudflareR2Service');
 const fs = require('fs').promises;
 const path = require('path');
 const { spawn } = require('child_process');
@@ -683,6 +684,27 @@ exports.downloadFullReport = async (req, res, next) => {
       status: 'active'
     }).sort({ createdAt: -1 });
 
+    // Handle admin signature if available
+    let signatureLocalPath = null;
+    if (req.user.signature_url) {
+      try {
+        const key = r2Service.extractKeyFromUrl(req.user.signature_url);
+        if (key) {
+          const signatureBuffer = await r2Service.downloadFile(key);
+          const tempDir = path.join(__dirname, '../../temp');
+          await fs.mkdir(tempDir, { recursive: true });
+          signatureLocalPath = path.join(tempDir, `sig_${req.user._id}_${Date.now()}.png`);
+          await fs.writeFile(signatureLocalPath, signatureBuffer);
+          logger.debug('Admin signature downloaded for report generation', { userId: req.user._id });
+        }
+      } catch (sigError) {
+        logger.warn('Failed to download admin signature, proceeding without it', {
+          userId: req.user._id,
+          error: sigError.message
+        });
+      }
+    }
+
     let result;
     let usedExistingExcel = false;
 
@@ -709,7 +731,10 @@ exports.downloadFullReport = async (req, res, next) => {
         formData, // Still pass formData for any additional context
         grokApiKey,
         'grok',
-        { selectedSheets: normalizedSelectedSheets }
+        { 
+          selectedSheets: normalizedSelectedSheets,
+          signaturePath: signatureLocalPath
+        }
       );
 
       usedExistingExcel = true;
@@ -736,8 +761,20 @@ exports.downloadFullReport = async (req, res, next) => {
         templateId,
         formData,
         grokApiKey,
-        { selectedSheets: normalizedSelectedSheets }
+        { 
+          selectedSheets: normalizedSelectedSheets,
+          signaturePath: signatureLocalPath
+        }
       );
+    }
+
+    // Cleanup signature if it was downloaded
+    if (signatureLocalPath) {
+      try {
+        await fs.unlink(signatureLocalPath);
+      } catch (cleanupError) {
+        // ignore
+      }
     }
 
     // Check if full report was generated
@@ -800,6 +837,17 @@ exports.downloadFullReport = async (req, res, next) => {
       report.excel_file_id = excelFile._id;
       report.excel_file_url = excelUrl; // R2 URL
       report.pdf_file_url = pdfUrl; // R2 URL
+      
+      // Store requested_sheets for PDF regeneration (used when admin uploads revised Excel)
+      if (normalizedSelectedSheets && normalizedSelectedSheets.length > 0) {
+        report.requested_sheets = normalizedSelectedSheets;
+      }
+      
+      // Store original URLs on first generation (for revision history)
+      if (!report.original_excel_url) {
+        report.original_excel_url = excelUrl;
+        report.original_pdf_url = pdfUrl;
+      }
       
       // Update ExcelFile model with R2 URLs
       excelFile.excel_r2_url = excelUrl;

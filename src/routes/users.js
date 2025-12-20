@@ -1,12 +1,31 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const multer = require('multer');
+const path = require('path');
 const User = require('../models/User');
 const Wallet = require('../models/Wallet');
 const userController = require('../controllers/users');
 const { generateToken, generateEmailToken, verifyToken, requireRole } = require('../middleware/auth');
 const { sendVerificationEmail, sendWelcomeEmail } = require('../services/mailService');
+const r2Service = require('../services/cloudflareR2Service');
 const router = express.Router();
+
+// Configure multer for image uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5 MB
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only images (JPG, PNG, WEBP) are allowed'), false);
+    }
+  }
+});
 
 router.post('/', async (req, res) => {
   try {
@@ -255,6 +274,48 @@ router.get('/', verifyToken, requireRole(['admin', 'super_admin']), async (req, 
 // Profile management routes
 router.get('/profile', verifyToken, userController.getProfile);
 router.put('/profile', verifyToken, userController.updateProfile);
+
+// Upload signature image (Admins only)
+router.post('/profile/signature', verifyToken, requireRole(['admin', 'super_admin']), upload.single('signature'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const fileName = `signature_${user._id}_${Date.now()}${path.extname(req.file.originalname)}`;
+    
+    // Use r2Service to upload image
+    const fileUrl = await r2Service.uploadImage({
+      fileBuffer: req.file.buffer,
+      userEmail: user.email,
+      fileName: fileName,
+      contentType: req.file.mimetype
+    });
+
+    user.signature_url = fileUrl;
+    await user.save();
+
+    // Generate a presigned URL for immediate display in front-end
+    let displayUrl = fileUrl;
+    const key = r2Service.extractKeyFromUrl(fileUrl);
+    if (key) {
+      displayUrl = await r2Service.generatePresignedUrl(key);
+    }
+
+    res.json({
+      success: true,
+      message: 'Signature uploaded successfully',
+      data: { signature_url: displayUrl }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Agent referral routes
 router.get('/referral/:code', async (req, res) => {

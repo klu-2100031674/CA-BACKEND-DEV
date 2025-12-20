@@ -19,6 +19,7 @@ const notificationSchema = new Schema({
       'report_approved',
       'report_rejected', 
       'report_under_review',
+      'report_revised',
       'payment_received',
       'payment_failed',
       'withdrawal_approved',

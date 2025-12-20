@@ -57,4 +57,6 @@ if (config.NODE_ENV === 'production') {
   }
 }
 
+process.env.MONGODB_URI = config.MONGODB_URI;
+
 module.exports = config;

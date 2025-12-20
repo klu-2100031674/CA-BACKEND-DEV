@@ -47,7 +47,21 @@ const reportSchema = new Schema({
   
   // Client Information (for display in admin)
   client_name: { type: String },
-  client_details: { type: Schema.Types.Mixed }
+  client_details: { type: Schema.Types.Mixed },
+  
+  // Requested sheets for PDF generation (stores user's selectedSheets)
+  requested_sheets: [{ type: String }],
+  
+  // Revision tracking for admin Excel uploads
+  original_excel_url: { type: String }, // First generated Excel URL
+  original_pdf_url: { type: String }, // First generated PDF URL
+  revision_history: [{
+    revised_at: { type: Date, default: Date.now },
+    revised_by: { type: Schema.Types.ObjectId, ref: 'User' },
+    revision_notes: { type: String },
+    old_excel_url: { type: String },
+    old_pdf_url: { type: String }
+  }]
 }, { timestamps: true });
 
 // Index for efficient queries

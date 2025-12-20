@@ -339,6 +339,13 @@ def generate_pdf_from_excel_sheet(excel_path: str, sheet_name: str, output_path:
                     print(f"[PDF Generator] Found sheet: {sheet.Name}", file=sys.stderr)
                     if normalize_sheet_name(sheet.Name) == normalize_sheet_name(sheet_name):
                         sheet.Select()
+                        # Auto-fit columns to prevent ######## display for numeric values (skip for index sheet)
+                        try:
+                            if normalize_sheet_name(sheet.Name) != 'index':
+                                sheet.Columns.AutoFit()
+                        except Exception as e:
+                            print(f"[PDF Generator] Warning: Could not AutoFit columns: {str(e)}", file=sys.stderr)
+                        
                         sheet_found = True
                         actual_sheet_name = sheet.Name
                         print(f"[PDF Generator] Sheet '{actual_sheet_name}' selected (matched from '{sheet_name}')", file=sys.stderr)
@@ -597,6 +604,13 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheet
             try:
                 # Select the sheet
                 sheet.Select()
+                
+                # Auto-fit columns to prevent ######## display for numeric values (skip for index sheet)
+                try:
+                    if normalize_sheet_name(sheet_name) != 'index':
+                        sheet.Columns.AutoFit()
+                except Exception as e:
+                    print(f"   ⚠️  Warning: Could not AutoFit columns on '{sheet_name}': {str(e)}", file=sys.stderr)
                 
                 # Configure page setup for better fitting
                 page_setup = workbook.ActiveSheet.PageSetup
@@ -2708,6 +2722,15 @@ def _apply_updates_via_com(excel_path: str, updates: List[Dict[str, Any]], save_
             pass
         wb_com.Application.CalculateFullRebuild()
 
+        # Auto-fit columns on all sheets to prevent ######## display for numeric values (skip for index sheet)
+        print(f"[COM Update] Auto-fitting columns on all sheets...", file=sys.stderr)
+        for ws in wb_com.Worksheets:
+            try:
+                if normalize_sheet_name(ws.Name) != 'index':
+                    ws.Columns.AutoFit()
+            except Exception as autofit_err:
+                print(f"[COM Update] Failed to AutoFit sheet '{ws.Name}': {autofit_err}", file=sys.stderr)
+
         if save_as_path:
             wb_com.SaveAs(save_as_path, FileFormat=51)
             final_path = save_as_path
@@ -2828,6 +2851,15 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
                         except Exception:
                             pass
                         wb_com.Application.CalculateFullRebuild()
+                        
+                        # Auto-fit columns to prevent ######## display (skip for index sheet)
+                        for ws in wb_com.Worksheets:
+                            try:
+                                if normalize_sheet_name(ws.Name) != 'index':
+                                    ws.Columns.AutoFit()
+                            except Exception:
+                                pass
+                                
                         wb_com.Save()
                         wb_com.Close(SaveChanges=True)
                         excel_app.Quit()
@@ -3062,7 +3094,8 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
                 }
                 
                 # Initialize AI generator - Grok only
-                ai_generator = AIReportGenerator(input_data['grokApiKey'], provider="grok")
+                signature_path = input_data.get('signaturePath')
+                ai_generator = AIReportGenerator(input_data['grokApiKey'], provider="grok", signature_path=signature_path)
                 print("[Full Report] Using Grok AI for report generation", file=sys.stderr)                # Generate full report
                 full_report_path = os.path.join(output_dir, f'{template_name}-full-report-{timestamp}.pdf')
                 print("[Full Report] Step 2: Generating AI content and merging...", file=sys.stderr)

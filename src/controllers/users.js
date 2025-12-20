@@ -3,6 +3,7 @@ const Wallet = require('../models/Wallet');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const logger = require('../utils/logger');
+const r2Service = require('../services/cloudflareR2Service');
 
 /**
  * User Controller
@@ -45,9 +46,32 @@ exports.getProfile = async (req, res, next) => {
       bankDetails: user.bank_details
     });
 
+    // Convert to object to modify
+    const userObj = user.toObject();
+
+    // Generate presigned URLs for images if they exist
+    if (userObj.signature_url) {
+      const key = r2Service.extractKeyFromUrl(userObj.signature_url);
+      if (key) {
+        userObj.signature_url = await r2Service.generatePresignedUrl(key);
+      }
+    }
+    if (userObj.profile_logo) {
+      const key = r2Service.extractKeyFromUrl(userObj.profile_logo);
+      if (key) {
+        userObj.profile_logo = await r2Service.generatePresignedUrl(key);
+      }
+    }
+    if (userObj.company_logo) {
+      const key = r2Service.extractKeyFromUrl(userObj.company_logo);
+      if (key) {
+        userObj.company_logo = await r2Service.generatePresignedUrl(key);
+      }
+    }
+
     res.json({
       success: true,
-      data: user
+      data: userObj
     });
 
   } catch (error) {
@@ -68,7 +92,7 @@ exports.getProfile = async (req, res, next) => {
  */
 exports.updateProfile = async (req, res, next) => {
   try {
-    const { name, company_name, phone, address, profile_logo, company_logo, mobile, bank_details, upi_details } = req.body;
+    const { name, company_name, phone, address, profile_logo, company_logo, signature_url, mobile, bank_details, upi_details } = req.body;
 
     logger.info('Update profile request', {
       userId: req.user._id,
@@ -82,8 +106,48 @@ exports.updateProfile = async (req, res, next) => {
     if (company_name !== undefined) updateData.company_name = company_name;
     if (phone !== undefined) updateData.phone = phone;
     if (address !== undefined) updateData.address = address;
-    if (profile_logo !== undefined) updateData.profile_logo = profile_logo;
-    if (company_logo !== undefined) updateData.company_logo = company_logo;
+    if (profile_logo !== undefined && profile_logo.startsWith('data:image')) {
+      const buffer = Buffer.from(profile_logo.split(',')[1], 'base64');
+      const fileName = `profile_${req.user._id}_${Date.now()}.png`;
+      const contentType = profile_logo.split(';')[0].split(':')[1];
+      updateData.profile_logo = await r2Service.uploadImage({
+        fileBuffer: buffer,
+        userEmail: req.user.email,
+        fileName: fileName,
+        contentType: contentType
+      });
+    } else if (profile_logo !== undefined) {
+      updateData.profile_logo = profile_logo;
+    }
+
+    if (company_logo !== undefined && company_logo.startsWith('data:image')) {
+      const buffer = Buffer.from(company_logo.split(',')[1], 'base64');
+      const fileName = `company_${req.user._id}_${Date.now()}.png`;
+      const contentType = company_logo.split(';')[0].split(':')[1];
+      updateData.company_logo = await r2Service.uploadImage({
+        fileBuffer: buffer,
+        userEmail: req.user.email,
+        fileName: fileName,
+        contentType: contentType
+      });
+    } else if (company_logo !== undefined) {
+      updateData.company_logo = company_logo;
+    }
+
+    if (signature_url !== undefined && signature_url.startsWith('data:image')) {
+      const buffer = Buffer.from(signature_url.split(',')[1], 'base64');
+      const fileName = `signature_${req.user._id}_${Date.now()}.png`;
+      const contentType = signature_url.split(';')[0].split(':')[1];
+      updateData.signature_url = await r2Service.uploadImage({
+        fileBuffer: buffer,
+        userEmail: req.user.email,
+        fileName: fileName,
+        contentType: contentType
+      });
+    } else if (signature_url !== undefined) {
+      updateData.signature_url = signature_url;
+    }
+
     if (mobile !== undefined) updateData.mobile = mobile;
     if (bank_details !== undefined) {
       // Merge upi_details into bank_details if it exists for backward compatibility
@@ -107,10 +171,33 @@ exports.updateProfile = async (req, res, next) => {
       });
     }
 
+    // Convert to object to modify
+    const userObj = user.toObject();
+
+    // Generate presigned URLs for images if they exist
+    if (userObj.signature_url) {
+      const key = r2Service.extractKeyFromUrl(userObj.signature_url);
+      if (key) {
+        userObj.signature_url = await r2Service.generatePresignedUrl(key);
+      }
+    }
+    if (userObj.profile_logo) {
+      const key = r2Service.extractKeyFromUrl(userObj.profile_logo);
+      if (key) {
+        userObj.profile_logo = await r2Service.generatePresignedUrl(key);
+      }
+    }
+    if (userObj.company_logo) {
+      const key = r2Service.extractKeyFromUrl(userObj.company_logo);
+      if (key) {
+        userObj.company_logo = await r2Service.generatePresignedUrl(key);
+      }
+    }
+
     res.json({
       success: true,
       message: 'Profile updated successfully',
-      data: user
+      data: userObj
     });
 
   } catch (error) {

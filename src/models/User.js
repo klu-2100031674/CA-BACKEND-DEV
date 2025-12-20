@@ -20,6 +20,7 @@ const userSchema = new Schema({
   agent_id: { type: Schema.Types.ObjectId, ref: 'User', default: null }, // Referral - which agent referred this user
   profile_logo: { type: String }, // URL or path to profile logo
   company_logo: { type: String }, // URL or path to company logo
+  signature_url: { type: String }, // URL or path to admin signature image
   company_name: { type: String },
   phone: { type: String },
   address: { type: String },

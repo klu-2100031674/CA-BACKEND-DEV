@@ -687,7 +687,8 @@ class ExcelCalculationService {
         recalculate: false,
         generateFullReport: true,
         grokApiKey: finalApiKey,  // Always use Grok
-        skipHtmlGeneration: true   // Skip unnecessary HTML generation
+        skipHtmlGeneration: true,   // Skip unnecessary HTML generation
+        signaturePath: options?.signaturePath || null
       };
       if (selectedSheets) {
         inputData.selectedSheets = selectedSheets;
@@ -781,6 +782,7 @@ class ExcelCalculationService {
         generateFullReport: true,  // Enable full report generation
         skipHtmlGeneration: true,  // Skip HTML generation for full reports (not needed)
         skipJsonExtraction: true,  // Skip JSON data extraction for full reports (not needed)
+        signaturePath: options?.signaturePath || null
       };
       if (selectedSheets) {
         inputData.selectedSheets = selectedSheets;

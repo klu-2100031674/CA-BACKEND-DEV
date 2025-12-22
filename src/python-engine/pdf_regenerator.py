@@ -144,14 +144,15 @@ def generate_pdf_from_excel_sheet(excel_path: str, sheet_name: str, output_path:
                 pass
 
 
-def generate_pdfs_for_sheets(excel_path: str, output_dir: str, include_sheets: Optional[List[str]] = None) -> Dict[str, Any]:
+def generate_pdfs_from_excel(excel_path: str, output_dir: str, include_sheets: Optional[List[str]] = None, excluded_sheets: Optional[List[str]] = None) -> Dict[str, Any]:
     """
-    Generate individual PDF files for specified sheets (or all sheets if none specified).
+    Generate individual PDF files for sheets in the Excel workbook.
     
     Args:
         excel_path: Path to the Excel file
         output_dir: Directory to save the PDF files
-        include_sheets: List of sheet names to include (None = all sheets except Assumptions)
+        include_sheets: List of sheet names to include (None = all sheets except excluded)
+        excluded_sheets: List of sheet names to exclude (overrides default)
         
     Returns:
         Dictionary with generation results
@@ -160,7 +161,10 @@ def generate_pdfs_for_sheets(excel_path: str, output_dir: str, include_sheets: O
     print(f"📄 REGENERATING PDFs FROM EXCEL", file=sys.stderr)
     print(f"{'='*80}\n", file=sys.stderr)
     
-    EXCLUDED_SHEETS = ['Assumptions.1', 'Assumptions', 'assumptions', 'ASSUMPTIONS']
+    if excluded_sheets is not None:
+        EXCLUDED_SHEETS = excluded_sheets
+    else:
+        EXCLUDED_SHEETS = ['Assumptions.1', 'Assumptions', 'assumptions', 'ASSUMPTIONS']
     
     pdf_files = {
         "sheets": {},
@@ -542,7 +546,8 @@ def regenerate_pdf_from_excel(
     json_data: Optional[Dict[str, Any]] = None,
     html_data: Optional[Dict[str, Any]] = None,
     template_name: Optional[str] = None,
-    signature_path: Optional[str] = None
+    signature_path: Optional[str] = None,
+    excluded_sheets: Optional[List[str]] = None
 ) -> Dict[str, Any]:
     """
     Main function to regenerate PDF from an Excel file using AIReportGenerator.
@@ -557,6 +562,7 @@ def regenerate_pdf_from_excel(
         html_data: HTML data from original report
         template_name: Template name (CC1, CC2, TL1, etc.) for proper sheet ordering
         signature_path: Path to the admin signature image
+        excluded_sheets: List of sheet names to exclude (overrides default)
         
     Returns:
         Dictionary with:
@@ -608,7 +614,8 @@ def regenerate_pdf_from_excel(
             sheet_pdfs = generate_pdfs_for_all_sheets(
                 excel_path,
                 pdfs_dir,
-                selected_sheets
+                selected_sheets,
+                excluded_sheets
             )
         else:
             # Fallback to local implementation
@@ -763,6 +770,7 @@ if __name__ == '__main__':
     html_data = input_data.get('html_data') or input_data.get('htmlData')
     template_name = input_data.get('template_name') or input_data.get('templateName')
     signature_path = input_data.get('signature_path') or input_data.get('signaturePath')
+    excluded_sheets = input_data.get('excluded_sheets') or input_data.get('excludedSheets')
     
     if not excel_path:
         print(json.dumps({
@@ -788,7 +796,8 @@ if __name__ == '__main__':
         json_data=json_data,
         html_data=html_data,
         template_name=template_name,
-        signature_path=signature_path
+        signature_path=signature_path,
+        excluded_sheets=excluded_sheets
     )
     
     print(json.dumps(result, ensure_ascii=False, default=str))

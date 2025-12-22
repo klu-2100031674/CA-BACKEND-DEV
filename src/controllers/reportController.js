@@ -62,13 +62,13 @@ exports.applyFormData = async (req, res, next) => {
         fileId: excelFile._id,
         templateId: templateId,
         fileName: result.fileName,
-        excelBase64: result.excelData, // Include the base64 Excel data
+        // excelBase64: result.excelData, // Removed for optimization
         jsonData: result.jsonData, // Include JSON data for Luckysheet
         allSheetsData: result.allSheetsData,
         formattedWCData: result.formattedWCData,
         htmlContent: result.htmlContent, // Include HTML content for frontend display
         htmlJsonData: result.htmlJsonData, // Include JSON data extracted from HTML
-        pdfBase64: result.pdfData, // Include PDF data as fallback
+        // pdfBase64: result.pdfData, // Removed for optimization
         pdfFileName: result.pdfFileName, // Include PDF filename
         meta: result.meta
       }
@@ -109,13 +109,13 @@ exports.applyFinalEdits = async (req, res, next) => {
         templateId: templateId,
         fileUrl: result.relativePath,
         fileName: result.fileName,
-        excelBase64: result.excelData,
+        // excelBase64: result.excelData, // Removed for optimization
         jsonData: result.jsonData,
         allSheetsData: result.allSheetsData,
         formattedWCData: result.formattedWCData,
         htmlContent: result.htmlContent, // Include HTML content for frontend display
         htmlJsonData: result.htmlJsonData, // Include JSON data extracted from HTML
-        pdfBase64: result.pdfData, // Include PDF data as fallback
+        // pdfBase64: result.pdfData, // Removed for optimization
         pdfFileName: result.pdfFileName, // Include PDF filename
         meta: result.meta
       }
@@ -627,38 +627,46 @@ exports.downloadFullReport = async (req, res, next) => {
   try {
     const { templateId } = req.params;
     const requestPayload = req.body || {};
-    const { selectedSheets, ...formData } = requestPayload;
-    const normalizedSelectedSheets = Array.isArray(selectedSheets)
-      ? selectedSheets
+    const { selectedSheets, analysisOptions, paidReportId, ...formData } = requestPayload;
+    
+    // If analysisOptions provided (Term Loan flow), use those sheets
+    let finalSelectedSheets = selectedSheets;
+    if (analysisOptions && analysisOptions.selectedSheets) {
+      finalSelectedSheets = analysisOptions.selectedSheets;
+    }
+
+    const normalizedSelectedSheets = Array.isArray(finalSelectedSheets)
+      ? finalSelectedSheets
           .filter((sheet) => typeof sheet === 'string' && sheet.trim().length)
           .map((sheet) => sheet.trim())
       : null;
     const grokApiKey = requestPayload.grokApiKey || requestPayload.apiKey || process.env.GROK_API_KEY || process.env.XAI_API_KEY;
 
-    logger.business('Generating full AI-enhanced report (Grok-only)', {
+    logger.business('Generating full AI-enhanced report', {
       userId: req.user ? req.user._id : null,
       templateId,
       operation: 'downloadFullReport',
-      selectedSheets: normalizedSelectedSheets
+      selectedSheets: normalizedSelectedSheets,
+      hasAnalysisOptions: !!analysisOptions,
+      paidReportId
     });
 
-    // Validate Grok API key first
-    if (!grokApiKey) {
-      return res.status(400).json({
-        success: false,
-        error: 'Grok API key required. Provide grokApiKey in request body or set GROK_API_KEY/XAI_API_KEY environment variable.'
-      });
-    }
+    // ... (rest of validation)
 
     // Check if payment has been made for this report
-    // Look for a report with pending_validation status or paid payment status
     const Report = require('../models/Report');
-    const report = await Report.findOne({
+    const query = {
       user_id: req.user._id,
       templateId: templateId,
       'payment.status': 'completed',
       validation_status: { $in: ['pending_validation', 'draft'] }
-    }).sort({ createdAt: -1 });
+    };
+
+    if (paidReportId) {
+      query._id = paidReportId;
+    }
+
+    const report = await Report.findOne(query).sort({ createdAt: -1 });
 
     if (!report) {
       return res.status(402).json({
@@ -667,6 +675,17 @@ exports.downloadFullReport = async (req, res, next) => {
         error_code: 'PAYMENT_REQUIRED'
       });
     }
+
+    // Update report with analysis options and requested sheets
+    if (analysisOptions) {
+      report.analysis_options = {
+        extra_data: analysisOptions.extraData
+      };
+    }
+    if (normalizedSelectedSheets) {
+      report.requested_sheets = normalizedSelectedSheets;
+    }
+    await report.save();
 
     logger.business('Payment verified for AI report generation', {
       userId: req.user._id,
@@ -733,7 +752,8 @@ exports.downloadFullReport = async (req, res, next) => {
         'grok',
         { 
           selectedSheets: normalizedSelectedSheets,
-          signaturePath: signatureLocalPath
+          signaturePath: signatureLocalPath,
+          analysisOptions: analysisOptions // Pass analysis options
         }
       );
 
@@ -763,7 +783,8 @@ exports.downloadFullReport = async (req, res, next) => {
         grokApiKey,
         { 
           selectedSheets: normalizedSelectedSheets,
-          signaturePath: signatureLocalPath
+          signaturePath: signatureLocalPath,
+          analysisOptions: analysisOptions // Pass analysis options
         }
       );
     }

@@ -463,7 +463,7 @@ def generate_pdf_fallback(excel_path: str, sheet_name: str, output_path: str) ->
         return False
 
 
-def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheets: Optional[List[str]] = None) -> Dict[str, Any]:
+def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheets: Optional[List[str]] = None, excluded_sheets: Optional[List[str]] = None) -> Dict[str, Any]:
     """
     Generate individual PDF files for ALL sheets in the Excel workbook (excluding Assumptions sheet).
     Uses Excel COM automation to preserve formatting with better page fitting.
@@ -471,6 +471,8 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheet
     Args:
         excel_path: Path to the Excel file
         output_dir: Directory to save the PDF files
+        include_sheets: List of sheet names to include
+        excluded_sheets: List of sheet names to exclude (overrides default)
         
     Returns:
         Dictionary with sheet names as keys and PDF file paths as values
@@ -480,7 +482,10 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheet
     print(f"{'='*80}\n", file=sys.stderr)
     
     # Sheets to exclude from PDF generation
-    EXCLUDED_SHEETS = ['Assumptions.1', 'Assumptions', 'assumptions', 'ASSUMPTIONS']
+    if excluded_sheets is not None:
+        EXCLUDED_SHEETS = excluded_sheets
+    else:
+        EXCLUDED_SHEETS = ['Assumptions.1', 'Assumptions', 'assumptions', 'ASSUMPTIONS']
     
     pdf_files = {
         "sheets": {},
@@ -754,7 +759,7 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheet
             except Exception as cleanup_error:
                 print(f"[Multi-PDF Generator] Warning: CoUninitialize failed: {cleanup_error}", file=sys.stderr)
 
-def generate_html_from_excel_com(excel_path: str, sheet_name: str) -> tuple:
+def generate_html_from_excel_com(excel_path: str, sheet_name: str, header_data: dict = None) -> tuple:
     """
     Generate HTML from Excel using COM automation to get calculated values.
     This ensures formulas are evaluated and we get the actual values.
@@ -820,21 +825,30 @@ def generate_html_from_excel_com(excel_path: str, sheet_name: str) -> tuple:
         sector = ""
         nature_of_business = ""
         
-        # Try to get firm details from common cell positions
+        # Use provided header data if available
+        if header_data:
+            proprietor = header_data.get('proprietor', '')
+            sector = header_data.get('sector', '')
+            nature_of_business = header_data.get('natureOfBusiness', '')
+        
+        # Try to get firm details from common cell positions (only if not already provided)
         try:
             if max_row >= 3:
                 firm_name_cell = sheet.Cells(3, 2).Value
                 if firm_name_cell:
                     firm_name = str(firm_name_cell)
-            if max_row >= 4:
+            
+            if not proprietor and max_row >= 4:
                 proprietor_cell = sheet.Cells(4, 2).Value
                 if proprietor_cell:
                     proprietor = str(proprietor_cell)
-            if max_row >= 6:
+            
+            if not sector and max_row >= 6:
                 sector_cell = sheet.Cells(6, 2).Value
                 if sector_cell:
                     sector = str(sector_cell)
-            if max_row >= 7:
+            
+            if not nature_of_business and max_row >= 7:
                 nature_cell = sheet.Cells(7, 2).Value
                 if nature_cell:
                     nature_of_business = str(nature_cell)
@@ -1434,6 +1448,13 @@ def generate_html_from_excel_com(excel_path: str, sheet_name: str) -> tuple:
         
         # Process each row
         for row_idx in range(1, max_row + 1):
+            # Skip hidden rows
+            try:
+                if sheet.Rows(row_idx).Hidden:
+                    continue
+            except:
+                pass
+
             row_data = []
             is_header = False
             is_total = False
@@ -1716,7 +1737,7 @@ def generate_html_from_excel_com(excel_path: str, sheet_name: str) -> tuple:
             pass
         return ""
 
-def generate_html_from_excel_sheet(excel_path: str, sheet_name: str):
+def generate_html_from_excel_sheet(excel_path: str, sheet_name: str, header_data: dict = None):
     """
     Convert an Excel sheet to HTML with complete styling preservation.
     Returns tuple: (html_content, json_data) for both COM and fallback methods.
@@ -1732,7 +1753,7 @@ def generate_html_from_excel_sheet(excel_path: str, sheet_name: str):
         if COM_AVAILABLE:
             try:
                 print(f"[HTML Generator] Attempting to use Excel COM method", file=sys.stderr)
-                html_content, json_data = generate_html_from_excel_com(excel_path, sheet_name)
+                html_content, json_data = generate_html_from_excel_com(excel_path, sheet_name, header_data=header_data)
                 if html_content:
                     print(f"[HTML Generator] Successfully generated HTML using COM", file=sys.stderr)
                     return html_content, json_data
@@ -1839,9 +1860,23 @@ def generate_html_from_excel_sheet(excel_path: str, sheet_name: str):
                 return str(cell_val).strip()
             
             firm_name = extract_text_value(3, 2)
-            proprietor = extract_text_value(4, 2)
-            sector = extract_text_value(6, 2)
-            nature_of_business = extract_text_value(7, 2)
+            proprietor = ""
+            sector = ""
+            nature_of_business = ""
+            
+            # Use provided header data if available
+            if header_data:
+                proprietor = header_data.get('proprietor', '')
+                sector = header_data.get('sector', '')
+                nature_of_business = header_data.get('natureOfBusiness', '')
+                
+            # Fallback to Excel extraction if not provided
+            if not proprietor:
+                proprietor = extract_text_value(4, 2)
+            if not sector:
+                sector = extract_text_value(6, 2)
+            if not nature_of_business:
+                nature_of_business = extract_text_value(7, 2)
             
             calc_evaluator = None
             if XL_CALC_AVAILABLE:
@@ -1868,6 +1903,13 @@ def generate_html_from_excel_sheet(excel_path: str, sheet_name: str):
             )
 
             for row_idx in range(1, max_row + 1):
+                # Skip hidden rows
+                try:
+                    if sheet.row_dimensions[row_idx].hidden:
+                        continue
+                except:
+                    pass
+
                 row_values: List[Any] = []
                 for col_idx in range(1, max_col + 1):
                     raw_value = values_sheet.cell(row=row_idx, column=col_idx).value
@@ -1916,7 +1958,7 @@ def generate_html_from_excel_sheet(excel_path: str, sheet_name: str):
                         json_data["data"][json_key] = serialize_for_json(normalized_value)
                         non_empty_cells += 1
 
-                sheet_matrix.append(row_values)
+                sheet_matrix.append((row_idx, row_values))
             
             total_rows = len(sheet_matrix)
             total_cols = max_col
@@ -2390,14 +2432,16 @@ def generate_html_from_excel_sheet(excel_path: str, sheet_name: str):
             return str(value)
         
         # Process each row from the prepared matrix
-        for row_idx in range(total_rows):
+        for matrix_idx in range(total_rows):
+            orig_row_idx, row_values_list = sheet_matrix[matrix_idx]
+            
             row_data = []
             is_empty_row = True
             
             # Get all column values for this row
             for col_idx in range(total_cols):
                 try:
-                    cell_value = sheet_matrix[row_idx][col_idx]
+                    cell_value = row_values_list[col_idx]
                 except IndexError:
                     cell_value = ""
                 
@@ -2449,12 +2493,12 @@ def generate_html_from_excel_sheet(excel_path: str, sheet_name: str):
                 attr_parts = []
                 if class_attr:
                     attr_parts.append(f"class='{class_attr}'")
-                attr_parts.append(f"data-cell=\"R{row_idx + 1}C{col_idx}\"")
+                attr_parts.append(f"data-cell=\"R{orig_row_idx}C{col_idx}\"")
                 attr_parts.append(f"data-sheet=\"{actual_sheet_name}\"")
 
                 is_cell_unlocked = False
                 try:
-                    cell_obj = sheet.cell(row=row_idx + 1, column=col_idx)
+                    cell_obj = sheet.cell(row=orig_row_idx, column=col_idx)
                     is_cell_unlocked = not bool(getattr(cell_obj.protection, 'locked', True))
                 except Exception:
                     is_cell_unlocked = False
@@ -2985,27 +3029,37 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
         # Generate PDF for Final workings sheet directly from Excel
         pdf_base64 = None
         pdf_file_name = None
-        try:
-            pdf_output_path = os.path.join(output_dir, f'{template_name}-{final_sheet_name}-{timestamp}.pdf')
-            if generate_pdf_from_excel_sheet(output_path, final_sheet_name, pdf_output_path):
-                with open(pdf_output_path, 'rb') as f:
-                    pdf_bytes = f.read()
-                pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
-                pdf_file_name = f'{template_name}-{final_sheet_name}-{timestamp}.pdf'
-                print(f"PDF generated successfully: {pdf_file_name}", file=sys.stderr)
-                # Clean up PDF file after encoding
-                os.unlink(pdf_output_path)
-            else:
-                print("PDF generation failed", file=sys.stderr)
-        except Exception as pdf_error:
-            print(f"Error generating PDF: {pdf_error}", file=sys.stderr)
+        if not input_data.get('skipPdf', False):
+            try:
+                pdf_output_path = os.path.join(output_dir, f'{template_name}-{final_sheet_name}-{timestamp}.pdf')
+                if generate_pdf_from_excel_sheet(output_path, final_sheet_name, pdf_output_path):
+                    with open(pdf_output_path, 'rb') as f:
+                        pdf_bytes = f.read()
+                    pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
+                    pdf_file_name = f'{template_name}-{final_sheet_name}-{timestamp}.pdf'
+                    print(f"PDF generated successfully: {pdf_file_name}", file=sys.stderr)
+                    # Clean up PDF file after encoding
+                    os.unlink(pdf_output_path)
+                else:
+                    print("PDF generation failed", file=sys.stderr)
+            except Exception as pdf_error:
+                print(f"Error generating PDF: {pdf_error}", file=sys.stderr)
+        else:
+            print("PDF generation skipped as requested", file=sys.stderr)
 
         # Generate HTML for Final workings sheet with exact formatting (skip if requested)
         html_content = None
         html_json_data = {}
         if not input_data.get('skipHtmlGeneration', False):
             try:
-                result_tuple = generate_html_from_excel_sheet(output_path, final_sheet_name)
+                # Extract header data from input_data
+                header_data = {
+                    'proprietor': input_data.get('proprietor'),
+                    'sector': input_data.get('sector'),
+                    'natureOfBusiness': input_data.get('natureOfBusiness')
+                }
+                
+                result_tuple = generate_html_from_excel_sheet(output_path, final_sheet_name, header_data=header_data)
                 # Handle both old return (str) and new return (tuple) for backward compatibility
                 if isinstance(result_tuple, tuple):
                     html_content, html_json_data = result_tuple
@@ -3043,10 +3097,12 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
                 # Generate PDFs for all sheets
                 print("[Full Report] Step 1: Generating PDFs for all Excel sheets...", file=sys.stderr)
                 selected_sheets = input_data.get('selectedSheets')
+                dynamic_excluded_sheets = input_data.get('excludedSheets')
                 sheet_pdfs = generate_pdfs_for_all_sheets(
                     output_path,
                     pdfs_dir,
-                    selected_sheets
+                    selected_sheets,
+                    dynamic_excluded_sheets
                 )
                 
                 # Fallback: If no sheets were generated and selectedSheets was provided, try generating ALL sheets
@@ -3055,7 +3111,8 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
                     sheet_pdfs = generate_pdfs_for_all_sheets(
                         output_path,
                         pdfs_dir,
-                        None  # No filter
+                        None,  # No filter
+                        dynamic_excluded_sheets
                     )
                 
                 print(f"[Full Report] Generated {sheet_pdfs['success_count']} sheet PDFs", file=sys.stderr)

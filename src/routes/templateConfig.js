@@ -163,6 +163,7 @@ router.post('/', verifyToken, requireRole(['admin', 'super_admin']), async (req,
       after_generate_remove_formulas,
       after_generate_hide,
       after_generate_lock,
+      analysis_sheets,
       pricing,
       excel_file,
       form_config,
@@ -190,6 +191,7 @@ router.post('/', verifyToken, requireRole(['admin', 'super_admin']), async (req,
       after_generate_remove_formulas: after_generate_remove_formulas || [],
       after_generate_hide: after_generate_hide || [],
       after_generate_lock: after_generate_lock || [],
+      analysis_sheets: analysis_sheets || [],
       pricing: pricing || { base_price: 0, credits_required: 1 },
       excel_file,
       form_config,
@@ -235,7 +237,7 @@ router.put('/:templateId', verifyToken, requireRole(['admin', 'super_admin']), a
     const allowedFields = [
       'name', 'description', 'version', 'author', 'report_type', 'properties',
       'initial_hide', 'initial_remove_formulas', 'after_generate_remove_formulas',
-      'after_generate_hide', 'after_generate_lock', 'pricing', 'excel_file',
+      'after_generate_hide', 'after_generate_lock', 'analysis_sheets', 'pricing', 'excel_file',
       'form_config', 'is_active', 'is_featured', 'display_order'
     ];
     

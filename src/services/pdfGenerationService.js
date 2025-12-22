@@ -10,6 +10,7 @@ const path = require('path');
 const fs = require('fs');
 const fsPromises = fs.promises;
 const logger = require('../utils/logger');
+const TemplateConfig = require('../models/TemplateConfig');
 
 class PdfGenerationService {
   constructor() {
@@ -75,6 +76,10 @@ class PdfGenerationService {
     try {
       // Ensure temp directory exists
       await fsPromises.mkdir(this.tempDir, { recursive: true });
+
+      // Fetch template configuration from database for hidden sheets
+      const dbConfig = await TemplateConfig.findOne({ template_id: templateId });
+      const excludedSheets = dbConfig?.after_generate_hide || [];
       
       // Write Excel buffer to temp file
       await fsPromises.writeFile(tempExcelPath, excelBuffer);
@@ -109,7 +114,8 @@ class PdfGenerationService {
         json_data: jsonData,
         html_data: htmlData,
         template_name: templateName || templateId,
-        signature_path: tempSignaturePath
+        signature_path: tempSignaturePath,
+        excluded_sheets: excludedSheets // Pass dynamic excluded sheets from DB
       };
 
       // Run Python script with JSON input

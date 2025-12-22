@@ -126,6 +126,25 @@
     "properties": {
         "No Of Years": 8,
         "Type of Report": "TERM_LOAN"
+    },
+    "pricing": {
+        "base_price": 500,
+        "credits_required": 1,
+        "currency": "INR",
+        "discount_percentage": 0,
+        "sheet_pricing": [
+            { "sheet_name": "Cover page", "display_name": "Cover page", "is_included": true, "is_optional": false, "is_visible": true },
+            { "sheet_name": "PL BS", "display_name": "PL BS", "is_included": true, "is_optional": false, "is_visible": true },
+            { "sheet_name": "Assumptions", "display_name": "Assumptions", "is_included": true, "is_optional": false, "is_visible": true },
+            { "sheet_name": "Loan Schd", "display_name": "Term Loan", "is_included": true, "is_optional": false, "is_visible": true },
+            { "sheet_name": "FA Sch", "display_name": "Depreciation", "is_included": true, "is_optional": false, "is_visible": true },
+            { "sheet_name": "Repayment(Principal)", "display_name": "Repayment", "is_included": true, "is_optional": false, "is_visible": true },
+            { "sheet_name": "RATIO", "display_name": "Ratio", "is_included": true, "is_optional": false, "is_visible": true },
+            { "sheet_name": "CFs", "display_name": "Cash Flow", "is_included": true, "is_optional": false, "is_visible": true },
+            { "sheet_name": "Sensitivity Analysis", "display_name": "Sensitivity", "is_included": false, "is_optional": true, "is_visible": true },
+            { "sheet_name": "BEP analysis", "display_name": "BEP", "is_included": false, "is_optional": false, "is_visible": false },
+            { "sheet_name": "Gaurantors", "display_name": "Gaurantors", "is_included": true, "is_optional": false, "is_visible": true }
+        ]
     }
 },
 {
@@ -144,6 +163,26 @@
     "properties": {
         "No Of Years": 8,
         "Type of Report": "TERM_LOAN"
+    },
+    "pricing": {
+        "base_price": 500,
+        "credits_required": 1,
+        "currency": "INR",
+        "discount_percentage": 0,
+        "sheet_pricing": [
+            { "sheet_name": "Cover page", "display_name": "Cover page", "is_included": true, "is_optional": false, "is_visible": true },
+            { "sheet_name": "PL BS", "display_name": "PL BS", "is_included": true, "is_optional": false, "is_visible": true },
+            { "sheet_name": "Assumptions", "display_name": "Assumptions", "is_included": true, "is_optional": false, "is_visible": true },
+            { "sheet_name": "Loan sch", "display_name": "Term Loan", "is_included": true, "is_optional": false, "is_visible": true },
+            { "sheet_name": "FA Sch", "display_name": "Depreciation", "is_included": true, "is_optional": false, "is_visible": true },
+            { "sheet_name": "Repayment", "display_name": "Repayment", "is_included": true, "is_optional": false, "is_visible": true },
+            { "sheet_name": "RATIO", "display_name": "Ratio", "is_included": true, "is_optional": false, "is_visible": true },
+            { "sheet_name": "CFs", "display_name": "Cash Flow", "is_included": true, "is_optional": false, "is_visible": true },
+            { "sheet_name": "Sensitivity Analysis", "display_name": "Sensitivity", "is_included": false, "is_optional": true, "is_visible": true },
+            { "sheet_name": "BEP analysis", "display_name": "BEP", "is_included": false, "is_optional": true, "is_visible": true },
+            { "sheet_name": "Gaurantors", "display_name": "Gaurantors", "is_included": true, "is_optional": false, "is_visible": true },
+            { "sheet_name": "Sheet1", "display_name": "Sheet1", "is_included": true, "is_optional": false, "is_visible": true }
+        ]
     }
 },
 {

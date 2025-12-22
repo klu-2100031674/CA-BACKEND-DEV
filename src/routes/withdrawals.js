@@ -139,9 +139,11 @@ router.patch('/:withdrawalId/status', verifyToken, requireRole(['super_admin', '
     
     // Validate status transition
     const validTransitions = {
-      'pending': ['approved', 'rejected'],
-      'approved': ['processing', 'rejected'],
-      'processing': ['completed', 'rejected']
+      'pending': ['approved', 'rejected', 'completed'],
+      'approved': ['processing', 'rejected', 'completed'],
+      'processing': ['completed', 'rejected'],
+      'completed': [],
+      'rejected': ['pending']
     };
     
     if (!validTransitions[withdrawal.status]?.includes(status)) {

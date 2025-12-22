@@ -56,11 +56,11 @@ async function migrateTemplates() {
           after_generate_hide: item.afterGenerateHide || [],
           after_generate_lock: item.afterGenerateLock || [],
           pricing: {
-            base_price: 500, // Default price
-            credits_required: 1,
-            currency: 'INR',
-            discount_percentage: 0,
-            sheet_pricing: []
+            base_price: item.pricing?.base_price || 500,
+            credits_required: item.pricing?.credits_required || 1,
+            currency: item.pricing?.currency || 'INR',
+            discount_percentage: item.pricing?.discount_percentage || 0,
+            sheet_pricing: item.pricing?.sheet_pricing || []
           },
           excel_file: {
             filename: `${item.id}.xlsx`,

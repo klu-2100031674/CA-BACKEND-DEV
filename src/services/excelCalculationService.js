@@ -4,6 +4,7 @@ const fs = require('fs');
 const fsPromises = fs.promises;
 const templateMappingService = require('./templateMappingService');
 const logger = require('../utils/logger');
+const TemplateConfig = require('../models/TemplateConfig');
 
 const TEMPLATE_SHEET_CONFIG = {
   TERM_LOAN_SERVICE_WITHOUT_STOCK: {
@@ -434,6 +435,122 @@ class ExcelCalculationService {
     return updates;
   }
 
+  /**
+   * Get updates for analysis sheets (Term Loan flow)
+   * @param {Object} analysisOptions Analysis options from frontend
+   * @param {string} templateId Template ID for sheet name resolution
+   * @returns {Array} Array of update objects
+   */
+  getAnalysisUpdates(analysisOptions, templateId = null) {
+    const updates = [];
+    if (!analysisOptions || !analysisOptions.extraData) return updates;
+
+    const { sensitivity, bep } = analysisOptions.extraData;
+    
+    const normalizedTemplateId = templateId ? templateMappingService.normalizeTemplateId(templateId) : null;
+    const isTermLoan = normalizedTemplateId === 'TERM_LOAN_SERVICE_WITHOUT_STOCK' || 
+                       normalizedTemplateId === 'TERM_LOAN_MANUFACTURING_SERVICE_WITH_STOCK' || 
+                       normalizedTemplateId === 'TERM_LOAN_CC';
+
+    const templateConfig = this.getTemplateSheetConfig(templateId);
+    const aliasMap = templateConfig?.aliasMap || {};
+    
+    // Determine target sheet
+    // For Term Loans, sensitivity and BEP inputs are in "Assumptions"
+    // For others, they are in "Final workings"
+    const targetSheet = isTermLoan ? 'Assumptions' : this.resolveSheetAlias('finalworkings', aliasMap);
+
+    // Sensitivity Analysis
+    if (sensitivity) {
+      if (isTermLoan) {
+        // Term Loan: Selling Price Decrease -> d45, Direct Expenses Increase -> d46
+        if (sensitivity.sellingPriceDecrease !== undefined) {
+          updates.push({
+            sheet: targetSheet,
+            cell: 'd45',
+            value: sensitivity.sellingPriceDecrease
+          });
+        }
+        if (sensitivity.directExpensesIncrease !== undefined) {
+          updates.push({
+            sheet: targetSheet,
+            cell: 'd46',
+            value: sensitivity.directExpensesIncrease
+          });
+        }
+      } else {
+        // Legacy/Other: Selling Price Decrease -> Cell H54
+        if (sensitivity.sellingPriceDecrease !== undefined) {
+          updates.push({
+            sheet: targetSheet,
+            cell: 'H54',
+            value: sensitivity.sellingPriceDecrease
+          });
+        }
+      }
+    }
+
+    // BEP: Product Manufactured (Units) -> Cell E63, Selling Price per Unit -> Cell E64, 
+    // Selling Price Growth -> Cell D65, Plant Operating Capacity per Month -> Cell E66
+    if (bep) {
+      // For Term Loans, these are also in Assumptions (if we decide to move them)
+      // For now, keeping them as they were but using targetSheet
+      if (bep.productManufactured) {
+        updates.push({ sheet: targetSheet, cell: 'E63', value: bep.productManufactured });
+      }
+      if (bep.sellingPricePerUnit) {
+        updates.push({ sheet: targetSheet, cell: 'E64', value: bep.sellingPricePerUnit });
+      }
+      if (bep.sellingPriceGrowth) {
+        updates.push({ sheet: targetSheet, cell: 'D65', value: bep.sellingPriceGrowth });
+      }
+      if (bep.plantCapacity) {
+        updates.push({ sheet: targetSheet, cell: 'E66', value: bep.plantCapacity });
+      }
+    }
+
+    return updates;
+  }
+
+  /**
+   * Extract header fields (Proprietor, Sector, Nature of Business) from payload
+   * based on template-specific cell mappings.
+   */
+  extractHeaderFields(cellData, templateId) {
+    const normalizedTemplateId = templateMappingService.normalizeTemplateId(templateId);
+    
+    // Mapping of header fields to cell IDs for each template
+    const headerMapping = {
+      'CC1': { proprietor: 'i6', sector: 'i8', natureOfBusiness: 'i9' },
+      'CC2': { proprietor: 'i5', sector: 'i7', natureOfBusiness: 'i8' },
+      'CC3': { proprietor: 'i6', sector: 'i8', natureOfBusiness: 'i9' },
+      'CC4': { proprietor: 'i4', sector: 'i5', natureOfBusiness: 'i6' },
+      'CC5': { proprietor: 'i5', sector: 'i7', natureOfBusiness: 'i8' },
+      'CC6': { proprietor: 'i5', sector: 'i7', natureOfBusiness: 'i8' },
+      'TERM_LOAN_CC': { proprietor: 'i8', sector: 'i14', natureOfBusiness: 'i15' },
+      'TERM_LOAN_SERVICE_WITHOUT_STOCK': { proprietor: 'i8', sector: 'i14', natureOfBusiness: 'i15' },
+      'TERM_LOAN_MANUFACTURING_SERVICE_WITH_STOCK': { proprietor: 'i8', sector: 'i14', natureOfBusiness: 'i15' }
+    };
+
+    const mapping = headerMapping[normalizedTemplateId];
+    if (!mapping) {
+      return {};
+    }
+
+    const result = {};
+    if (cellData[mapping.proprietor]) {
+      result.proprietor = cellData[mapping.proprietor];
+    }
+    if (cellData[mapping.sector]) {
+      result.sector = cellData[mapping.sector];
+    }
+    if (cellData[mapping.natureOfBusiness]) {
+      result.natureOfBusiness = cellData[mapping.natureOfBusiness];
+    }
+
+    return result;
+  }
+
   // ────────────────────────────────────────────────────────────────
   //  Main entry: apply data and extract JSON by calling Python script
   async applyFormDataAndCalculate(templateId, formDataPayload) {
@@ -478,9 +595,19 @@ class ExcelCalculationService {
         fixedAssetsUpdateCount: fixedAssetsUpdates.length
       });
       
+      // Extract header fields for the report
+      const headerFields = this.extractHeaderFields(cellData, templateId);
+      logger.debug('Header fields extracted', {
+        operation: 'applyFormDataAndCalculate',
+        templateId,
+        ...headerFields
+      });
+      
       const inputData = {
         updates,
         recalculate: false, // Let Excel handle automatic calculation
+        skipPdf: true, // Optimization: Skip PDF generation for form application
+        ...headerFields
       };
       logger.debug('Input data prepared for Python script', {
         operation: 'applyFormDataAndCalculate',
@@ -558,7 +685,7 @@ class ExcelCalculationService {
       'Format CC6': 'format CC6.xlsx',
       'TERM_LOAN_SERVICE_WITHOUT_STOCK': 'Term loan (Service sector without stock).xls',
       'TERM_LOAN_MANUFACTURING_SERVICE_WITH_STOCK': 'Term Loan (Manufacturing & Service Sector with stock).xls',
-      'TERM_LOAN_CC': 'Term Loan + CC Loan.xls'
+      'TERM_LOAN_CC': 'Term Loan + CC Loan final.xls'
     };
 
     const filename = templateFileMap[templateId] || `${templateId}.xlsx`;
@@ -592,6 +719,7 @@ class ExcelCalculationService {
       const inputData = {
         updates: Array.isArray(updates) ? updates : [],
         recalculate: Boolean(recalculate ?? false), // Default to false, let Excel auto-calculate
+        skipPdf: true, // Optimization: Skip PDF generation for updates
       };
 
       let workbookPath = baseExcelPath;
@@ -651,7 +779,31 @@ class ExcelCalculationService {
         templateId
       });
 
-      const selectedSheets = this.normalizeSelectedSheets(options?.selectedSheets, templateId);
+      // Fetch template configuration from database for hidden sheets
+      const dbConfig = await TemplateConfig.findOne({ template_id: templateId });
+      const excludedSheets = dbConfig?.after_generate_hide || [];
+      const defaultFullReportSheets = dbConfig?.full_report_sheets || [];
+
+      // Determine which sheets to include in the report
+      let sheetsToInclude = options?.selectedSheets || options?.sheets;
+      
+      // If no sheets specified, use defaults from DB
+      if (!sheetsToInclude && defaultFullReportSheets.length > 0) {
+        sheetsToInclude = [...defaultFullReportSheets];
+      }
+
+      // If analysis options are provided, merge those sheets as well
+      if (options?.analysisOptions?.selectedSheets) {
+        const analysisSheets = options.analysisOptions.selectedSheets;
+        if (sheetsToInclude) {
+          // Merge and remove duplicates
+          sheetsToInclude = [...new Set([...sheetsToInclude, ...analysisSheets])];
+        } else {
+          sheetsToInclude = analysisSheets;
+        }
+      }
+
+      const selectedSheets = this.normalizeSelectedSheets(sheetsToInclude, templateId);
 
       // Always use Grok API key
       let finalApiKey = apiKey || process.env.GROK_API_KEY || process.env.XAI_API_KEY;
@@ -664,13 +816,27 @@ class ExcelCalculationService {
 
       // Convert cell data to updates array
       const updates = [];
+      // Normalize template ID for sheet name determination
+      const normalizedTemplateId = templateMappingService.normalizeTemplateId(templateId);
+      
+      // Determine sheet name based on template type
+      const sheetName = (normalizedTemplateId === 'TERM_LOAN_SERVICE_WITHOUT_STOCK' || normalizedTemplateId === 'TERM_LOAN_MANUFACTURING_SERVICE_WITH_STOCK' || normalizedTemplateId === 'TERM_LOAN_CC') 
+        ? 'Assumptions' 
+        : 'Assumptions.1';
+
       for (const [cell, value] of Object.entries(cellData)) {
-        updates.push({ sheet: 'Assumptions.1', cell, value });
+        updates.push({ sheet: sheetName, cell, value });
       }
 
       // Extract and add Fixed Assets Schedule items (pass templateId for correct mapping)
       const fixedAssetsUpdates = this.extractFixedAssetsSchedule(formDataPayload, templateId);
       updates.push(...fixedAssetsUpdates);
+
+      // Add Analysis Options updates (Term Loan flow)
+      if (options?.analysisOptions) {
+        const analysisUpdates = this.getAnalysisUpdates(options.analysisOptions, templateId);
+        updates.push(...analysisUpdates);
+      }
 
       logger.debug('Excel updates prepared for AI report generation', {
         operation: 'generateFullReport',
@@ -688,7 +854,8 @@ class ExcelCalculationService {
         generateFullReport: true,
         grokApiKey: finalApiKey,  // Always use Grok
         skipHtmlGeneration: true,   // Skip unnecessary HTML generation
-        signaturePath: options?.signaturePath || null
+        signaturePath: options?.signaturePath || null,
+        excludedSheets: excludedSheets // Pass dynamic excluded sheets from DB
       };
       if (selectedSheets) {
         inputData.selectedSheets = selectedSheets;
@@ -747,7 +914,31 @@ class ExcelCalculationService {
         aiProvider
       });
 
-      const selectedSheets = this.normalizeSelectedSheets(options?.selectedSheets, templateId);
+      // Fetch template configuration from database for hidden sheets
+      const dbConfig = await TemplateConfig.findOne({ template_id: templateId });
+      const excludedSheets = dbConfig?.after_generate_hide || [];
+      const defaultFullReportSheets = dbConfig?.full_report_sheets || [];
+
+      // Determine which sheets to include in the report
+      let sheetsToInclude = options?.selectedSheets || options?.sheets;
+      
+      // If no sheets specified, use defaults from DB
+      if (!sheetsToInclude && defaultFullReportSheets.length > 0) {
+        sheetsToInclude = [...defaultFullReportSheets];
+      }
+
+      // If analysis options are provided, merge those sheets as well
+      if (options?.analysisOptions?.selectedSheets) {
+        const analysisSheets = options.analysisOptions.selectedSheets;
+        if (sheetsToInclude) {
+          // Merge and remove duplicates
+          sheetsToInclude = [...new Set([...sheetsToInclude, ...analysisSheets])];
+        } else {
+          sheetsToInclude = analysisSheets;
+        }
+      }
+
+      const selectedSheets = this.normalizeSelectedSheets(sheetsToInclude, templateId);
 
       // Get API key based on provider
       let finalApiKey = apiKey;
@@ -765,14 +956,18 @@ class ExcelCalculationService {
         throw new Error(`${aiProvider.toUpperCase()} API key is required. Set ${aiProvider.toUpperCase()}_API_KEY environment variable or provide in request.`);
       }
 
-      // For existing file, we don't need to extract form data or apply updates
-      // The Excel is already updated, so we pass empty updates
+      // For existing file, we might still need to apply analysis options updates
       const updates = [];
+      if (options?.analysisOptions) {
+        const analysisUpdates = this.getAnalysisUpdates(options.analysisOptions, templateId);
+        updates.push(...analysisUpdates);
+      }
 
-      logger.debug('Using existing Excel file - no updates needed', {
+      logger.debug('Excel updates prepared for AI report generation from file', {
         operation: 'generateFullReportFromFile',
         templateId,
-        excelFilePath
+        excelFilePath,
+        totalUpdates: updates.length
       });
 
       // Build input data for Python script
@@ -782,7 +977,8 @@ class ExcelCalculationService {
         generateFullReport: true,  // Enable full report generation
         skipHtmlGeneration: true,  // Skip HTML generation for full reports (not needed)
         skipJsonExtraction: true,  // Skip JSON data extraction for full reports (not needed)
-        signaturePath: options?.signaturePath || null
+        signaturePath: options?.signaturePath || null,
+        excludedSheets: excludedSheets // Pass dynamic excluded sheets from DB
       };
       if (selectedSheets) {
         inputData.selectedSheets = selectedSheets;

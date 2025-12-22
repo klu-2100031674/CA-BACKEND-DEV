@@ -52,6 +52,11 @@ const reportSchema = new Schema({
   // Requested sheets for PDF generation (stores user's selectedSheets)
   requested_sheets: [{ type: String }],
   
+  // Analysis Options (for Term Loans)
+  analysis_options: {
+    extra_data: { type: Schema.Types.Mixed }
+  },
+  
   // Revision tracking for admin Excel uploads
   original_excel_url: { type: String }, // First generated Excel URL
   original_pdf_url: { type: String }, // First generated PDF URL

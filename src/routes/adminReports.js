@@ -131,7 +131,7 @@ router.get('/', verifyToken, requireRole(['admin', 'super_admin']), async (req, 
       Report.find(filter)
         .populate('user_id', 'name email phone role')
         .populate('validated_by', 'name email')
-        .select('_id title templateId validation_status createdAt updatedAt payment report_type user_id validated_by approval_email_sent excel_file_url pdf_file_url json_file_url')
+        .select('_id title templateId validation_status createdAt updatedAt payment report_type user_id validated_by approval_email_sent excel_file_url pdf_file_url json_file_url requested_sheets analysis_options client_name client_details rejection_reason')
         .sort(sort)
         .skip(skip)
         .limit(parseInt(limit))
@@ -197,7 +197,7 @@ router.get('/pending', verifyToken, requireRole(['admin', 'super_admin']), async
     const [reports, total] = await Promise.all([
       Report.find({ validation_status: 'pending_validation' })
         .populate('user_id', 'name email phone role')
-        .select('_id title templateId validation_status createdAt updatedAt payment report_type user_id approval_email_sent')
+        .select('_id title templateId validation_status createdAt updatedAt payment report_type user_id approval_email_sent requested_sheets analysis_options client_name client_details')
         .sort('-createdAt')
         .skip(skip)
         .limit(parseInt(limit))

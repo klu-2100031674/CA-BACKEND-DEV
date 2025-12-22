@@ -225,21 +225,19 @@ class TemplateMappingService {
       if (!rowMatch) continue;
 
       const rowNum = parseInt(rowMatch[1]);
+      const normalizedId = this.normalizeTemplateId(templateId);
 
       // Determine section based on row number (rough heuristic)
       let section = null;
-      if (rowNum >= 22 && rowNum <= 43) section = 'audited';
-      else if (rowNum >= 44 && rowNum <= 66) section = 'provisional';
-      else if (rowNum >= 67 && rowNum <= 99) section = 'assumptions';
-      else if ((templateId === 'CC1' || templateId === 'Format CC1') && rowNum >= 100 && rowNum <= 200) {
-        // Allow fixed assets cells for CC1 (b100-e200 range)
-        filtered[cellRef] = value;
-        continue;
-      }
-      else if ((templateId === 'CC2' || templateId === 'Format CC2') && rowNum >= 121 && rowNum <= 221) {
-        // Allow fixed assets cells for CC2 (b121-e221 range)
-        filtered[cellRef] = value;
-        continue;
+      if (normalizedId.startsWith('CC')) {
+        if (rowNum >= 22 && rowNum <= 43) section = 'audited';
+        else if (rowNum >= 44 && rowNum <= 66) section = 'provisional';
+        else if (rowNum >= 67 && rowNum <= 99) section = 'assumptions';
+      } else if (normalizedId === 'TERM_LOAN_CC') {
+        if (rowNum >= 7 && rowNum <= 22) section = 'general_info';
+        else if (rowNum >= 28 && rowNum <= 40) section = 'loan_percentages';
+        else if (rowNum >= 136 && rowNum <= 245) section = 'fixed_assets';
+        else if (rowNum >= 251 && rowNum <= 307) section = 'indirect_expenses';
       }
 
       if (section && this.canWriteToRow(templateId, section, rowNum)) {

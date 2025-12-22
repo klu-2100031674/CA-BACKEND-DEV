@@ -70,6 +70,7 @@ router.get('/:reportType', async (req, res) => {
         currency: template.pricing.currency || 'INR',
         discount_percentage: template.pricing.discount_percentage || 0,
         sheet_pricing: template.pricing.sheet_pricing || [],
+        analysis_sheets: template.analysis_sheets || [],
         is_default: false
       }
     });

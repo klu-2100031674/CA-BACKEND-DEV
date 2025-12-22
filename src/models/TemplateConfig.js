@@ -9,7 +9,8 @@ const sheetPricingSchema = new Schema({
   display_name: { type: String },
   price: { type: Number, default: 0 },
   is_included: { type: Boolean, default: true }, // Whether this sheet is included in base price
-  is_optional: { type: Boolean, default: false } // Can user select/deselect this sheet
+  is_optional: { type: Boolean, default: false }, // Can user select/deselect this sheet
+  is_visible: { type: Boolean, default: true }
 }, { _id: false });
 
 /**
@@ -48,6 +49,19 @@ const templateConfigSchema = new Schema({
   after_generate_remove_formulas: [{ type: String }],
   after_generate_hide: [{ type: String }],
   after_generate_lock: [{ type: String }],
+  
+  // Default sheets to include in the full report (if not specified)
+  full_report_sheets: [{ type: String }],
+  
+  // Analysis Sheets Configuration (for Term Loans)
+  analysis_sheets: [{
+    sheet_name: { type: String, required: true },
+    display_name: { type: String },
+    required: { type: Boolean, default: false },
+    is_visible: { type: Boolean, default: true },
+    price: { type: Number, default: 0 },
+    amount_display: { type: String }
+  }],
   
   // Pricing Configuration
   pricing: {

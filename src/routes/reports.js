@@ -266,8 +266,8 @@ router.post('/templates/:templateId/apply-form', verifyToken, async (req, res) =
         message: 'Excel, PDF, and HTML generated successfully',
         data: {
           fileName: result.fileName,
-          excelBase64: result.excelData,
-          pdfBase64: result.pdfData,
+          // excelBase64: result.excelData, // Removed for optimization
+          // pdfBase64: result.pdfData, // Removed for optimization
           pdfFileName: result.pdfFileName,
           htmlContent: result.htmlContent
         }
@@ -373,10 +373,10 @@ router.post('/templates/:templateId/apply-final', verifyToken, async (req, res) 
       message: 'Final edits applied successfully',
       data: {
         fileName: result.fileName,
-        excelBase64: result.excelData,
+        // excelBase64: result.excelData, // Removed for optimization
         htmlContent: result.htmlContent,
         htmlJsonData: result.htmlJsonData,
-        pdfBase64: result.pdfData,
+        // pdfBase64: result.pdfData, // Removed for optimization
         pdfFileName: result.pdfFileName
       }
     });
@@ -1003,7 +1003,7 @@ router.get('/:reportId/finalworkings-sheet', async (req, res) => {
  */
 router.post('/create-payment-order', verifyToken, async (req, res) => {
   try {
-    const { template_id, report_title, stage_id, amount: clientAmount, selected_sheets } = req.body;
+    const { template_id, report_title, stage_id, amount: clientAmount, selected_sheets, analysis_options } = req.body;
     
     if (!template_id) {
       return res.status(400).json({ success: false, error: 'template_id is required' });
@@ -1011,7 +1011,8 @@ router.post('/create-payment-order', verifyToken, async (req, res) => {
     
     console.log(`💰 [create-payment-order] Request for template: "${template_id}"`, {
       clientAmount,
-      selectedSheetsCount: selected_sheets?.length || 0
+      selectedSheetsCount: selected_sheets?.length || 0,
+      hasAnalysisOptions: !!analysis_options
     });
     
     let amount;
@@ -1054,7 +1055,9 @@ router.post('/create-payment-order', verifyToken, async (req, res) => {
         currency: 'INR'
       },
       validation_status: 'pending_payment',
-      status: 'draft'
+      status: 'draft',
+      requested_sheets: selected_sheets ? selected_sheets.map(s => s.sheet_name) : [],
+      analysis_options: analysis_options
     });
     
     await report.save();

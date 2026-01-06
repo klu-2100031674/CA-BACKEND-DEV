@@ -610,7 +610,10 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheet
                     if normalized_name in include_filter:
                          sheets_to_process.append(sheet_name)
             else:
-                exclude_normalized = { _normalized(s) for s in (exclude_sheets or []) }
+                # Use default excluded list if not provided
+                safe_excluded = excluded_sheets if excluded_sheets else ['Assumptions.1']
+                exclude_normalized = { _normalized(s) for s in safe_excluded }
+                
                 for sheet_name in all_sheet_names:
                      if _normalized(sheet_name) not in exclude_normalized:
                          sheets_to_process.append(sheet_name)

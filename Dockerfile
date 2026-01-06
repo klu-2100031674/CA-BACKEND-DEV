@@ -24,6 +24,9 @@ COPY package*.json ./
 # Install Node.js dependencies
 RUN npm install --production
 
+# Install pip for Python dependencies
+RUN pip3 install --upgrade pip
+
 # Copy Python requirements
 COPY src/python-engine/requirements.txt ./src/python-engine/requirements.txt
 

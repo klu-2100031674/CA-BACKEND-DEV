@@ -23,8 +23,37 @@ from pathlib import Path
 import subprocess
 import shutil
 
+
+def _normalized_sheet_key(value: str) -> str:
+    """Normalize sheet names/inputs for loose matching.
+
+    Used in include/exclude filtering and stable filenames.
+    """
+    return re.sub(r"[\s_\-]+", "", (value or "").strip().lower())
+
+
+def _get_safe_temp_dir() -> str:
+    """Return a temp directory that works on the current OS.
+
+    Render/Linux deployments sometimes receive a Windows-style TEMP_DIR (e.g. D:\\...).
+    That breaks path operations inside containers, so we fall back to the system temp.
+    """
+    import tempfile
+
+    candidate = os.getenv("TEMP_DIR")
+    if not candidate:
+        return tempfile.gettempdir()
+
+    # If we're not on Windows and the path looks like a Windows drive path, ignore it.
+    if os.name != "nt" and re.match(r"^[A-Za-z]:\\", candidate):
+        return tempfile.gettempdir()
+
+    return candidate
+
 # Configuration Flag
-USE_COM_INTERFACE = False  # Set to True for Windows/COM, False for Linux/LibreOffice
+# Prefer env var so Render/Docker can control behavior.
+_use_com_env = os.getenv("USE_COM_INTERFACE", "False").strip().lower()
+USE_COM_INTERFACE = _use_com_env in {"1", "true", "yes", "y", "on"}
 
 # Windows COM for Excel automation
 try:
@@ -35,9 +64,8 @@ except ImportError:
     COM_AVAILABLE = False
     print("Warning: pywin32 not available. PDF generation will fallback to LibreOffice/Linux mode.", file=sys.stderr)
 
-# FORCE BACKEND MODE (For testing or Linux usage)
-# Change this to False to force the LibreOffice/Subprocess method even on Windows
-USE_COM_INTERFACE = COM_AVAILABLE and True  
+# If COM libs aren't available, force No-COM mode regardless of env.
+USE_COM_INTERFACE = bool(USE_COM_INTERFACE and COM_AVAILABLE)
 
 import subprocess
 from openpyxl import load_workbook
@@ -308,7 +336,7 @@ def generate_pdf_from_excel_sheet(excel_path: str, sheet_name: str, output_path:
         print(f"[PDF Generator] Input Excel: {excel_path}", file=sys.stderr)
         print(f"[PDF Generator] Output PDF: {output_path}", file=sys.stderr)
         
-        if COM_AVAILABLE:
+        if COM_AVAILABLE and USE_COM_INTERFACE:
             # Use Excel COM automation for exact formatting preservation
             print(f"[PDF Generator] Using Excel COM automation for exact formatting", file=sys.stderr)
             excel = None
@@ -443,7 +471,14 @@ def generate_pdf_from_excel_sheet(excel_path: str, sheet_name: str, output_path:
         else:
             # Fallback to pandas method (no formatting preservation)
             print(f"⚠️ [PDF Generator] COM not available, using fallback method", file=sys.stderr)
-            return generate_pdf_fallback(excel_path, sheet_name, output_path)
+            # Try to find the closest sheet match to avoid strict case/spacing issues on Linux.
+            try:
+                wb = load_workbook(excel_path, data_only=True)
+                actual_sheet_name = find_sheet_match(sheet_name, wb.sheetnames) or sheet_name
+                wb.close()
+            except Exception:
+                actual_sheet_name = sheet_name
+            return generate_pdf_fallback(excel_path, actual_sheet_name, output_path)
             
     except Exception as e:
         print(f"❌ [PDF Generator] Error generating PDF from Excel sheet: {str(e)}", file=sys.stderr)
@@ -548,19 +583,16 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheet
         "excluded_sheets": [],
         "filtered_out_sheets": [],
         "requested_sheets": [],
-        "sheet_status": []
+        "sheet_status": [],
+        "generated_files": []
     }
-
-    # Define normalization helper globally within function scope
-    def _normalized(value: str) -> str:
-        return re.sub(r'[\s_\-]+', '', value.strip().lower())
 
     include_filter = None
     sheet_status_summary = []
     requested_status_map = {}
     if include_sheets:
         include_filter = {
-            _normalized(sheet): sheet.strip()
+            _normalized_sheet_key(sheet): sheet.strip()
             for sheet in include_sheets
             if isinstance(sheet, str) and sheet.strip()
         }
@@ -607,16 +639,16 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheet
             if include_sheets:
                 # Filter requested
                  for sheet_name in all_sheet_names:
-                    normalized_name = _normalized(sheet_name)
+                    normalized_name = _normalized_sheet_key(sheet_name)
                     if normalized_name in include_filter:
                          sheets_to_process.append(sheet_name)
             else:
                 # Use default excluded list if not provided
                 safe_excluded = excluded_sheets if excluded_sheets else ['Assumptions.1']
-                exclude_normalized = { _normalized(s) for s in safe_excluded }
+                exclude_normalized = { _normalized_sheet_key(s) for s in safe_excluded }
                 
                 for sheet_name in all_sheet_names:
-                     if _normalized(sheet_name) not in exclude_normalized:
+                     if _normalized_sheet_key(sheet_name) not in exclude_normalized:
                          sheets_to_process.append(sheet_name)
             
             print(f"[Multi-PDF Generator] Sheets to process (LibreOffice): {sheets_to_process}", file=sys.stderr)
@@ -626,7 +658,7 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheet
                 
                 # Create a specific temp file for this sheet
                 run_id = uuid.uuid4().hex[:8]
-                temp_excel_name = f"temp_{run_id}_{_normalized(sheet_name)}.xlsx"
+                temp_excel_name = f"temp_{run_id}_{_normalized_sheet_key(sheet_name)}.xlsx"
                 temp_excel_path = os.path.join(temp_processing_dir, temp_excel_name)
                 
                 # Copy original to temp
@@ -645,7 +677,7 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheet
                      continue
 
                 # Define output PDF path
-                pdf_filename = f"{_normalized(sheet_name)}.pdf"
+                pdf_filename = f"{_normalized_sheet_key(sheet_name)}.pdf"
                 pdf_output_path = os.path.join(output_dir, pdf_filename)
                 
                 # Run LibreOffice conversion
@@ -676,7 +708,7 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheet
                             pdf_files["generated_files"].append(pdf_output_path)
                             
                             # Update status
-                            norm = _normalized(sheet_name)
+                            norm = _normalized_sheet_key(sheet_name)
                             if norm in requested_status_map:
                                 requested_status_map[norm]["status"] = "success"
                                 requested_status_map[norm]["path"] = pdf_output_path
@@ -3430,11 +3462,11 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
         
         if file_ext == '.xls':
             # For .xls files, prefer COM over pandas/openpyxl for better accuracy
-            if COM_AVAILABLE:
+            if COM_AVAILABLE and USE_COM_INTERFACE:
                 print(f"[Excel Calculator] Loading .xls file with COM Excel automation: {excel_path}", file=sys.stderr)
                 import tempfile
 
-                output_dir = os.getenv('TEMP_DIR', tempfile.gettempdir())
+                output_dir = _get_safe_temp_dir()
                 os.makedirs(output_dir, exist_ok=True)
 
                 timestamp = datetime.datetime.now(datetime.UTC).strftime('%Y%m%dT%H%M%SZ')
@@ -3465,7 +3497,7 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
                 
                 # Use TEMP_DIR environment variable, fallback to system temp directory
                 import tempfile
-                output_dir = os.getenv('TEMP_DIR', tempfile.gettempdir())
+                output_dir = _get_safe_temp_dir()
                 os.makedirs(output_dir, exist_ok=True)
                 
                 timestamp = datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
@@ -3494,7 +3526,7 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
                 # Try to recalculate formulas if COM becomes available
                 print(f"[Excel Calculator] Attempting formula recalculation...", file=sys.stderr)
                 try:
-                    if COM_AVAILABLE:
+                    if COM_AVAILABLE and USE_COM_INTERFACE:
                         import win32com.client
                         excel_app = win32com.client.DispatchEx("Excel.Application")
                         try:
@@ -3540,7 +3572,7 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
         else:
             # Handle .xlsx files
             import tempfile
-            output_dir = os.getenv('TEMP_DIR', tempfile.gettempdir())
+            output_dir = _get_safe_temp_dir()
             os.makedirs(output_dir, exist_ok=True)
 
             timestamp = datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
@@ -3550,7 +3582,7 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
                 os.path.join(output_dir, f'{template_name}-updated-{timestamp}-{unique_id}.xlsx')
             )
 
-            if COM_AVAILABLE:
+            if COM_AVAILABLE and USE_COM_INTERFACE:
                 print("[Excel Calculator] Applying .xlsx updates via COM automation", file=sys.stderr)
                 output_path, applied_updates = _apply_updates_via_com(
                     excel_path,

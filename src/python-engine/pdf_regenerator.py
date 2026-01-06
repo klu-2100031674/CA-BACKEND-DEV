@@ -37,8 +37,23 @@ try:
 except ImportError:
     print("[PDF Regenerator] Warning: win32com not available. PDF generation will use fallback methods.", file=sys.stderr)
 
-# Configuration Flag - Set to False for Linux/No-COM mode
-USE_COM_INTERFACE = False
+# Configuration Flag - controlled by env; forced off if COM is unavailable
+USE_COM_INTERFACE = os.environ.get("USE_COM_INTERFACE", "true").strip().lower() in (
+    "1",
+    "true",
+    "yes",
+    "y",
+    "on",
+)
+if USE_COM_INTERFACE and not COM_AVAILABLE:
+    USE_COM_INTERFACE = False
+
+
+def _normalized_sheet_key(value: str) -> str:
+    """Normalize a sheet name for robust comparisons across variants."""
+    if not value:
+        return ""
+    return re.sub(r"[\s_\-]+", "", value.strip().lower())
 
 
 def generate_pdf_from_excel_sheet(excel_path: str, sheet_name: str, output_path: str) -> bool:
@@ -198,12 +213,9 @@ def generate_pdfs_from_excel(excel_path: str, output_dir: str, include_sheets: O
     }
     
     # Build include filter if sheets are specified
-    def _normalized(value: str) -> str:
-        return re.sub(r'[\s_\-]+', '', value.strip().lower())
-
     include_filter = None
     if include_sheets:
-        include_filter = {_normalized(sheet): sheet.strip() for sheet in include_sheets if sheet.strip()}
+        include_filter = {_normalized_sheet_key(sheet): sheet.strip() for sheet in include_sheets if sheet.strip()}
     
     if not COM_AVAILABLE and USE_COM_INTERFACE:
         print(f"❌ Excel COM not available. Cannot generate PDFs.", file=sys.stderr)
@@ -252,7 +264,7 @@ def generate_pdfs_from_excel(excel_path: str, output_dir: str, include_sheets: O
             sheet_name = sheet.Name
             
             normalized_sheet = sheet_name.strip()
-            normalized_key = re.sub(r'[\s_\-]+', '', normalized_sheet.lower())
+            normalized_key = _normalized_sheet_key(normalized_sheet)
             
             # Skip excluded sheets
             if sheet_name in EXCLUDED_SHEETS:

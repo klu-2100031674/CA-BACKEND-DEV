@@ -67,6 +67,10 @@ except ImportError:
 # If COM libs aren't available, force No-COM mode regardless of env.
 USE_COM_INTERFACE = bool(USE_COM_INTERFACE and COM_AVAILABLE)
 
+# Best-practice for Linux PDF export: flatten formulas to values before LibreOffice touches the file.
+_freeze_env = os.getenv("FREEZE_FORMULAS_TO_VALUES", "True").strip().lower()
+FREEZE_FORMULAS_TO_VALUES = _freeze_env in {"1", "true", "yes", "y", "on"}
+
 import subprocess
 from openpyxl import load_workbook
 import shutil
@@ -80,6 +84,73 @@ except ImportError:
     XL_CALC_AVAILABLE = False
 
 _XL_CUSTOM_FUNCS_REGISTERED = False
+
+
+def _freeze_workbook_formulas_to_values(source_xlsx_path: str, output_xlsx_path: str) -> Dict[str, int]:
+    """Create a copy of the workbook with formulas replaced by cached values.
+
+    This prevents LibreOffice from re-evaluating formulas (which can yield #NAME? for
+    unsupported Excel functions) during PDF conversion.
+
+    Note: This uses the cached results stored in the XLSX file. If the workbook was
+    not recalculated after updates, some cached results may be missing.
+    """
+
+    converted = 0
+    missing = 0
+    skipped_sheets = 0
+
+    wb_formula = load_workbook(source_xlsx_path, data_only=False, keep_vba=True)
+    wb_values = load_workbook(source_xlsx_path, data_only=True, keep_vba=True)
+
+    try:
+        for sheet_name in wb_formula.sheetnames:
+            if sheet_name not in wb_values.sheetnames:
+                skipped_sheets += 1
+                continue
+
+            ws_formula = wb_formula[sheet_name]
+            ws_values = wb_values[sheet_name]
+
+            for row in ws_formula.iter_rows():
+                for cell in row:
+                    cell_value = cell.value
+                    is_formula = cell.data_type == "f" or (
+                        isinstance(cell_value, str) and cell_value.startswith("=")
+                    )
+                    if not is_formula:
+                        continue
+
+                    cached_value = ws_values[cell.coordinate].value
+                    if cached_value is None:
+                        missing += 1
+                        continue
+
+                    cell.value = cached_value
+                    converted += 1
+
+        # Avoid recalculation prompts by consumers
+        try:
+            wb_formula.calculation.fullCalcOnLoad = False
+        except Exception:
+            pass
+
+        wb_formula.save(output_xlsx_path)
+    finally:
+        try:
+            wb_values.close()
+        except Exception:
+            pass
+        try:
+            wb_formula.close()
+        except Exception:
+            pass
+
+    return {
+        "converted": converted,
+        "missing_cached": missing,
+        "skipped_sheets": skipped_sheets,
+    }
 
 
 def get_final_sheet_name(template_name: str) -> str:
@@ -628,7 +699,7 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheet
         # 2. Use openpyxl to delete all sheets EXCEPT the one we want.
         # 3. Convert that temporary workbook to PDF using soffice.
         
-        temp_processing_dir = os.path.join(os.path.dirname(excel_path), "temp_libre_processing")
+        temp_processing_dir = os.path.join(_get_safe_temp_dir(), "temp_libre_processing")
         os.makedirs(temp_processing_dir, exist_ok=True)
 
         try:
@@ -3800,13 +3871,45 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
         # Determine sheet name based on template format
         final_sheet_name = get_final_sheet_name(template_name)
 
+        # ---------------------------------------------------------------------
+        # Linux/LibreOffice Best Practice:
+        # 1) (Optional) Recalculate formulas (handled earlier via COM or LibreOffice)
+        # 2) Convert formulas -> cached values (flatten)
+        # 3) Export PDFs from the flattened workbook
+        # This prevents LibreOffice from re-evaluating formulas and producing #NAME?.
+        # ---------------------------------------------------------------------
+        pdf_source_path = output_path
+        if (not USE_COM_INTERFACE) and FREEZE_FORMULAS_TO_VALUES and (
+            (not input_data.get('skipPdf', False)) or input_data.get('generateFullReport', False)
+        ):
+            try:
+                freeze_id = uuid.uuid4().hex[:8]
+                flattened_pdf_source_path = _abs_path(
+                    os.path.join(output_dir, f'{template_name}-flattened-{timestamp}-{freeze_id}.xlsx')
+                )
+                print(
+                    f"[Excel Calculator] Flattening formulas to values for Linux PDF export: {flattened_pdf_source_path}",
+                    file=sys.stderr,
+                )
+                stats = _freeze_workbook_formulas_to_values(output_path, flattened_pdf_source_path)
+                print(
+                    f"[Excel Calculator] ✓ Flattened workbook created (converted={stats.get('converted')}, missing_cached={stats.get('missing_cached')})",
+                    file=sys.stderr,
+                )
+                pdf_source_path = flattened_pdf_source_path
+                meta['flattenedPdfSource'] = pdf_source_path
+                meta['flattenStats'] = stats
+            except Exception as freeze_error:
+                print(f"[Excel Calculator] ⚠ Could not flatten formulas for PDF export: {freeze_error}", file=sys.stderr)
+                pdf_source_path = output_path
+
         # Generate PDF for Final workings sheet directly from Excel
         pdf_base64 = None
         pdf_file_name = None
         if not input_data.get('skipPdf', False):
             try:
                 pdf_output_path = os.path.join(output_dir, f'{template_name}-{final_sheet_name}-{timestamp}.pdf')
-                if generate_pdf_from_excel_sheet(output_path, final_sheet_name, pdf_output_path):
+                if generate_pdf_from_excel_sheet(pdf_source_path, final_sheet_name, pdf_output_path):
                     with open(pdf_output_path, 'rb') as f:
                         pdf_bytes = f.read()
                     pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
@@ -3874,7 +3977,7 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
                 dynamic_excluded_sheets = input_data.get('excludedSheets')
                 index_sheet_name = input_data.get('indexSheet')
                 sheet_pdfs = generate_pdfs_for_all_sheets(
-                    output_path,
+                    pdf_source_path,
                     pdfs_dir,
                     selected_sheets,
                     dynamic_excluded_sheets,
@@ -3885,7 +3988,7 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
                 if sheet_pdfs.get('success_count', 0) == 0 and selected_sheets:
                     print("[Full Report] ⚠️  No sheets matched the selection. Falling back to generating ALL sheets.", file=sys.stderr)
                     sheet_pdfs = generate_pdfs_for_all_sheets(
-                        output_path,
+                        pdf_source_path,
                         pdfs_dir,
                         None,  # No filter
                         dynamic_excluded_sheets,

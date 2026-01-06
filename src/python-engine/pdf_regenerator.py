@@ -198,13 +198,14 @@ def generate_pdfs_from_excel(excel_path: str, output_dir: str, include_sheets: O
     }
     
     # Build include filter if sheets are specified
+    def _normalized(value: str) -> str:
+        return re.sub(r'[\s_\-]+', '', value.strip().lower())
+
     include_filter = None
     if include_sheets:
-        def _normalized(value: str) -> str:
-            return re.sub(r'[\s_\-]+', '', value.strip().lower())
         include_filter = {_normalized(sheet): sheet.strip() for sheet in include_sheets if sheet.strip()}
     
-    if not COM_AVAILABLE:
+    if not COM_AVAILABLE and USE_COM_INTERFACE:
         print(f"❌ Excel COM not available. Cannot generate PDFs.", file=sys.stderr)
         pdf_files["error"] = "Excel COM automation not available"
         return pdf_files
@@ -212,7 +213,21 @@ def generate_pdfs_from_excel(excel_path: str, output_dir: str, include_sheets: O
     excel = None
     workbook = None
     co_initialized = False
-    
+
+    # ---------------------------------------------------------
+    # NON-COM IMPLEMENTATION (LibreOffice / Linux Support)
+    # ---------------------------------------------------------
+    if not USE_COM_INTERFACE:
+        # Use simple import to avoid circular dependency issues if any
+        # Since pdf_regenerator calls generate_pdfs_for_all_sheets from excel_calculator
+        # this local function "generate_pdfs_from_excel" might be a fallback or legacy
+        # But we should update it to redirect or handle it.
+        # Actually, let's just use the excel_calculator one which is robust
+        
+        from excel_calculator import generate_pdfs_for_all_sheets as calc_generate_pdfs
+        print("[PDF Regenerator] Redirecting to excel_calculator.generate_pdfs_for_all_sheets (Linux Mode)", file=sys.stderr)
+        return calc_generate_pdfs(excel_path, output_dir, include_sheets, excluded_sheets)
+
     try:
         pythoncom.CoInitialize()
         co_initialized = True

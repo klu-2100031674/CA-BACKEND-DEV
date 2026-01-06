@@ -551,13 +551,14 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheet
         "sheet_status": []
     }
 
+    # Define normalization helper globally within function scope
+    def _normalized(value: str) -> str:
+        return re.sub(r'[\s_\-]+', '', value.strip().lower())
+
     include_filter = None
     sheet_status_summary = []
     requested_status_map = {}
     if include_sheets:
-        def _normalized(value: str) -> str:
-            return re.sub(r'[\s_\-]+', '', value.strip().lower())
-
         include_filter = {
             _normalized(sheet): sheet.strip()
             for sheet in include_sheets

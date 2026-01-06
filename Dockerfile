@@ -24,8 +24,10 @@ COPY package*.json ./
 # Install Node.js dependencies
 RUN npm install --production
 
-# Install pip for Python dependencies
-RUN pip3 install --upgrade pip
+# Note: We rely on the python3-pip package installed via apt-get in the base image section.
+# Debian bookworm strictly manages python packages (PEP 668).
+# We should NOT upgrade system pip globally or use it without a venv.
+# We will install dependencies strictly inside the virtual environment later.
 
 # Copy Python requirements
 COPY src/python-engine/requirements.txt ./src/python-engine/requirements.txt

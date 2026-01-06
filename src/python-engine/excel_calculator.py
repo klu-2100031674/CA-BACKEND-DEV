@@ -3567,6 +3567,50 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
                     workbook.close()
                 except Exception:
                     pass
+                
+                # LIBREOFFICE FORMULA RECALCULATION (Linux Mode)
+                if not USE_COM_INTERFACE:
+                    try:
+                        print("[Excel Calculator] triggering LibreOffice to recalculate formulas...", file=sys.stderr)
+                        import subprocess
+                        import shutil
+                        
+                        # Create a temp dir for the recalc output
+                        recalc_dir = os.path.join(output_dir, f"recalc_{unique_id}")
+                        os.makedirs(recalc_dir, exist_ok=True)
+                        
+                        # Run soffice to convert xlsx -> xlsx (forces recalc)
+                        cmd = [
+                            "soffice",
+                            "--headless",
+                            "--convert-to", "xlsx",
+                            "--outdir", recalc_dir,
+                            output_path
+                        ]
+                        
+                        # Run with timeout
+                        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60)
+                        
+                        if result.returncode == 0:
+                            # Expected output filename
+                            recalculated_filename = os.path.basename(output_path) # e.g. name.xlsx
+                            recalculated_path = os.path.join(recalc_dir, recalculated_filename)
+                            
+                            if os.path.exists(recalculated_path):
+                                # Replace the original output_path with the recalculated one
+                                shutil.move(recalculated_path, output_path)
+                                print("[Excel Calculator] ✓ LibreOffice formula recalculation successful", file=sys.stderr)
+                            else:
+                                print(f"[Excel Calculator] ⚠ Recalculated file not found at {recalculated_path}", file=sys.stderr)
+                        else:
+                            print(f"[Excel Calculator] ⚠ LibreOffice recalc failed: {result.stderr.decode()}", file=sys.stderr)
+                            
+                        # Cleanup
+                        shutil.rmtree(recalc_dir, ignore_errors=True)
+                        
+                    except Exception as e:
+                        print(f"[Excel Calculator] ⚠ Error during LibreOffice recalculation: {e}", file=sys.stderr)
+
                 workbook = load_workbook(output_path, data_only=True)
 
         # Read the Excel file as bytes and encode to base64

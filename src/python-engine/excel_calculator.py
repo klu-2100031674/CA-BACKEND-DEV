@@ -616,6 +616,7 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheet
     # ---------------------------------------------------------
     if not USE_COM_INTERFACE:
         print(f"[Multi-PDF Generator] Using LibreOffice (No-COM) Mode", file=sys.stderr)
+        import subprocess
         
         # Ensure output directory exists
         os.makedirs(output_dir, exist_ok=True)
@@ -634,14 +635,22 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheet
              # Load the workbook structure once to get sheet names
             wb_structure = load_workbook(excel_path, read_only=False, keep_vba=True)
             all_sheet_names = wb_structure.sheetnames
+            try:
+                wb_structure.close()
+            except Exception:
+                pass
+
+            pdf_files["total_sheets"] = len(all_sheet_names)
 
             sheets_to_process = []
+            matched_requested_norms = set()
             if include_sheets:
                 # Filter requested
                  for sheet_name in all_sheet_names:
                     normalized_name = _normalized_sheet_key(sheet_name)
                     if normalized_name in include_filter:
                          sheets_to_process.append(sheet_name)
+                         matched_requested_norms.add(normalized_name)
             else:
                 # Use default excluded list if not provided
                 safe_excluded = excluded_sheets if excluded_sheets else ['Assumptions.1']
@@ -652,6 +661,13 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheet
                          sheets_to_process.append(sheet_name)
             
             print(f"[Multi-PDF Generator] Sheets to process (LibreOffice): {sheets_to_process}", file=sys.stderr)
+
+            # Record missing requested sheets (do not fail; just report them)
+            if include_filter:
+                for norm_key, original_name in include_filter.items():
+                    if norm_key not in matched_requested_norms and norm_key in requested_status_map:
+                        requested_status_map[norm_key]["status"] = "missing"
+                        requested_status_map[norm_key]["reason"] = "Sheet not found in workbook"
 
             for sheet_name in sheets_to_process:
                 print(f"[Multi-PDF Generator] Processing sheet: {sheet_name}", file=sys.stderr)
@@ -703,9 +719,28 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheet
                             # Rename to desired final name
                             if os.path.exists(pdf_output_path):
                                 os.remove(pdf_output_path)
-                            os.rename(generated_temp_pdf_path, pdf_output_path)
+                            shutil.move(generated_temp_pdf_path, pdf_output_path)
+
+                            file_size = 0
+                            try:
+                                file_size = os.path.getsize(pdf_output_path)
+                            except Exception:
+                                file_size = 0
                             
                             pdf_files["generated_files"].append(pdf_output_path)
+                            pdf_files["success_count"] += 1
+                            pdf_files["sheets"][sheet_name] = {
+                                "pdf_path": pdf_output_path,
+                                "pdf_filename": os.path.basename(pdf_output_path),
+                                "file_size": file_size,
+                                "status": "success"
+                            }
+                            sheet_status_summary.append({
+                                "sheet": sheet_name,
+                                "status": "success",
+                                "reason": "Generated via LibreOffice",
+                                "path": pdf_output_path
+                            })
                             
                             # Update status
                             norm = _normalized_sheet_key(sheet_name)
@@ -715,11 +750,47 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheet
                                 requested_status_map[norm]["reason"] = "Generated via LibreOffice"
                         else:
                              print(f"[Multi-PDF Generator] Error: PDF not found after generation: {generated_temp_pdf_path}", file=sys.stderr)
+                             pdf_files["failed_count"] += 1
+                             pdf_files["sheets"][sheet_name] = {"status": "failed", "error": "PDF not created by LibreOffice"}
+                             sheet_status_summary.append({
+                                "sheet": sheet_name,
+                                "status": "failed",
+                                "reason": "PDF not created by LibreOffice"
+                             })
+                             norm = _normalized_sheet_key(sheet_name)
+                             if norm in requested_status_map:
+                                requested_status_map[norm]["status"] = "failed"
+                                requested_status_map[norm]["reason"] = "PDF not created by LibreOffice"
                     else:
-                        print(f"[Multi-PDF Generator] LibreOffice Error: {result.stderr.decode()}", file=sys.stderr)
+                        err_text = result.stderr.decode(errors="replace")
+                        print(f"[Multi-PDF Generator] LibreOffice Error: {err_text}", file=sys.stderr)
+                        pdf_files["failed_count"] += 1
+                        pdf_files["sheets"][sheet_name] = {"status": "failed", "error": err_text}
+                        sheet_status_summary.append({
+                            "sheet": sheet_name,
+                            "status": "failed",
+                            "reason": "LibreOffice conversion failed",
+                            "error": err_text
+                        })
+                        norm = _normalized_sheet_key(sheet_name)
+                        if norm in requested_status_map:
+                            requested_status_map[norm]["status"] = "failed"
+                            requested_status_map[norm]["reason"] = "LibreOffice conversion failed"
                         
                 except Exception as e:
                     print(f"[Multi-PDF Generator] Subprocess Error: {e}", file=sys.stderr)
+                    pdf_files["failed_count"] += 1
+                    pdf_files["sheets"][sheet_name] = {"status": "failed", "error": str(e)}
+                    sheet_status_summary.append({
+                        "sheet": sheet_name,
+                        "status": "failed",
+                        "reason": "LibreOffice subprocess error",
+                        "error": str(e)
+                    })
+                    norm = _normalized_sheet_key(sheet_name)
+                    if norm in requested_status_map:
+                        requested_status_map[norm]["status"] = "failed"
+                        requested_status_map[norm]["reason"] = "LibreOffice subprocess error"
 
                 # Cleanup temp excel
                 try:
@@ -736,6 +807,12 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheet
                 shutil.rmtree(temp_processing_dir)
             except:
                 pass
+
+        # Attach status summaries
+        if include_filter:
+            pdf_files["sheet_status"] = [requested_status_map[norm] for norm in include_filter.keys() if norm in requested_status_map]
+        else:
+            pdf_files["sheet_status"] = sheet_status_summary
                 
         return pdf_files
 
@@ -3839,7 +3916,7 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
                 if sheet_pdfs.get('success_count', 0) == 0:
                     raise RuntimeError(
                         "Failed to generate any Excel sheet PDFs for the AI report. "
-                        "Please review the Excel COM automation logs for details."
+                        "Please review the LibreOffice/COM PDF generation logs for details."
                     )
                 
                 # Prepare Excel data for AI

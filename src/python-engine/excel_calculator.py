@@ -3844,7 +3844,13 @@ if __name__ == '__main__':
     
     args = sys.argv[1:]
     excel_file_path = args[0]
-    json_input_string = args[1]
+    json_input_arg = args[1]
+
+    if json_input_arg.endswith('.json') and os.path.exists(json_input_arg):
+        with open(json_input_arg, 'r', encoding='utf-8') as f:
+            json_input_string = f.read()
+    else:
+         json_input_string = json_input_arg
 
     payload = json.loads(json_input_string)
     outcome = calculate_excel(payload, excel_file_path)

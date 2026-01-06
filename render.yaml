@@ -11,7 +11,7 @@ services:
         value: 10000
       - key: USE_COM_INTERFACE
         value: "False"
-      - key: MONGODB_URI
+      - key: MONGODB_URI_PROD
         sync: false
       - key: JWT_SECRET
         sync: false

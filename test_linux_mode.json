@@ -1,0 +1,9 @@
+{
+    "filePath": "Term Loan + CC Loan-updated-20251211T170644Z-0ac62b7b.xlsx",
+    "updates": [],
+    "generatePdf": false,
+    "generateFullReport": true,
+    "selectedSheets": ["Assumptions"],
+    "grokApiKey": "dummy_key", 
+    "skipHtmlGeneration": true
+}

@@ -17,6 +17,7 @@ import openpyxl
 from openpyxl import load_workbook
 from openpyxl.styles import Color, PatternFill, Font, Border
 from openpyxl.utils import get_column_letter
+from openpyxl.utils.cell import coordinate_to_tuple
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -151,6 +152,155 @@ def _freeze_workbook_formulas_to_values(source_xlsx_path: str, output_xlsx_path:
         "missing_cached": missing,
         "skipped_sheets": skipped_sheets,
     }
+
+
+def _estimate_used_rows_and_cols(ws) -> tuple[int, int]:
+    """Best-effort used range estimation for page-fitting decisions."""
+    try:
+        dim = ws.calculate_dimension()  # e.g. A1:K80
+        if not dim or ":" not in dim:
+            return (ws.max_row or 1, ws.max_column or 1)
+        end = dim.split(":", 1)[1]
+        row, col = coordinate_to_tuple(end)
+        return (row or 1, col or 1)
+    except Exception:
+        return (ws.max_row or 1, ws.max_column or 1)
+
+
+def _apply_linux_page_setup(ws, sheet_name: str) -> None:
+    """Apply COM-like page setup so LibreOffice exports match formatting closely."""
+    norm_name = normalize_sheet_name(sheet_name)
+    designed = norm_name in {"coverpage", "cover page", "cover", "index"}
+
+    used_rows, used_cols = _estimate_used_rows_and_cols(ws)
+
+    # Orientation rules similar to COM
+    wide_sheets = {
+        "workings for pl & bs",
+        "workings for plbs",
+        "workings for pl bs 2",
+        "depreciation",
+        "repayment schedule",
+        "working capital loan",
+    }
+    is_wide = used_cols > 10 or any(key in norm_name for key in wide_sheets)
+
+    # A4 + fit
+    try:
+        ws.page_setup.paperSize = 9  # A4
+    except Exception:
+        pass
+
+    try:
+        ws.page_setup.orientation = "landscape" if is_wide else "portrait"
+    except Exception:
+        pass
+
+    # Margins (in inches)
+    try:
+        ws.page_margins.left = 0.25
+        ws.page_margins.right = 0.25
+        ws.page_margins.top = 0.40 if designed else 0.30
+        ws.page_margins.bottom = 0.40 if designed else 0.30
+        ws.page_margins.header = 0.20
+        ws.page_margins.footer = 0.20
+    except Exception:
+        pass
+
+    # Centering
+    try:
+        ws.page_setup.horizontalCentered = True
+        ws.page_setup.verticalCentered = bool(designed)
+    except Exception:
+        pass
+
+    # Fit-to-page settings
+    try:
+        ws.sheet_properties.pageSetUpPr.fitToPage = True
+    except Exception:
+        pass
+
+    try:
+        ws.page_setup.fitToWidth = 1
+        if designed:
+            ws.page_setup.fitToHeight = 1
+        else:
+            pages_tall = max(1, (used_rows + 59) // 60)
+            ws.page_setup.fitToHeight = pages_tall
+    except Exception:
+        pass
+
+    # Respect existing PrintArea when defined (helps exclude side instructions)
+    # We intentionally do NOT clear/override it here.
+
+
+def _generate_pdf_via_libreoffice(excel_path: str, sheet_name: str, output_path: str) -> bool:
+    """Generate a single-sheet PDF using LibreOffice by isolating the sheet."""
+    temp_processing_dir = os.path.join(_get_safe_temp_dir(), "temp_libre_single")
+    os.makedirs(temp_processing_dir, exist_ok=True)
+
+    run_id = uuid.uuid4().hex[:8]
+    temp_excel_name = f"temp_{run_id}_{_normalized_sheet_key(sheet_name)}.xlsx"
+    temp_excel_path = os.path.join(temp_processing_dir, temp_excel_name)
+    out_dir = os.path.dirname(os.path.abspath(output_path))
+    os.makedirs(out_dir, exist_ok=True)
+
+    try:
+        shutil.copy2(excel_path, temp_excel_path)
+
+        wb_temp = load_workbook(temp_excel_path)
+        actual_sheet = find_sheet_match(sheet_name, wb_temp.sheetnames) or sheet_name
+        if actual_sheet not in wb_temp.sheetnames:
+            wb_temp.close()
+            return False
+
+        # Delete other sheets to force one-sheet export
+        for s in list(wb_temp.sheetnames):
+            if s != actual_sheet:
+                del wb_temp[s]
+
+        _apply_linux_page_setup(wb_temp[actual_sheet], actual_sheet)
+        wb_temp.save(temp_excel_path)
+        wb_temp.close()
+
+        cmd = [
+            "soffice",
+            "--headless",
+            "--convert-to",
+            "pdf",
+            "--outdir",
+            out_dir,
+            temp_excel_path,
+        ]
+        print(f"[PDF Generator] LibreOffice running: {' '.join(cmd)}", file=sys.stderr)
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=90)
+        if result.returncode != 0:
+            print(f"[PDF Generator] LibreOffice error: {result.stderr.decode(errors='replace')}", file=sys.stderr)
+            return False
+
+        generated_pdf_name = temp_excel_name.replace(".xlsx", ".pdf")
+        generated_pdf_path = os.path.join(out_dir, generated_pdf_name)
+        if not os.path.exists(generated_pdf_path):
+            print(f"[PDF Generator] LibreOffice output PDF missing: {generated_pdf_path}", file=sys.stderr)
+            return False
+
+        if os.path.exists(output_path):
+            try:
+                os.remove(output_path)
+            except Exception:
+                pass
+        shutil.move(generated_pdf_path, output_path)
+        return os.path.exists(output_path)
+    finally:
+        try:
+            if os.path.exists(temp_excel_path):
+                os.remove(temp_excel_path)
+        except Exception:
+            pass
+        try:
+            shutil.rmtree(temp_processing_dir)
+        except Exception:
+            pass
 
 
 def get_final_sheet_name(template_name: str) -> str:
@@ -540,16 +690,9 @@ def generate_pdf_from_excel_sheet(excel_path: str, sheet_name: str, output_path:
                     except Exception:
                         pass
         else:
-            # Fallback to pandas method (no formatting preservation)
-            print(f"⚠️ [PDF Generator] COM not available, using fallback method", file=sys.stderr)
-            # Try to find the closest sheet match to avoid strict case/spacing issues on Linux.
-            try:
-                wb = load_workbook(excel_path, data_only=True)
-                actual_sheet_name = find_sheet_match(sheet_name, wb.sheetnames) or sheet_name
-                wb.close()
-            except Exception:
-                actual_sheet_name = sheet_name
-            return generate_pdf_fallback(excel_path, actual_sheet_name, output_path)
+            # LibreOffice-based export for Linux/Render (preserves layout better than pandas/FPDF)
+            print(f"⚠️ [PDF Generator] COM not available, using LibreOffice export", file=sys.stderr)
+            return _generate_pdf_via_libreoffice(excel_path, sheet_name, output_path)
             
     except Exception as e:
         print(f"❌ [PDF Generator] Error generating PDF from Excel sheet: {str(e)}", file=sys.stderr)
@@ -636,14 +779,13 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheet
     print(f"\n{'='*80}", file=sys.stderr)
     print(f"📄 GENERATING PDFs FOR ALL EXCEL SHEETS", file=sys.stderr)
     print(f"{'='*80}\n", file=sys.stderr)
-    
+
     # Sheets to exclude from PDF generation
-    # Removed most exclusions as user wants more sheets included
     if excluded_sheets is not None:
         EXCLUDED_SHEETS = excluded_sheets
     else:
         EXCLUDED_SHEETS = [
-            'Assumptions.1', # Keep only this one which is typically internal
+            'Assumptions.1',  # Keep only this one which is typically internal
         ]
     
     pdf_files = {
@@ -757,6 +899,10 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheet
                     for s in wb_temp.sheetnames:
                         if s != sheet_name:
                             del wb_temp[s]
+                    try:
+                        _apply_linux_page_setup(wb_temp[sheet_name], sheet_name)
+                    except Exception as setup_error:
+                        print(f"[Multi-PDF Generator] Warning: Could not apply page setup for '{sheet_name}': {setup_error}", file=sys.stderr)
                     wb_temp.save(temp_excel_path)
                     wb_temp.close()
                 except Exception as e:

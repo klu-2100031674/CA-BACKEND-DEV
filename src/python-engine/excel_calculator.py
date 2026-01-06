@@ -20,16 +20,29 @@ from openpyxl.utils import get_column_letter
 import pandas as pd
 import numpy as np
 from pathlib import Path
+import subprocess
+import shutil
+
+# Configuration Flag
+USE_COM_INTERFACE = False  # Set to True for Windows/COM, False for Linux/LibreOffice
 
 # Windows COM for Excel automation
 try:
     import win32com.client
+    import pythoncom
     COM_AVAILABLE = True
 except ImportError:
     COM_AVAILABLE = False
-    print("Warning: pywin32 not available. PDF generation will use fallback method.", file=sys.stderr)
+    print("Warning: pywin32 not available. PDF generation will fallback to LibreOffice/Linux mode.", file=sys.stderr)
 
-# Pure Python Excel formula evaluation (fallback when COM unavailable)
+# FORCE BACKEND MODE (For testing or Linux usage)
+# Change this to False to force the LibreOffice/Subprocess method even on Windows
+USE_COM_INTERFACE = COM_AVAILABLE and True  
+
+import subprocess
+from openpyxl import load_workbook
+import shutil
+
 try:
     from xlcalculator import ModelCompiler
     from xlcalculator.evaluator import Evaluator
@@ -100,7 +113,8 @@ def extract_sheet_data_with_com(excel_path: str, sheet_name: str = None) -> List
         import pythoncom
         
         pythoncom.CoInitialize()
-        excel_app = win32com.client.Dispatch("Excel.Application")
+        # Use DispatchEx to ensure a new independent Excel instance for each process
+        excel_app = win32com.client.DispatchEx("Excel.Application")
         try:
             excel_app.Visible = False
         except Exception:
@@ -312,7 +326,7 @@ def generate_pdf_from_excel_sheet(excel_path: str, sheet_name: str, output_path:
                     print(f"[PDF Generator] Warning: Failed to CoInitialize COM: {init_error}", file=sys.stderr)
                 
                 print(f"[PDF Generator] Initializing Excel COM...", file=sys.stderr)
-                excel = win32com.client.Dispatch("Excel.Application")
+                excel = win32com.client.DispatchEx("Excel.Application")
                 try:
                     excel.Visible = False
                 except Exception as e:
@@ -349,12 +363,47 @@ def generate_pdf_from_excel_sheet(excel_path: str, sheet_name: str, output_path:
                         sheet_found = True
                         actual_sheet_name = sheet.Name
                         print(f"[PDF Generator] Sheet '{actual_sheet_name}' selected (matched from '{sheet_name}')", file=sys.stderr)
+                        
+                        # Configure PageSetup for professional PDF output
+                        print(f"[PDF Generator] Configuring PageSetup for '{actual_sheet_name}'...", file=sys.stderr)
+                        try:
+                            page_setup = sheet.PageSetup
+                            page_setup.Zoom = False
+                            page_setup.FitToPagesWide = 1
+                            page_setup.FitToPagesTall = False  # Permit multi-page length
+                            page_setup.CenterHorizontally = True
+                            
+                            # Smart orientation detection
+                            if sheet.UsedRange.Columns.Count > 10:
+                                page_setup.Orientation = 2  # xlLandscape
+                            else:
+                                page_setup.Orientation = 1  # xlPortrait
+                                
+                            # Professional margins
+                            page_setup.LeftMargin = excel.InchesToPoints(0.25)
+                            page_setup.RightMargin = excel.InchesToPoints(0.25)
+                            page_setup.TopMargin = excel.InchesToPoints(0.4)
+                            page_setup.BottomMargin = excel.InchesToPoints(0.4)
+                            print(f"[PDF Generator] PageSetup configured successfully", file=sys.stderr)
+                        except Exception as ps_error:
+                            print(f"[PDF Generator] Warning: Could not configure PageSetup: {ps_error}", file=sys.stderr)
+                            
                         break
                 
                 if not sheet_found:
                     print(f"[PDF Generator] ERROR: Sheet '{sheet_name}' not found in workbook (tried case-insensitive matching)", file=sys.stderr)
                     return False
                 
+                # Determine if we should ignore print areas for this specific export
+                ignore_print_areas = True
+                try:
+                    norm_actual = normalize_sheet_name(actual_sheet_name)
+                    if norm_actual in ['cover page', 'coverpage', 'cover', 'index'] and workbook.ActiveSheet.PageSetup.PrintArea:
+                        ignore_print_areas = False
+                        print(f"[PDF Generator] Respecting PrintArea for designed sheet: {actual_sheet_name}", file=sys.stderr)
+                except:
+                    pass
+
                 # Export as PDF with optimal settings
                 print(f"[PDF Generator] Exporting to PDF: {os.path.abspath(output_path)}", file=sys.stderr)
                 workbook.ActiveSheet.ExportAsFixedFormat(
@@ -362,7 +411,7 @@ def generate_pdf_from_excel_sheet(excel_path: str, sheet_name: str, output_path:
                     Filename=os.path.abspath(output_path),
                     Quality=0,  # 0 = Standard quality (faster, smaller file)
                     IncludeDocProperties=True,
-                    IgnorePrintAreas=False,
+                    IgnorePrintAreas=ignore_print_areas,
                     OpenAfterPublish=False
                 )
                 
@@ -463,7 +512,7 @@ def generate_pdf_fallback(excel_path: str, sheet_name: str, output_path: str) ->
         return False
 
 
-def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheets: Optional[List[str]] = None, excluded_sheets: Optional[List[str]] = None) -> Dict[str, Any]:
+def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheets: Optional[List[str]] = None, excluded_sheets: Optional[List[str]] = None, index_sheet: Optional[str] = None) -> Dict[str, Any]:
     """
     Generate individual PDF files for ALL sheets in the Excel workbook (excluding Assumptions sheet).
     Uses Excel COM automation to preserve formatting with better page fitting.
@@ -473,6 +522,7 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheet
         output_dir: Directory to save the PDF files
         include_sheets: List of sheet names to include
         excluded_sheets: List of sheet names to exclude (overrides default)
+        index_sheet: Specific Index sheet to include based on loan amount (e.g., 'Index < 20Lac')
         
     Returns:
         Dictionary with sheet names as keys and PDF file paths as values
@@ -482,10 +532,13 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheet
     print(f"{'='*80}\n", file=sys.stderr)
     
     # Sheets to exclude from PDF generation
+    # Removed most exclusions as user wants more sheets included
     if excluded_sheets is not None:
         EXCLUDED_SHEETS = excluded_sheets
     else:
-        EXCLUDED_SHEETS = ['Assumptions.1', 'Assumptions', 'assumptions', 'ASSUMPTIONS']
+        EXCLUDED_SHEETS = [
+            'Assumptions.1', # Keep only this one which is typically internal
+        ]
     
     pdf_files = {
         "sheets": {},
@@ -524,6 +577,135 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheet
     co_initialized = False
     excel = None
     workbook = None
+
+    # ---------------------------------------------------------
+    # NON-COM IMPLEMENTATION (LibreOffice / Linux Support)
+    # ---------------------------------------------------------
+    if not USE_COM_INTERFACE:
+        print(f"[Multi-PDF Generator] Using LibreOffice (No-COM) Mode", file=sys.stderr)
+        
+        # Ensure output directory exists
+        os.makedirs(output_dir, exist_ok=True)
+
+        # We will loop through requested sheets (or all sheets) and generate PDFs
+        # LibreOffice headless converts individual sheets by hiding others or printing ranges.
+        # However, a simpler approach for 'specific sheets' is:
+        # 1. Create a temporary copy of the workbook.
+        # 2. Use openpyxl to delete all sheets EXCEPT the one we want.
+        # 3. Convert that temporary workbook to PDF using soffice.
+        
+        temp_processing_dir = os.path.join(os.path.dirname(excel_path), "temp_libre_processing")
+        os.makedirs(temp_processing_dir, exist_ok=True)
+
+        try:
+             # Load the workbook structure once to get sheet names
+            wb_structure = load_workbook(excel_path, read_only=False, keep_vba=True)
+            all_sheet_names = wb_structure.sheetnames
+
+            sheets_to_process = []
+            if include_sheets:
+                # Filter requested
+                 for sheet_name in all_sheet_names:
+                    normalized_name = _normalized(sheet_name)
+                    if normalized_name in include_filter:
+                         sheets_to_process.append(sheet_name)
+            else:
+                exclude_normalized = { _normalized(s) for s in (exclude_sheets or []) }
+                for sheet_name in all_sheet_names:
+                     if _normalized(sheet_name) not in exclude_normalized:
+                         sheets_to_process.append(sheet_name)
+            
+            print(f"[Multi-PDF Generator] Sheets to process (LibreOffice): {sheets_to_process}", file=sys.stderr)
+
+            for sheet_name in sheets_to_process:
+                print(f"[Multi-PDF Generator] Processing sheet: {sheet_name}", file=sys.stderr)
+                
+                # Create a specific temp file for this sheet
+                run_id = uuid.uuid4().hex[:8]
+                temp_excel_name = f"temp_{run_id}_{_normalized(sheet_name)}.xlsx"
+                temp_excel_path = os.path.join(temp_processing_dir, temp_excel_name)
+                
+                # Copy original to temp
+                shutil.copy2(excel_path, temp_excel_path)
+                
+                # Open with OpenPyXL and delete other sheets
+                try:
+                    wb_temp = load_workbook(temp_excel_path)
+                    for s in wb_temp.sheetnames:
+                        if s != sheet_name:
+                            del wb_temp[s]
+                    wb_temp.save(temp_excel_path)
+                    wb_temp.close()
+                except Exception as e:
+                     print(f"[Multi-PDF Generator] Error preparing temp excel for {sheet_name}: {e}", file=sys.stderr)
+                     continue
+
+                # Define output PDF path
+                pdf_filename = f"{_normalized(sheet_name)}.pdf"
+                pdf_output_path = os.path.join(output_dir, pdf_filename)
+                
+                # Run LibreOffice conversion
+                # soffice --headless --convert-to pdf --outdir <output_dir> <input_file>
+                cmd = [
+                    "soffice",
+                    "--headless",
+                    "--convert-to", "pdf",
+                    "--outdir", output_dir,
+                    temp_excel_path
+                ]
+                
+                print(f"[Multi-PDF Generator] running: {' '.join(cmd)}", file=sys.stderr)
+                try:
+                    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60)
+                    if result.returncode == 0:
+                        # LibreOffice output filename matches input filename but .pdf
+                        # e.g. temp_123_sheetname.pdf
+                        generated_temp_pdf_name = temp_excel_name.replace(".xlsx", ".pdf")
+                        generated_temp_pdf_path = os.path.join(output_dir, generated_temp_pdf_name)
+                        
+                        if os.path.exists(generated_temp_pdf_path):
+                            # Rename to desired final name
+                            if os.path.exists(pdf_output_path):
+                                os.remove(pdf_output_path)
+                            os.rename(generated_temp_pdf_path, pdf_output_path)
+                            
+                            pdf_files["generated_files"].append(pdf_output_path)
+                            
+                            # Update status
+                            norm = _normalized(sheet_name)
+                            if norm in requested_status_map:
+                                requested_status_map[norm]["status"] = "success"
+                                requested_status_map[norm]["path"] = pdf_output_path
+                                requested_status_map[norm]["reason"] = "Generated via LibreOffice"
+                        else:
+                             print(f"[Multi-PDF Generator] Error: PDF not found after generation: {generated_temp_pdf_path}", file=sys.stderr)
+                    else:
+                        print(f"[Multi-PDF Generator] LibreOffice Error: {result.stderr.decode()}", file=sys.stderr)
+                        
+                except Exception as e:
+                    print(f"[Multi-PDF Generator] Subprocess Error: {e}", file=sys.stderr)
+
+                # Cleanup temp excel
+                try:
+                    os.remove(temp_excel_path)
+                except:
+                    pass
+
+        except Exception as e:
+             print(f"[Multi-PDF Generator] Global Error (LibreOffice Loop): {e}", file=sys.stderr)
+        
+        finally:
+            # Cleanup temp dir
+            try:
+                shutil.rmtree(temp_processing_dir)
+            except:
+                pass
+                
+        return pdf_files
+
+    # ---------------------------------------------------------
+    # COM IMPLEMENTATION (Windows Only)
+    # ---------------------------------------------------------
     try:
         if not COM_AVAILABLE:
             print(f"❌ Excel COM not available. Cannot generate PDFs with formatting.", file=sys.stderr)
@@ -544,7 +726,8 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheet
         
         # Open workbook with Excel COM
         print(f"[Multi-PDF Generator] Opening workbook: {excel_path}", file=sys.stderr)
-        excel = win32com.client.Dispatch("Excel.Application")
+        print(f"[Multi-PDF Generator] Using Excel COM Automation (DispatchEx)", file=sys.stderr)
+        excel = win32com.client.DispatchEx("Excel.Application")
         try:
             excel.Visible = False
             excel.ScreenUpdating = False
@@ -589,6 +772,32 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheet
                     })
                 continue
 
+            # Handle Index sheet filtering based on loan amount condition
+            is_index_sheet = sheet_name.strip().startswith('Index')
+            if is_index_sheet and index_sheet:
+                # If a specific index sheet is specified, only include that one
+                if sheet_name.strip() != index_sheet.strip():
+                    print(f"[{sheet_idx}/{total_sheets}] ⏭️  Skipping sheet: '{sheet_name}' (using '{index_sheet}' instead)", file=sys.stderr)
+                    pdf_files["filtered_out_sheets"].append(sheet_name)
+                    sheet_status_summary.append({
+                        "sheet": sheet_name,
+                        "status": "filtered",
+                        "reason": f"Using Index sheet: {index_sheet}"
+                    })
+                    continue
+                else:
+                    print(f"[{sheet_idx}/{total_sheets}] Including Index sheet: '{sheet_name}' (loan amount condition match)", file=sys.stderr)
+            elif is_index_sheet and not index_sheet:
+                # If no specific index sheet is specified, skip all index sheets
+                print(f"[{sheet_idx}/{total_sheets}] ⏭️  Skipping sheet: '{sheet_name}' (no index sheet specified)", file=sys.stderr)
+                pdf_files["filtered_out_sheets"].append(sheet_name)
+                sheet_status_summary.append({
+                    "sheet": sheet_name,
+                    "status": "filtered",
+                    "reason": "Index sheet not applicable for this report"
+                })
+                continue
+
             if include_filter and normalized_key not in include_filter:
                 print(f"[{sheet_idx}/{total_sheets}] ⏭️  Skipping sheet: '{sheet_name}' (not in requested list)", file=sys.stderr)
                 pdf_files["filtered_out_sheets"].append(sheet_name)
@@ -610,39 +819,175 @@ def generate_pdfs_for_all_sheets(excel_path: str, output_dir: str, include_sheet
                 # Select the sheet
                 sheet.Select()
                 
-                # Auto-fit columns to prevent ######## display for numeric values (skip for index sheet)
+                # Get normalized sheet name for special handling
+                normalized_sheet = normalize_sheet_name(sheet_name)
+                
+                # Special sheets that need to fill the page (Cover, Index, etc.)
+                special_fill_sheets = ['cover page', 'coverpage', 'cover', 'index', 'summary', 'report summary', 'introduction']
+                is_designed_sheet = any(s in normalized_sheet for s in special_fill_sheets)
+                
+                # Auto-fit columns to prevent ######## display for numeric values (skip for designed sheets)
+                # Designed sheets like Cover Page/Index usually shouldn't be auto-fitted as it ruins layout
                 try:
-                    if normalize_sheet_name(sheet_name) != 'index':
+                    if not is_designed_sheet:
                         sheet.Columns.AutoFit()
                 except Exception as e:
                     print(f"   ⚠️  Warning: Could not AutoFit columns on '{sheet_name}': {str(e)}", file=sys.stderr)
                 
-                # Configure page setup for better fitting
-                page_setup = workbook.ActiveSheet.PageSetup
-                page_setup.Zoom = False  # Disable fixed zoom
-                page_setup.FitToPagesWide = 1  # Fit to 1 page wide
+                # CRITICAL: Define PageSetup object immediately
+                page_setup = sheet.PageSetup
+
+                # Hide consecutive empty rows (skip for designed sheets to preserve manual layout)
+                try:
+                    # Logic to hide empty rows (SKIP FOR DESIGNED SHEETS)
+                    if not is_designed_sheet and include_filter is None:  
+                        # Determine the used range manually to be safe
+                        used_range = sheet.UsedRange
+                        first_row = used_range.Row
+                        total_rows = used_range.Rows.Count
+                        last_row = first_row + total_rows - 1
+                        
+                        first_col = used_range.Column
+                        last_col = first_col + used_range.Columns.Count - 1
+                        
+                        # Initialize rows_to_hide
+                        rows_to_hide = []
+                        consecutive_empty_start = None
+                        consecutive_empty_count = 0
+                        
+                        for row_idx in range(first_row, last_row + 1):
+                            # Check if entire row is empty
+                            row_is_empty = True
+                            for col_idx in range(first_col, last_col + 1):
+                                cell_value = sheet.Cells(row_idx, col_idx).Value
+                                if cell_value is not None and str(cell_value).strip() != '':
+                                    row_is_empty = False
+                                    break
+                            
+                            if row_is_empty:
+                                if consecutive_empty_start is None:
+                                    consecutive_empty_start = row_idx
+                                consecutive_empty_count += 1
+                            else:
+                                # If we had more than 1 consecutive empty rows, mark them for hiding (keep 1 visible)
+                                if consecutive_empty_count > 1:
+                                    # Keep the first empty row visible, hide the rest
+                                    for hide_row in range(consecutive_empty_start + 1, consecutive_empty_start + consecutive_empty_count):
+                                        rows_to_hide.append(hide_row)
+                                consecutive_empty_start = None
+                                consecutive_empty_count = 0
+                        
+                        # Handle trailing empty rows (hide all if more than 1)
+                        if consecutive_empty_count > 1:
+                            for hide_row in range(consecutive_empty_start + 1, consecutive_empty_start + consecutive_empty_count):
+                                rows_to_hide.append(hide_row)
+                        
+                        # Hide the rows
+                        rows_hidden = 0
+                        for row_idx in rows_to_hide:
+                            try:
+                                sheet.Rows(row_idx).Hidden = True
+                                rows_hidden += 1
+                            except:
+                                pass
+                        
+                        if rows_hidden > 0:
+                            print(f"   👁️  Hidden {rows_hidden} empty rows in '{sheet_name}'", file=sys.stderr)
+                            
+                except Exception as e:
+                    print(f"   ⚠️  Could not hide empty rows: {str(e)}", file=sys.stderr)
                 
-                # Special handling for Coverpage - must fit on 1 page
-                if sheet_name.lower() == 'coverpage':
-                    page_setup.FitToPagesTall = 1  # Force Coverpage to 1 page
-                    page_setup.Orientation = 1  # Portrait
+                # Sheets that typically need landscape due to many columns
+                wide_sheets = ['workings for pl & bs', 'workings for plbs', 'workings for pl bs 2', 
+                              'plbs', 'ratio', 'workings', 'working for plbs', 'working for plbs1', 
+                              'working for plbs2', 'workings for pl bs', 'tl workings']
+                
+                # Default behavior for print areas: Respect them to exclude side instructions
+                ignore_print_areas = False
+                
+                if is_designed_sheet:
+                    # NATIVE EXPORT with SCALING OVERRIDES
+                    # 1. Use Native PrintArea (ignore_print_areas=False) to respect "White Page" area and exclude side notes.
+                    # 2. Force A4 + Fit-to-Page to ensure that specific PrintArea fills the PDF accurately.
+                    
+                    print(f"   📄 Cover '{sheet_name}': Using Native PrintArea + Force A4 Scaling", file=sys.stderr)
+                    
+                    # Do NOT clear PrintArea. Trust the template's border definition.
+                    # page_setup.PrintArea = "" 
+                    
+                    page_setup.PaperSize = 9 # A4
+                    page_setup.Zoom = False
+                    page_setup.FitToPagesWide = 1
+                    page_setup.FitToPagesTall = 1 
+                    page_setup.CenterHorizontally = True
+                    
+                    ignore_print_areas = False 
+                
                 else:
-                    page_setup.FitToPagesTall = False  # Allow multiple pages vertically for other sheets
-                
-                page_setup.Orientation = 1  # xlPortrait (use 2 for xlLandscape if needed)
-                page_setup.PaperSize = 9  # A4
-                page_setup.LeftMargin = excel.InchesToPoints(0.5)
-                page_setup.RightMargin = excel.InchesToPoints(0.5)
-                page_setup.TopMargin = excel.InchesToPoints(0.5)
-                page_setup.BottomMargin = excel.InchesToPoints(0.5)
-                
-                # Export as PDF
-                workbook.ActiveSheet.ExportAsFixedFormat(
+                    # Configure page setup for better fitting using the specific sheet object
+                    # page_setup was already defined above
+                    page_setup.Zoom = False  # Disable fixed zoom (required for FitToPages)
+                    page_setup.PaperSize = 9  # A4 size
+                    
+                    # Narrow Margins to allow more rows
+                    # Standard is ~0.75 inch. We set to 0.25 inch (approx 18 points)
+                    page_setup.HeaderMargin = excel.InchesToPoints(0.2)
+                    page_setup.FooterMargin = excel.InchesToPoints(0.2)
+                    page_setup.LeftMargin = excel.InchesToPoints(0.25)
+                    page_setup.RightMargin = excel.InchesToPoints(0.25)
+                    page_setup.TopMargin = excel.InchesToPoints(0.3)
+                    page_setup.BottomMargin = excel.InchesToPoints(0.3)
+
+                    # Dynamic Fit Logic: Target ~60 rows per page
+                    # Calculate required pages based on row count
+                    fit_tall = False
+                    try:
+                        used_rows = sheet.UsedRange.Rows.Count
+                        # Formula: Total Rows / 60 -> Rounded UP.
+                        # e.g. 120 -> 2. 61 -> 2. 
+                        # Note: This balances the pages (e.g. 90 -> 2 pages @ 45 rows).
+                        # To force exactly 60 on P1, we'd need manual page breaks, which is complex.
+                        # This scaling ensures reasonable density.
+                        pages_tall = (used_rows + 59) // 60
+                        if pages_tall < 1: pages_tall = 1
+                        fit_tall = pages_tall
+                    except:
+                        fit_tall = False
+
+                    if normalized_sheet in wide_sheets or any(ws in normalized_sheet for ws in wide_sheets):
+                        # Wide data sheets: Landscape, fit to width
+                        page_setup.FitToPagesWide = 1
+                        page_setup.FitToPagesTall = fit_tall 
+                        page_setup.Orientation = 2  # xlLandscape
+                        page_setup.CenterHorizontally = True
+                        print(f"   📄 Wide sheet '{sheet_name}': Landscape, Fit target {fit_tall} pages", file=sys.stderr)
+                    else:
+                        # Regular sheets: Portrait, fit to width
+                        page_setup.FitToPagesWide = 1
+                        page_setup.FitToPagesTall = fit_tall 
+                        page_setup.CenterHorizontally = True
+                        
+                        # Check if content is too wide by examining used range
+                        try:
+                            used_range = sheet.UsedRange
+                            last_col = used_range.Columns.Count
+                            if last_col > 10:
+                                page_setup.Orientation = 2  # xlLandscape
+                                print(f"   📄 Sheet '{sheet_name}': Landscape (detected {last_col} columns)", file=sys.stderr)
+                            else:
+                                page_setup.Orientation = 1  # xlPortrait
+                                print(f"   📄 Sheet '{sheet_name}': Portrait ({last_col} columns)", file=sys.stderr)
+                        except:
+                            page_setup.Orientation = 1  # Default to Portrait
+                            print(f"   📄 Sheet '{sheet_name}': Portrait (default)", file=sys.stderr)
+
+                # Export as PDF using the specific SHEET object instead of workbook
+                sheet.ExportAsFixedFormat(
                     Type=0,  # xlTypePDF
                     Filename=os.path.abspath(pdf_path),
                     Quality=0,  # Standard quality
                     IncludeDocProperties=True,
-                    IgnorePrintAreas=False,
+                    IgnorePrintAreas=ignore_print_areas,
                     OpenAfterPublish=False
                 )
                 
@@ -768,7 +1113,7 @@ def generate_html_from_excel_com(excel_path: str, sheet_name: str, header_data: 
     try:
         print(f"[HTML COM Generator] Starting HTML generation using Excel COM", file=sys.stderr)
         
-        excel = win32com.client.Dispatch("Excel.Application")
+        excel = win32com.client.DispatchEx("Excel.Application")
         try:
             excel.Visible = False
         except Exception as e:
@@ -792,6 +1137,7 @@ def generate_html_from_excel_com(excel_path: str, sheet_name: str, header_data: 
         if not actual_sheet_name:
             print(f"[HTML COM Generator] Sheet '{sheet_name}' not found (tried case-insensitive matching)", file=sys.stderr)
             print(f"[HTML COM Generator] Available sheets: {available_sheets}", file=sys.stderr)
+            print(f"[HTML COM Generator] Template may use different sheet naming convention", file=sys.stderr)
             wb.Close(False)
             excel.Quit()
             return "", {}
@@ -1168,7 +1514,7 @@ def generate_html_from_excel_com(excel_path: str, sheet_name: str, header_data: 
             "    font-weight: 700 !important;",
             "    font-size: 15px !important;",
             "    padding: 18px 20px !important;",
-            "    border-top: 2px solid var(--primary-dark-purple);", # Purple accent border
+            "    border-top: 2px solid var(--border-color);",
             "  }",
             "  ",
             "  .subtotal-row {",
@@ -1342,16 +1688,45 @@ def generate_html_from_excel_com(excel_path: str, sheet_name: str, header_data: 
             "    }",
             "  }",
             "  ",
+            "  /* Page Break Helper Class */",
+            "  .page-break {",
+            "    page-break-after: always;",
+            "    break-after: page;",
+            "    height: 0;",
+            "    margin: 0;",
+            "    padding: 0;",
+            "  }",
+            "  ",
             "  /* Print Styles */",
             "  @media print {",
+            "    @page {",
+            "      size: A4;",
+            "      margin: 15mm 10mm 15mm 10mm;",
+            "    }",
+            "    ",
             "    body {",
             "      background: white;",
+            "      padding: 0;",
+            "      margin: 0;",
+            "      font-size: 10px;",
+            "    }",
+            "    ",
+            "    .container {",
+            "      max-width: 100%;",
             "      padding: 0;",
             "    }",
             "    ",
             "    .report-card {",
             "      box-shadow: none;",
             "      border-radius: 0;",
+            "    }",
+            "    ",
+            "    .report-header {",
+            "      page-break-after: always;",
+            "      min-height: 200mm;",
+            "      display: flex;",
+            "      align-items: center;",
+            "      justify-content: center;",
             "    }",
             "    ",
             "    .report-header::before {",
@@ -1364,6 +1739,45 @@ def generate_html_from_excel_com(excel_path: str, sheet_name: str, header_data: 
             "    ",
             "    tbody tr:hover {",
             "      background: transparent;",
+            "    }",
+            "    ",
+            "    /* Page break controls */",
+            "    .section-header {",
+            "      page-break-before: auto;",
+            "      page-break-after: avoid;",
+            "      page-break-inside: avoid;",
+            "    }",
+            "    ",
+            "    .total-row {",
+            "      page-break-before: avoid;",
+            "      page-break-after: auto;",
+            "      page-break-inside: avoid;",
+            "    }",
+            "    ",
+            "    tr {",
+            "      page-break-inside: avoid;",
+            "    }",
+            "    ",
+            "    table {",
+            "      page-break-inside: auto;",
+            "      font-size: 9px;",
+            "    }",
+            "    ",
+            "    td, th {",
+            "      padding: 6px 8px !important;",
+            "    }",
+            "    ",
+            "    thead {",
+            "      display: table-header-group;",
+            "    }",
+            "    ",
+            "    tfoot {",
+            "      display: table-footer-group;",
+            "    }",
+            "    ",
+            "    .page-break {",
+            "      page-break-after: always;",
+            "      break-after: page;",
             "    }",
             "  }",
             "  ",
@@ -1445,6 +1859,10 @@ def generate_html_from_excel_com(excel_path: str, sheet_name: str, header_data: 
             "</thead>",
             "<tbody>",
         ])
+        
+        # Track row count for page breaks
+        visible_row_count = 0
+        PAGE_BREAK_INTERVAL = 50  # Insert page break every 50 rows
         
         # Process each row
         for row_idx in range(1, max_row + 1):
@@ -1533,16 +1951,17 @@ def generate_html_from_excel_com(excel_path: str, sheet_name: str, header_data: 
                 # Basic styling from cell
                 style_parts = []
                 
-                # Background color
-                try:
-                    interior_color = cell.Interior.Color
-                    if interior_color != 16777215:  # Not white
-                        r = interior_color & 255
-                        g = (interior_color >> 8) & 255
-                        b = (interior_color >> 16) & 255
-                        style_parts.append(f"background-color: rgb({r},{g},{b})")
-                except:
-                    pass
+                # Background color - Only apply if NOT a special row (let CSS handle it)
+                if not is_header and not is_total and "subtotal" not in first_value and "sub-total" not in first_value:
+                    try:
+                        interior_color = cell.Interior.Color
+                        if interior_color != 16777215:  # Not white
+                            r = interior_color & 255
+                            g = (interior_color >> 8) & 255
+                            b = (interior_color >> 16) & 255
+                            style_parts.append(f"background-color: rgb({r},{g},{b})")
+                    except:
+                        pass
                 
                 # Font color (only if custom style not applied)
                 try:
@@ -1605,6 +2024,17 @@ def generate_html_from_excel_com(excel_path: str, sheet_name: str, header_data: 
                 html_parts.append(f"    <td{attr_str}{merge_attrs}>{formatted_value}</td>")
             
             html_parts.append("  </tr>")
+            
+            # Increment visible row counter
+            visible_row_count += 1
+            
+            # Insert page break after every PAGE_BREAK_INTERVAL rows (but not on section headers)
+            if visible_row_count > 0 and visible_row_count % PAGE_BREAK_INTERVAL == 0 and not is_header:
+                html_parts.append("</tbody></table></div>")
+                html_parts.append("<div class='page-break'></div>")
+                html_parts.append("<div class='table-wrapper'><table>")
+                html_parts.append("<thead><tr><th>Particulars</th><th>Amount</th></tr></thead>")
+                html_parts.append("<tbody>")
         
         html_parts.extend([
             "</tbody>",
@@ -1668,7 +2098,7 @@ def generate_html_from_excel_com(excel_path: str, sheet_name: str, header_data: 
             "    document.querySelectorAll('tbody tr').forEach(r => {",
             "      r.style.outline = 'none';",
             "    });",
-            "    this.style.outline = '2px solid var(--primary-purple)';", # Highlight with primary purple
+            "    this.style.outline = '2px solid var(--border-color)';", # Highlight with neutral border color
             "    this.style.outlineOffset = '-2px';",
             "  });",
             "});",
@@ -1755,12 +2185,12 @@ def generate_html_from_excel_sheet(excel_path: str, sheet_name: str, header_data
                 print(f"[HTML Generator] Attempting to use Excel COM method", file=sys.stderr)
                 html_content, json_data = generate_html_from_excel_com(excel_path, sheet_name, header_data=header_data)
                 if html_content:
-                    print(f"[HTML Generator] Successfully generated HTML using COM", file=sys.stderr)
+                    print(f"[HTML Generator] ✓ Successfully generated HTML using COM method", file=sys.stderr)
                     return html_content, json_data
                 else:
-                    print(f"[HTML Generator] COM method returned empty content", file=sys.stderr)
+                    print(f"[HTML Generator] ⚠ COM method returned empty content - may indicate sheet not found or COM error", file=sys.stderr)
             except Exception as com_error:
-                print(f"[HTML Generator] COM method failed, falling back to openpyxl: {com_error}", file=sys.stderr)
+                print(f"[HTML Generator] ⚠ COM method failed, falling back to openpyxl: {com_error}", file=sys.stderr)
                 import traceback
                 traceback.print_exc(file=sys.stderr)
         else:
@@ -1984,8 +2414,6 @@ def generate_html_from_excel_sheet(excel_path: str, sheet_name: str, header_data
                 structure_wb.close()
         
         # Build HTML with EXACT SAME professional styling as COM method
-        
-        # Build HTML with EXACT SAME professional styling as COM method
         html_parts = [
             "<!DOCTYPE html>",
             "<html lang='en'>",
@@ -1993,329 +2421,525 @@ def generate_html_from_excel_sheet(excel_path: str, sheet_name: str, header_data
             "<meta charset='UTF-8'>",
             "<meta name='viewport' content='width=device-width, initial-scale=1.0'>",
             f"<title>Financial Report - {firm_name or sheet_name}</title>",
-            "<link href='https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap' rel='stylesheet'>",
-            "<link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css'>",
+            "<link href='https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap' rel='stylesheet'>",
+            "<link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css'>",
             "<style>",
             "  :root {",
-            "    --primary-color: #8b5cf6;",
-            "    --primary-light: #a78bfa;",
-            "    --primary-dark: #7c3aed;",
-            "    --success-color: #10b981;",
-            "    --text-primary: #1f2937;",
+            "    --primary-purple: #7c3aed;",
+            "    --primary-dark-purple: #6d28d9;",
+            "    --primary-black: #1f2937;",
+            "    --primary-light-black: #374151;",
+            "    --ghost-white: #F8F8FF;",
+            "    --success-green: #10b981;",
+            "    --text-primary: var(--primary-black);",
             "    --text-secondary: #6b7280;",
             "    --bg-primary: #ffffff;",
-            "    --bg-secondary: #f9fafb;",
-            "    --bg-accent: #f3f4f6;",
+            "    --bg-secondary: var(--ghost-white);",
+            "    --bg-accent: #e5e7eb;",
             "    --border-color: #e5e7eb;",
-            "    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);",
+            "    --shadow-soft: 0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04);",
             "    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
             "    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);",
             "    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);",
             "  }",
-            "  * { margin: 0; padding: 0; box-sizing: border-box; }",
+            "  ",
+            "  * {",
+            "    margin: 0;",
+            "    padding: 0;",
+            "    box-sizing: border-box;",
+            "  }",
+            "  ",
             "  body {",
             "    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;",
-            "    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);",
+            "    background-color: var(--bg-secondary);",
             "    min-height: 100vh;",
-            "    padding: 40px 20px;",
+            "    padding: 20px;",
             "    line-height: 1.6;",
             "    color: var(--text-primary);",
             "    -webkit-font-smoothing: antialiased;",
+            "    -moz-osx-font-smoothing: grayscale;",
             "  }",
-            "  .container { max-width: 1400px; margin: 0 auto; }",
+            "  ",
+            "  .container {",
+            "    max-width: 1400px;",
+            "    margin: 0 auto;",
+            "  }",
+            "  ",
             "  .report-card {",
             "    background: var(--bg-primary);",
-            "    border-radius: 20px;",
-            "    box-shadow: var(--shadow-xl);",
+            "    border-radius: 12px;",
+            "    box-shadow: var(--shadow-soft);",
             "    overflow: hidden;",
             "    animation: slideUp 0.6s ease-out;",
             "  }",
+            "  ",
             "  @keyframes slideUp {",
-            "    from { opacity: 0; transform: translateY(30px); }",
-            "    to { opacity: 1; transform: translateY(0); }",
+            "    from {",
+            "      opacity: 0;",
+            "      transform: translateY(30px);",
+            "    }",
+            "    to {",
+            "      opacity: 1;",
+            "      transform: translateY(0);",
+            "    }",
             "  }",
+            "  ",
+            "  /* Header Section */",
             "  .report-header {",
-            "    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);",
-            "    padding: 48px 48px 32px;",
-            "    color: white;",
+            "    padding: 32px 24px;",
+            "    color: black;",
             "    position: relative;",
+            "    overflow: hidden;",
+            "    border-bottom: 1px solid rgba(255, 255, 255, 0.1);",
             "  }",
+            "  ",
             "  .report-header::before {",
             "    content: '';",
             "    position: absolute;",
-            "    top: 0; right: 0;",
-            "    width: 400px; height: 400px;",
-            "    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);",
+            "    top: 0;",
+            "    right: 0;",
+            "    width: 200px;",
+            "    height: 200px;",
+            "    background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);",
             "    border-radius: 50%;",
             "    transform: translate(30%, -30%);",
             "  }",
-            "  .header-content { position: relative; z-index: 1; }",
+            "  ",
+            "  .header-content {",
+            "    position: relative;",
+            "    z-index: 1;",
+            "  }",
+            "  ",
             "  .report-badge {",
-            "    display: inline-block;",
+            "    display: inline-flex;",
+            "    align-items: center;",
+            "    gap: 8px;",
             "    background: rgba(255, 255, 255, 0.2);",
-            "    backdrop-filter: blur(10px);",
-            "    padding: 8px 20px;",
+            "    backdrop-filter: blur(5px);",
+            "    padding: 6px 16px;",
             "    border-radius: 50px;",
-            "    font-size: 13px;",
+            "    font-size: 12px;",
             "    font-weight: 600;",
             "    letter-spacing: 0.5px;",
             "    text-transform: uppercase;",
-            "    margin-bottom: 20px;",
+            "    margin-bottom: 24px;",
             "  }",
+            "  ",
             "  .firm-name {",
-            "    font-size: 36px;",
+            "    font-size: 28px;",
             "    font-weight: 700;",
             "    margin-bottom: 16px;",
             "    letter-spacing: -0.5px;",
+            "    color: var(--primary-black);",
             "  }",
+            "  ",
             "  .firm-meta {",
             "    display: flex;",
             "    flex-wrap: wrap;",
-            "    gap: 32px;",
-            "    margin-top: 24px;",
-            "    padding-top: 24px;",
-            "    border-top: 1px solid rgba(255, 255, 255, 0.2);",
+            "    gap: 24px;",
+            "    margin-top: 16px;",
+            "    padding-top: 0;",
+            "    border-top: none;",
             "  }",
-            "  .meta-item { display: flex; flex-direction: column; gap: 6px; }",
-            "  .meta-label {",
-            "    font-size: 12px;",
-            "    font-weight: 500;",
-            "    opacity: 0.9;",
-            "    text-transform: uppercase;",
-            "    letter-spacing: 1px;",
-            "  }",
-            "  .meta-value { font-size: 16px; font-weight: 600; }",
-            "  .stats-grid {",
-            "    display: grid;",
-            "    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));",
-            "    gap: 1px;",
-            "    background: var(--border-color);",
-            "    border-bottom: 1px solid var(--border-color);",
-            "  }",
-            "  .stat-card {",
-            "    background: var(--bg-primary);",
-            "    padding: 28px 32px;",
-            "    text-align: center;",
-            "    transition: all 0.3s ease;",
-            "  }",
-            "  .stat-card:hover {",
-            "    background: var(--bg-secondary);",
-            "    transform: translateY(-2px);",
-            "  }",
-            "  .stat-icon {",
-            "    width: 48px; height: 48px;",
-            "    margin: 0 auto 16px;",
-            "    background: linear-gradient(135deg, var(--primary-light), var(--primary-color));",
-            "    border-radius: 12px;",
+            "  ",
+            "  .meta-item {",
             "    display: flex;",
-            "    align-items: center;",
-            "    justify-content: center;",
-            "    font-size: 24px;",
+            "    flex-direction: column;",
+            "    gap: 4px;",
             "  }",
-            "  .stat-label {",
-            "    font-size: 12px;",
+            "  ",
+            "  .meta-label {",
+            "    font-size: 11px;",
             "    font-weight: 600;",
             "    color: var(--text-secondary);",
             "    text-transform: uppercase;",
-            "    letter-spacing: 0.8px;",
-            "    margin-bottom: 8px;",
+            "    letter-spacing: 1px;",
             "  }",
-            "  .stat-value {",
-            "    font-size: 18px;",
-            "    font-weight: 700;",
-            "    color: var(--text-primary);",
+            "  ",
+            "  .meta-value {",
+            "    font-size: 15px;",
+            "    font-weight: 600;",
+            "    color: var(--primary-black);",
             "  }",
-            "  .table-section { padding: 48px; }",
-            "  .section-title {",
-            "    font-size: 24px;",
-            "    font-weight: 700;",
-            "    color: var(--text-primary);",
-            "    margin-bottom: 8px;",
+            "  ",
+            "  /* Stats Grid Section */",
+            "  .stats-grid {",
+            "    display: grid;",
+            "    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));",
+            "    gap: 1px;",
+            "    background: var(--border-color);",
+            "    border-top: 1px solid var(--border-color);",
             "  }",
-            "  .section-subtitle {",
-            "    font-size: 14px;",
+            "  ",
+            "  .stat-card {",
+            "    background: var(--bg-primary);",
+            "    padding: 24px;",
+            "    text-align: center;",
+            "    transition: all 0.2s ease;",
+            "  }",
+            "  ",
+            "  .stat-card:hover {",
+            "    background: var(--bg-secondary);",
+            "  }",
+            "  ",
+            "  .stat-icon {",
+            "    font-size: 20px;",
+            "    margin-bottom: 10px;",
+            "  }",
+            "  ",
+            "  .stat-label {",
+            "    font-size: 11px;",
+            "    font-weight: 600;",
             "    color: var(--text-secondary);",
-            "    margin-bottom: 32px;",
+            "    text-transform: uppercase;",
+            "    letter-spacing: 1px;",
+            "    margin-bottom: 8px;",
             "  }",
+            "  ",
+            "  .stat-value {",
+            "    font-size: 16px;",
+            "    font-weight: 700;",
+            "    color: var(--primary-black);",
+            "  }",
+            "  ",
+            "  /* Table Section */",
+            "  .table-section {",
+            "    padding: 32px 24px;",
+            "  }",
+            "  ",
+            "  .section-title {",
+            "    font-size: 20px;",
+            "    font-weight: 700;",
+            "    color: var(--primary-black);",
+            "    margin-bottom: 8px;",
+            "  }",
+            "  ",
+            "  .section-subtitle {",
+            "    font-size: 13px;",
+            "    color: var(--text-secondary);",
+            "    margin-bottom: 24px;",
+            "  }",
+            "  ",
             "  .table-wrapper {",
             "    overflow-x: auto;",
-            "    border-radius: 12px;",
             "    border: 1px solid var(--border-color);",
+            "    border-radius: 8px;",
             "  }",
+            "  ",
             "  table {",
             "    width: 100%;",
             "    border-collapse: collapse;",
             "    background: var(--bg-primary);",
             "  }",
+            "  ",
             "  thead {",
             "    background: var(--bg-accent);",
             "    position: sticky;",
             "    top: 0;",
             "    z-index: 10;",
             "  }",
+            "  ",
             "  thead th {",
-            "    padding: 18px 24px;",
+            "    padding: 16px 12px;",
             "    text-align: left;",
-            "    font-size: 12px;",
+            "    font-size: 11px;",
             "    font-weight: 700;",
-            "    color: var(--text-primary);",
+            "    color: var(--primary-black);",
             "    text-transform: uppercase;",
             "    letter-spacing: 1px;",
-            "    border-bottom: 2px solid var(--border-color);",
+            "    border-bottom: 1px solid var(--border-color);",
             "  }",
-            "  thead th:last-child { text-align: right; }",
+            "  ",
+            "  thead th:last-child {",
+            "    text-align: right;",
+            "  }",
+            "  ",
             "  tbody tr {",
             "    border-bottom: 1px solid var(--border-color);",
-            "    transition: all 0.2s ease;",
             "  }",
-            "  tbody tr:hover { background: var(--bg-secondary); }",
-            "  tbody tr:last-child { border-bottom: none; }",
+            "  ",
+            "  tbody tr:hover {",
+            "    background: var(--bg-secondary);",
+            "  }",
+            "  ",
+            "  tbody tr:last-child {",
+            "    border-bottom: none;",
+            "  }",
+            "  ",
             "  td {",
-            "    padding: 20px 24px;",
-            "    font-size: 14px;",
+            "    padding: 14px 12px;",
+            "    font-size: 13px;",
             "    color: var(--text-primary);",
             "  }",
-            "  .item-name { font-weight: 500; }",
+            "  ",
+            "  .item-name {",
+            "    font-weight: 500;",
+            "    max-width: 400px;",
+            "  }",
+            "  ",
             "  .item-value {",
             "    text-align: right;",
             "    font-weight: 600;",
             "    font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;",
-            "    font-size: 15px;",
+            "    font-size: 13px;",
             "  }",
+            "  ",
             "  .currency::before {",
             "    content: '₹ ';",
             "    color: var(--text-secondary);",
-            "    margin-right: 4px;",
-            "    font-weight: 500;",
+            "    margin-right: 2px;",
             "  }",
-                        "  .section-header {",
-            "    background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%) !important;",
+            "  ",
+            "  /* Row Types */",
+            "  .section-header {",
+            "    background: var(--bg-accent) !important;",
             "  }",
+            "  ",
             "  .section-header td {",
             "    font-weight: 700 !important;",
-            "    font-size: 14px !important;",
-            "    color: var(--text-primary) !important;",
-            "    padding: 16px 24px !important;",
+            "    font-size: 12px !important;",
+            "    color: var(--primary-black) !important;",
+            "    padding: 14px 12px !important;",
             "    text-transform: uppercase;",
-            "    letter-spacing: 0.5px;",
+            "    letter-spacing: 1px;",
             "  }",
+            "  ",
             "  .total-row {",
-            "    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)) !important;",
+            "    background: var(--bg-accent) !important;",
             "  }",
+            "  ",
             "  .total-row td {",
-            "    color: white !important;",
+            "    color: var(--primary-black) !important;",
             "    font-weight: 700 !important;",
-            "    font-size: 16px !important;",
-            "    padding: 24px !important;",
-            "    border-top: 3px solid var(--primary-dark);",
+            "    font-size: 14px !important;",
+            "    padding: 18px 12px !important;",
+            "    border-top: 1px solid var(--border-color);",
             "  }",
+            "  ",
             "  .subtotal-row {",
             "    background: var(--bg-accent) !important;",
             "  }",
+            "  ",
             "  .subtotal-row td {",
             "    font-weight: 600 !important;",
-            "    padding: 18px 24px !important;",
-            "    color: var(--text-primary);",
+            "    padding: 14px 12px !important;",
+            "    color: var(--primary-black);",
             "  }",
+            "  ",
+            "  /* Footer Section */",
             "  .report-footer {",
-            "    background: var(--bg-secondary);",
-            "    padding: 40px 48px;",
+            "    background: var(--bg-accent);",
+            "    padding: 32px 24px;",
             "    text-align: center;",
             "    border-top: 1px solid var(--border-color);",
             "  }",
+            "  ",
             "  .footer-content {",
             "    max-width: 600px;",
             "    margin: 0 auto;",
             "  }",
+            "  ",
             "  .footer-title {",
             "    font-size: 16px;",
-            "    font-weight: 600;",
-            "    color: var(--text-primary);",
+            "    font-weight: 700;",
+            "    color: var(--primary-black);",
             "    margin-bottom: 12px;",
             "  }",
+            "  ",
             "  .footer-text {",
             "    font-size: 13px;",
             "    color: var(--text-secondary);",
-            "    line-height: 1.8;",
-            "    margin-bottom: 24px;",
+            "    line-height: 1.6;",
+            "    margin-bottom: 20px;",
             "  }",
+            "  ",
+            "  /* Action Buttons */",
             "  .action-buttons {",
             "    display: flex;",
-            "    gap: 16px;",
+            "    gap: 12px;",
             "    justify-content: center;",
             "    flex-wrap: wrap;",
             "  }",
+            "  ",
             "  .btn {",
-            "    padding: 12px 32px;",
-            "    border-radius: 10px;",
+            "    padding: 10px 24px;",
+            "    border-radius: 8px;",
             "    font-weight: 600;",
-            "    font-size: 14px;",
+            "    font-size: 13px;",
             "    cursor: pointer;",
-            "    transition: all 0.3s ease;",
+            "    transition: all 0.2s ease;",
             "    border: none;",
             "    display: inline-flex;",
             "    align-items: center;",
             "    gap: 8px;",
             "    text-decoration: none;",
             "  }",
+            "  ",
             "  .btn-primary {",
-            "    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));",
+            "    background: var(--primary-black);",
             "    color: white;",
-            "    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);",
+            "    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);",
             "  }",
+            "  ",
             "  .btn-primary:hover {",
             "    transform: translateY(-2px);",
-            "    box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);",
+            "    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);",
             "  }",
+            "  ",
             "  .btn-secondary {",
             "    background: var(--bg-primary);",
-            "    color: var(--text-primary);",
-            "    border: 2px solid var(--border-color);",
+            "    color: var(--primary-black);",
+            "    border: 1px solid var(--border-color);",
             "  }",
+            "  ",
             "  .btn-secondary:hover {",
-            "    background: var(--bg-accent);",
-            "    border-color: var(--primary-color);",
+            "    background: var(--bg-secondary);",
             "  }",
+            "  ",
+            "  /* Timestamp Badge */",
             "  .timestamp-badge {",
             "    display: inline-flex;",
             "    align-items: center;",
             "    gap: 8px;",
-            "    background: var(--bg-accent);",
+            "    background: var(--bg-primary);",
             "    padding: 8px 16px;",
-            "    border-radius: 8px;",
+            "    border-radius: 6px;",
             "    font-size: 12px;",
             "    color: var(--text-secondary);",
-            "    margin-top: 24px;",
+            "    border: 1px solid var(--border-color);",
             "  }",
+            "  ",
+            "  /* Responsive Design */",
             "  @media (max-width: 1024px) {",
-            "    .report-header { padding: 40px 32px 24px; }",
-            "    .firm-name { font-size: 28px; }",
-            "    .table-section { padding: 32px 24px; }",
+            "    .report-header {",
+            "      padding: 24px 18px;",
+            "    }",
+            "    ",
+            "    .firm-name {",
+            "      font-size: 24px;",
+            "    }",
+            "    ",
+            "    .stats-grid {",
+            "      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));",
+            "    }",
+            "    ",
+            "    .table-section {",
+            "      padding: 24px 18px;",
+            "    }",
             "  }",
+            "  ",
             "  @media (max-width: 768px) {",
-            "    body { padding: 20px 10px; }",
-            "    .report-card { border-radius: 16px; }",
-            "    .report-header { padding: 32px 24px 20px; }",
-            "    .firm-name { font-size: 24px; }",
-            "    .firm-meta { gap: 20px; }",
-            "    .stats-grid { grid-template-columns: repeat(2, 1fr); }",
-            "    .table-section { padding: 24px 16px; }",
-            "    .section-title { font-size: 20px; }",
-            "    thead th, td { padding: 14px 16px; font-size: 13px; }",
-            "    .report-footer { padding: 32px 24px; }",
-            "    .action-buttons { flex-direction: column; }",
-            "    .btn { width: 100%; justify-content: center; }",
+            "    body {",
+            "      padding: 12px;",
+            "    }",
+            "    ",
+            "    .report-card {",
+            "      border-radius: 8px;",
+            "    }",
+            "    ",
+            "    .report-header {",
+            "      padding: 20px 16px;",
+            "    }",
+            "    ",
+            "    .firm-name {",
+            "      font-size: 20px;",
+            "      margin-bottom: 12px;",
+            "    }",
+            "    ",
+            "    .firm-meta {",
+            "      gap: 16px;",
+            "      margin-top: 12px;",
+            "    }",
+            "    ",
+            "    .stats-grid {",
+            "      grid-template-columns: repeat(2, 1fr);",
+            "    }",
+            "    ",
+            "    .table-section {",
+            "      padding: 18px 12px;",
+            "    }",
+            "    ",
+            "    .section-title {",
+            "      font-size: 18px;",
+            "    }",
+            "    ",
+            "    thead th, td {",
+            "      padding: 12px 8px;",
+            "      font-size: 12px;",
+            "    }",
+            "    ",
+            "    .report-footer {",
+            "      padding: 24px 16px;",
+            "    }",
+            "    ",
+            "    .action-buttons {",
+            "      flex-direction: column;",
+            "    }",
+            "    ",
+            "    .btn {",
+            "      width: 100%;",
+            "      justify-content: center;",
+            "    }",
             "  }",
+            "  ",
             "  @media (max-width: 480px) {",
-            "    .stats-grid { grid-template-columns: 1fr; }",
-            "    .firm-meta { flex-direction: column; gap: 16px; }",
+            "    .stats-grid {",
+            "      grid-template-columns: 1fr;",
+            "    }",
+            "    ",
+            "    .firm-meta {",
+            "      flex-direction: column;",
+            "      gap: 12px;",
+            "    }",
             "  }",
+            "  ",
             "  @media print {",
-            "    body { background: white; padding: 0; }",
-            "    .report-card { box-shadow: none; border-radius: 0; }",
-            "    .report-header::before { display: none; }",
-            "    .action-buttons { display: none; }",
-            "    tbody tr:hover { background: transparent; }",
+            "    body {",
+            "      background: white;",
+            "      padding: 0;",
+            "    }",
+            "    ",
+            "    .report-card {",
+            "      box-shadow: none;",
+            "      border-radius: 0;",
+            "    }",
+            "    ",
+            "    .report-header::before {",
+            "      display: none;",
+            "    }",
+            "    ",
+            "    .action-buttons {",
+            "      display: none;",
+            "    }",
+            "    ",
+            "    /* Page break controls */",
+            "    .section-header {",
+            "      page-break-before: auto;",
+            "      page-break-after: avoid;",
+            "      page-break-inside: avoid;",
+            "    }",
+            "    ",
+            "    .total-row {",
+            "      page-break-before: avoid;",
+            "      page-break-after: auto;",
+            "      page-break-inside: avoid;",
+            "    }",
+            "    ",
+            "    tr {",
+            "      page-break-inside: avoid;",
+            "    }",
+            "    ",
+            "    table {",
+            "      page-break-inside: auto;",
+            "    }",
+            "    ",
+            "    thead {",
+            "      display: table-header-group;",
+            "    }",
+            "    ",
+            "    tfoot {",
+            "      display: table-footer-group;",
+            "    }",
             "  }",
             "</style>",
             "</head>",
@@ -2362,37 +2986,6 @@ def generate_html_from_excel_sheet(excel_path: str, sheet_name: str, header_data
             "</div>",
             "</div>",
             "</div>",
-            "</div>",
-            "",
-            "<!-- Stats Grid -->",
-            "<div class='stats-grid'>",
-            "<div class='stat-card'>",
-            "<div class='stat-icon'>📄</div>",
-            "<div class='stat-label'>Report Type</div>",
-            f"<div class='stat-value'>{sheet_name}</div>",
-            "</div>",
-            "<div class='stat-card'>",
-            "<div class='stat-icon'>📅</div>",
-            "<div class='stat-label'>Date</div>",
-            f"<div class='stat-value'>{datetime.datetime.now().strftime('%b %d, %Y')}</div>",
-            "</div>",
-            "<div class='stat-card'>",
-            "<div class='stat-icon'>🔢</div>",
-            "<div class='stat-label'>Report ID</div>",
-            f"<div class='stat-value'>#{datetime.datetime.now().strftime('%Y%m%d%H%M')}</div>",
-            "</div>",
-        ])
-        
-        if sector:
-            html_parts.extend([
-                "<div class='stat-card'>",
-                "<div class='stat-icon'>🏢</div>",
-                "<div class='stat-label'>Sector</div>",
-                f"<div class='stat-value'>{sector}</div>",
-                "</div>",
-            ])
-        
-        html_parts.extend([
             "</div>",
             "",
             "<!-- Table Section -->",
@@ -2519,24 +3112,13 @@ def generate_html_from_excel_sheet(excel_path: str, sheet_name: str, header_data
             "<!-- Footer Section -->",
             "<div class='report-footer'>",
             "<div class='footer-content'>",
-            "<h3 class='footer-title'>🎉 Report Generated Successfully</h3>",
-            "<p class='footer-text'>",
-            "This financial report has been automatically generated with professional formatting. ",
-            "All calculations are based on the provided data and formulas.",
-            "</p>",
-            "<div class='action-buttons'>",
-            "<button class='btn btn-primary' onclick='window.print()'>",
-            "🖨️ Print Report",
-            "</button>",
-            "<button class='btn btn-secondary' onclick='downloadReport()'>",
-            "📥 Download PDF",
-            "</button>",
+            f"<h3 class='footer-title'><i class='fas fa-check-circle'></i> Report Generated Successfully</h3>",
             "</div>",
             "<div class='timestamp-badge'>",
-            "⏰ Generated on " + datetime.datetime.now().strftime('%B %d, %Y at %I:%M %p'),
+            f"<i class='fas fa-clock'></i> Generated on {datetime.datetime.now().strftime('%B %d, %Y at %I:%M %p')}",
             "</div>",
             "</div>",
-                        "</div>",
+            "</div>",
             "",
             "</div>",
             "</div>",
@@ -2545,17 +3127,17 @@ def generate_html_from_excel_sheet(excel_path: str, sheet_name: str, header_data
             "// Store JSON data for programmatic access",
             f"window.reportData = {json.dumps(json_data, ensure_ascii=False)};",
             "",
-            "console.log('%c📊 Financial Report Data Loaded', 'color: #8b5cf6; font-weight: bold; font-size: 16px; font-family: Inter, sans-serif;');",
-            "console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #8b5cf6;');",
+            "console.log('%c📊 Financial Report Data Loaded', 'color: #7c3aed; font-weight: bold; font-size: 16px; font-family: Inter, sans-serif;');",
+            "console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #7c3aed;');",
             "console.log('%c📄 Sheet Name:', 'color: #6b7280; font-weight: 600;', window.reportData.sheetName);",
             "console.log('%c🔢 Total Cells:', 'color: #6b7280; font-weight: 600;', Object.keys(window.reportData.data).length);",
             "console.log('%c⏰ Timestamp:', 'color: #6b7280; font-weight: 600;', window.reportData.timestamp);",
-            "console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #8b5cf6;');",
+            "console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #7c3aed;');",
             "console.log('%c💡 Access data: window.reportData.data[\"R1C1\"]', 'color: #10b981; font-style: italic;');",
             "",
             "// Download report as PDF (placeholder function)",
             "function downloadReport() {",
-            "  alert('PDF download functionality will be implemented by the backend.');",
+            "  alert('PDF download functionality will be implemented by the backend. (Ctrl+P to print)');",
             "  console.log('Download request initiated for:', window.reportData.sheetName);",
             "}",
             "",
@@ -2580,14 +3162,49 @@ def generate_html_from_excel_sheet(excel_path: str, sheet_name: str, header_data
             "// Add table row highlight on click",
             "document.querySelectorAll('tbody tr').forEach(row => {",
             "  row.addEventListener('click', function() {",
-            "    // Remove previous highlights",
             "    document.querySelectorAll('tbody tr').forEach(r => {",
             "      r.style.outline = 'none';",
             "    });",
-            "    // Add highlight to clicked row",
-            "    this.style.outline = '2px solid #8b5cf6';",
+            "    this.style.outline = '2px solid var(--border-color)';",
             "    this.style.outlineOffset = '-2px';",
             "  });",
+            "});",
+            "",
+            "// Add keyboard navigation",
+            "document.addEventListener('keydown', (e) => {",
+            "  if (e.ctrlKey && e.key === 'p') {",
+            "    e.preventDefault();",
+            "    window.print();",
+            "  }",
+            "});",
+            "",
+            "// Performance monitoring",
+            "if (window.performance) {",
+            "  const perfData = window.performance.timing;",
+            "  const pageLoadTime = perfData.loadEventEnd - perfData.navigationStart;",
+            "  console.log('%c⚡ Page Load Time:', 'color: #10b981; font-weight: 600;', pageLoadTime + 'ms');",
+            "}",
+            "",
+            "// Add animation observer for elements",
+            "const observerOptions = {",
+            "  threshold: 0.1,",
+            "  rootMargin: '0px 0px -50px 0px'",
+            "};",
+            "",
+            "const observer = new IntersectionObserver((entries) => {",
+            "  entries.forEach(entry => {",
+            "    if (entry.isIntersecting) {",
+            "      entry.target.style.opacity = '1';",
+            "      entry.target.style.transform = 'translateY(0)';",
+            "    }",
+            "  });",
+            "}, observerOptions);",
+            "",
+            "document.querySelectorAll('.table-wrapper').forEach(el => {",
+            "  el.style.opacity = '0';",
+            "  el.style.transform = 'translateY(20px)';",
+            "  el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';",
+            "  observer.observe(el);",
             "});",
             "</script>",
             "</body>",
@@ -2715,7 +3332,7 @@ def _apply_updates_via_com(excel_path: str, updates: List[Dict[str, Any]], save_
     final_path = save_as_path or excel_path
 
     try:
-        excel_app = win32com.client.Dispatch("Excel.Application")
+        excel_app = win32com.client.DispatchEx("Excel.Application")
         try:
             excel_app.Visible = False
         except Exception:
@@ -2875,7 +3492,7 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
                 try:
                     if COM_AVAILABLE:
                         import win32com.client
-                        excel_app = win32com.client.Dispatch("Excel.Application")
+                        excel_app = win32com.client.DispatchEx("Excel.Application")
                         try:
                             excel_app.Visible = False
                         except Exception:
@@ -3098,11 +3715,13 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
                 print("[Full Report] Step 1: Generating PDFs for all Excel sheets...", file=sys.stderr)
                 selected_sheets = input_data.get('selectedSheets')
                 dynamic_excluded_sheets = input_data.get('excludedSheets')
+                index_sheet_name = input_data.get('indexSheet')
                 sheet_pdfs = generate_pdfs_for_all_sheets(
                     output_path,
                     pdfs_dir,
                     selected_sheets,
-                    dynamic_excluded_sheets
+                    dynamic_excluded_sheets,
+                    index_sheet_name
                 )
                 
                 # Fallback: If no sheets were generated and selectedSheets was provided, try generating ALL sheets
@@ -3112,7 +3731,8 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
                         output_path,
                         pdfs_dir,
                         None,  # No filter
-                        dynamic_excluded_sheets
+                        dynamic_excluded_sheets,
+                        index_sheet_name
                     )
                 
                 print(f"[Full Report] Generated {sheet_pdfs['success_count']} sheet PDFs", file=sys.stderr)

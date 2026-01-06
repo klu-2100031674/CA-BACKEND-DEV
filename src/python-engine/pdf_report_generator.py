@@ -1061,11 +1061,12 @@ Keep under 500 words, focus on critical decision points."""
                     
                     # Stamp signature if it's not Coverpage or Index
                     norm_name = sheet_name.lower().strip()
-                    if self.signature_path and norm_name not in ['coverpage', 'cover page', 'index', 'index page', 'cover']:
-                        stamped_path = pdf_path.replace('.pdf', '_stamped.pdf')
-                        if self.stamp_signature_on_pdf(pdf_path, stamped_path):
-                            pdf_path = stamped_path
-                            temp_files_to_cleanup.append(stamped_path)
+                    # DISABLED SIGNATURES: User requested removal
+                    # if self.signature_path and norm_name not in ['coverpage', 'cover page', 'index', 'index page', 'cover']:
+                    #     stamped_path = pdf_path.replace('.pdf', '_stamped.pdf')
+                    #     if self.stamp_signature_on_pdf(pdf_path, stamped_path):
+                    #         pdf_path = stamped_path
+                    #         temp_files_to_cleanup.append(stamped_path)
                             
                     final_pdf_sequence.append(pdf_path)
                     if Path(sheet_pdf_map[sheet_name]).name not in result["excel_pdfs_included"]:
@@ -1107,11 +1108,12 @@ Keep under 500 words, focus on critical decision points."""
                     # Stamp signature if it's not Coverpage or Index
                     sheet_label = extract_sheet_title_from_filename(missing)
                     norm_label = sheet_label.lower().strip()
-                    if self.signature_path and norm_label not in ['coverpage', 'cover page', 'index', 'index page', 'cover']:
-                        stamped_path = pdf_path.replace('.pdf', '_stamped.pdf')
-                        if self.stamp_signature_on_pdf(pdf_path, stamped_path):
-                            pdf_path = stamped_path
-                            temp_files_to_cleanup.append(stamped_path)
+                    # DISABLED SIGNATURES: User requested removal
+                    # if self.signature_path and norm_label not in ['coverpage', 'cover page', 'index', 'index page', 'cover']:
+                    #     stamped_path = pdf_path.replace('.pdf', '_stamped.pdf')
+                    #     if self.stamp_signature_on_pdf(pdf_path, stamped_path):
+                    #         pdf_path = stamped_path
+                    #         temp_files_to_cleanup.append(stamped_path)
                             
                     final_pdf_sequence.append(pdf_path)
                     if missing not in result["excel_pdfs_included"]:

@@ -1288,4 +1288,11 @@ router.post('/templates/:templateId/download-full-report', verifyToken, reportCo
  */
 router.get('/download/:fileId/:type', reportController.downloadFile);
 
+/**
+ * @route   GET /api/reports/queue/status
+ * @desc    Get current report generation queue status
+ * @access  Private
+ */
+router.get('/queue/status', verifyToken, reportController.getQueueStatus);
+
 module.exports = router;

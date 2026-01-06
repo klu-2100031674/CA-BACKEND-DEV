@@ -8,6 +8,7 @@ const { verifyToken, requireRole } = require('../middleware/auth');
 const mailService = require('../services/mailService');
 const r2Service = require('../services/cloudflareR2Service');
 const pdfGenerationService = require('../services/pdfGenerationService');
+const reportQueueService = require('../services/reportQueueService');
 const path = require('path');
 const fs = require('fs');
 
@@ -608,15 +609,20 @@ router.patch('/:id/approve', verifyToken, requireRole(['admin', 'super_admin']),
           
           // 2. Regenerate PDF
           const grokApiKey = process.env.GROK_API_KEY || process.env.XAI_API_KEY;
-          const pdfResult = await pdfGenerationService.regeneratePdfFromExcel({
-            excelBuffer: excelBuffer,
-            templateId: report.templateId,
-            selectedSheets: report.requested_sheets,
-            grokApiKey: grokApiKey,
-            jsonData: report.json_data,
-            templateName: report.templateId,
-            signatureUrl: req.user.signature_url
-          });
+          const pdfResult = await reportQueueService.enqueue(
+            async () => {
+              return await pdfGenerationService.regeneratePdfFromExcel({
+                excelBuffer: excelBuffer,
+                templateId: report.templateId,
+                selectedSheets: report.requested_sheets,
+                grokApiKey: grokApiKey,
+                jsonData: report.json_data,
+                templateName: report.templateId,
+                signatureUrl: req.user.signature_url
+              });
+            },
+            { userId: req.user._id, reportId: report._id, operation: 'adminRegeneratePdf' }
+          );
           
           if (pdfResult.success) {
             // 3. Upload new PDF
@@ -832,16 +838,21 @@ router.post('/:id/upload-revised-excel',
         console.warn(`[Admin Upload] No Grok API key found. PDF will be generated without AI content.`);
       }
       
-      const pdfResult = await pdfGenerationService.regeneratePdfFromExcel({
-        excelBuffer: excelBuffer,
-        templateId: report.templateId,
-        selectedSheets: report.requested_sheets, // Use stored sheets from original generation
-        grokApiKey: grokApiKey,
-        jsonData: report.json_data, // Pass stored JSON data for AI context
-        htmlData: null, // HTML data is not typically stored
-        templateName: report.templateId, // Use templateId as template name
-        signatureUrl: req.user.signature_url // Pass admin signature URL
-      });
+      const pdfResult = await reportQueueService.enqueue(
+        async () => {
+          return await pdfGenerationService.regeneratePdfFromExcel({
+            excelBuffer: excelBuffer,
+            templateId: report.templateId,
+            selectedSheets: null, // Pass null to include ALL sheets from the revised Excel
+            grokApiKey: grokApiKey,
+            jsonData: report.json_data, // Pass stored JSON data for AI context
+            htmlData: null, // HTML data is not typically stored
+            templateName: report.templateId, // Use templateId as template name
+            signatureUrl: req.user.signature_url // Pass admin signature URL
+          });
+        },
+        { userId: req.user._id, reportId: report._id, operation: 'adminUploadRevisedExcel' }
+      );
 
       if (!pdfResult.success) {
         // PDF generation failed - attempt rollback

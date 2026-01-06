@@ -37,6 +37,9 @@ try:
 except ImportError:
     print("[PDF Regenerator] Warning: win32com not available. PDF generation will use fallback methods.", file=sys.stderr)
 
+# Configuration Flag - Set to False for Linux/No-COM mode
+USE_COM_INTERFACE = False
+
 
 def generate_pdf_from_excel_sheet(excel_path: str, sheet_name: str, output_path: str) -> bool:
     """
@@ -63,7 +66,7 @@ def generate_pdf_from_excel_sheet(excel_path: str, sheet_name: str, output_path:
         pythoncom.CoInitialize()
         co_initialized = True
         
-        excel = win32com.client.Dispatch("Excel.Application")
+        excel = win32com.client.DispatchEx("Excel.Application")
         excel.Visible = False
         excel.ScreenUpdating = False
         excel.DisplayAlerts = False
@@ -97,26 +100,43 @@ def generate_pdf_from_excel_sheet(excel_path: str, sheet_name: str, output_path:
         page_setup.Zoom = False
         page_setup.FitToPagesWide = 1
         
-        if sheet_name.lower() == 'coverpage':
+        # Smart orientation detection
+        try:
+            if sheet.UsedRange.Columns.Count > 10:
+                page_setup.Orientation = 2  # xlLandscape
+            else:
+                page_setup.Orientation = 1  # xlPortrait
+        except:
+            page_setup.Orientation = 1
+
+        if sheet_name.lower() in ['coverpage', 'cover page', 'cover']:
             page_setup.FitToPagesTall = 1
-            page_setup.Orientation = 1  # Portrait
+            page_setup.CenterVertically = True
         else:
             page_setup.FitToPagesTall = False
         
-        page_setup.Orientation = 1  # Portrait
+        page_setup.CenterHorizontally = True
         page_setup.PaperSize = 9  # A4
-        page_setup.LeftMargin = excel.InchesToPoints(0.5)
-        page_setup.RightMargin = excel.InchesToPoints(0.5)
-        page_setup.TopMargin = excel.InchesToPoints(0.5)
-        page_setup.BottomMargin = excel.InchesToPoints(0.5)
+        page_setup.LeftMargin = excel.InchesToPoints(0.25)
+        page_setup.RightMargin = excel.InchesToPoints(0.25)
+        page_setup.TopMargin = excel.InchesToPoints(0.4)
+        page_setup.BottomMargin = excel.InchesToPoints(0.4)
         
+        # Handle Print Area for designed sheets
+        ignore_print_areas = True
+        try:
+            if sheet_name.lower() in ['coverpage', 'cover page', 'cover', 'index'] and workbook.ActiveSheet.PageSetup.PrintArea:
+                ignore_print_areas = False
+        except:
+            pass
+
         # Export as PDF
         workbook.ActiveSheet.ExportAsFixedFormat(
             Type=0,  # xlTypePDF
             Filename=os.path.abspath(output_path),
             Quality=0,
             IncludeDocProperties=True,
-            IgnorePrintAreas=False,
+            IgnorePrintAreas=ignore_print_areas,
             OpenAfterPublish=False
         )
         
@@ -164,7 +184,7 @@ def generate_pdfs_from_excel(excel_path: str, output_dir: str, include_sheets: O
     if excluded_sheets is not None:
         EXCLUDED_SHEETS = excluded_sheets
     else:
-        EXCLUDED_SHEETS = ['Assumptions.1', 'Assumptions', 'assumptions', 'ASSUMPTIONS']
+        EXCLUDED_SHEETS = ['Assumptions.1'] # User wants most sheets included
     
     pdf_files = {
         "sheets": {},
@@ -200,7 +220,7 @@ def generate_pdfs_from_excel(excel_path: str, output_dir: str, include_sheets: O
         os.makedirs(output_dir, exist_ok=True)
         
         print(f"[PDF Regenerator] Opening workbook: {excel_path}", file=sys.stderr)
-        excel = win32com.client.Dispatch("Excel.Application")
+        excel = win32com.client.DispatchEx("Excel.Application")
         excel.Visible = False
         excel.ScreenUpdating = False
         excel.DisplayAlerts = False
@@ -241,36 +261,91 @@ def generate_pdfs_from_excel(excel_path: str, output_dir: str, include_sheets: O
             try:
                 sheet.Select()
                 
-                # Auto-fit columns to prevent ######## display for numeric values (skip for index sheet)
+                # Normalize sheet name
+                norm_name = sheet_name.strip().lower()
+                special_fill_sheets = ['coverpage', 'cover page', 'cover', 'index', 'summary', 'report summary', 'introduction']
+                is_designed_sheet = any(s in norm_name for s in special_fill_sheets)
+
+                # Auto-fit columns to prevent ######## display (skip for designed sheets)
                 try:
-                    if sheet_name.strip().lower() != 'index':
+                    if not is_designed_sheet:
                         sheet.Columns.AutoFit()
                 except Exception as e:
                     print(f"   ⚠️  Warning: Could not AutoFit columns on '{sheet_name}': {str(e)}", file=sys.stderr)
                 
-                page_setup = workbook.ActiveSheet.PageSetup
-                page_setup.Zoom = False
-                page_setup.FitToPagesWide = 1
+                # Default behavior for print areas: Respect them to exclude side instructions
+                ignore_print_areas = False
                 
-                if sheet_name.lower() == 'coverpage':
+                # CRITICAL: Define PageSetup object immediately
+                page_setup = sheet.PageSetup
+
+                if is_designed_sheet:
+                    # NATIVE EXPORT with SCALING OVERRIDES
+                    # 1. Use Native PrintArea (ignore_print_areas=False) to respect "White Page" area and exclude side notes.
+                    # 2. Force A4 + Fit-to-Page to ensure that specific PrintArea fills the PDF accurately.
+                    print(f"   📄 Cover '{sheet_name}': Using Native PrintArea + Force A4 Scaling", file=sys.stderr)
+                    
+                    # Do NOT clear PrintArea. Trust the template's border definition.
+                    # page_setup.PrintArea = "" 
+                    
+                    page_setup.PaperSize = 9 # A4
+                    page_setup.Zoom = False
+                    page_setup.FitToPagesWide = 1
                     page_setup.FitToPagesTall = 1
-                    page_setup.Orientation = 1
+                    page_setup.CenterHorizontally = True
+                    ignore_print_areas = False
                 else:
-                    page_setup.FitToPagesTall = False
+                    # Use sheet-specific PageSetup
+                    page_setup.Zoom = False
+                    page_setup.PaperSize = 9  # A4
+                    page_setup.FitToPagesWide = 1
+                    
+                    # Narrow Margins (~0.25 inch)
+                    page_setup.HeaderMargin = excel.InchesToPoints(0.2)
+                    page_setup.FooterMargin = excel.InchesToPoints(0.2)
+                    page_setup.LeftMargin = excel.InchesToPoints(0.25)
+                    page_setup.RightMargin = excel.InchesToPoints(0.25)
+                    page_setup.TopMargin = excel.InchesToPoints(0.3)
+                    page_setup.BottomMargin = excel.InchesToPoints(0.3)
+                    
+                    # Logic: Fit at least 60 rows per page
+                    fit_tall = False
+                    try:
+                        used_rows = sheet.UsedRange.Rows.Count
+                        pages_tall = (used_rows + 59) // 60
+                        if pages_tall < 1: pages_tall = 1
+                        fit_tall = pages_tall
+                    except:
+                        fit_tall = False
+                    
+                    # Default orientation
+                    page_setup.Orientation = 1  # xlPortrait
+                    
+                    # Smart orientation detection
+                    try:
+                        used_range = sheet.UsedRange
+                        if used_range.Columns.Count > 10:
+                            page_setup.Orientation = 2  # xlLandscape
+                    except:
+                        pass
+
+                    # Landscape for wide data sheets
+                    wide_sheets = ['workings for pl & bs', 'workings for plbs', 'workings for pl bs 2', 
+                                  'depreciation', 'repayment schedule', 'working capital loan']
+                    if any(ws in norm_name for ws in wide_sheets):
+                        page_setup.Orientation = 2 # xlLandscape
+
+                    page_setup.FitToPagesTall = fit_tall
+                    page_setup.CenterVertically = False
+                    page_setup.CenterHorizontally = True
                 
-                page_setup.Orientation = 1
-                page_setup.PaperSize = 9  # A4
-                page_setup.LeftMargin = excel.InchesToPoints(0.5)
-                page_setup.RightMargin = excel.InchesToPoints(0.5)
-                page_setup.TopMargin = excel.InchesToPoints(0.5)
-                page_setup.BottomMargin = excel.InchesToPoints(0.5)
-                
-                workbook.ActiveSheet.ExportAsFixedFormat(
+                # Export using sheet object
+                sheet.ExportAsFixedFormat(
                     Type=0,
                     Filename=os.path.abspath(pdf_path),
                     Quality=0,
                     IncludeDocProperties=True,
-                    IgnorePrintAreas=False,
+                    IgnorePrintAreas=ignore_print_areas,
                     OpenAfterPublish=False
                 )
                 
@@ -481,12 +556,13 @@ def merge_pdfs_with_order(pdfs_dir: str, output_path: str, template_name: str, s
                     if normalized_target == normalized_extracted or normalized_target in normalized_extracted:
                         # Stamp signature if not cover or index
                         final_path = filepath
-                        if signature_path and normalized_target not in ['coverpage', 'index', 'cover', 'indexpage', 'cover page']:
-                            print(f"   ✍️ Stamping signature on: {sheet_name}", file=sys.stderr)
-                            stamped_path = get_stamped_pdf(filepath, signature_path)
-                            if stamped_path != filepath:
-                                final_path = stamped_path
-                                temp_files_to_cleanup.append(stamped_path)
+                        # DISABLED SIGNATURES: User requested removal
+                        # if signature_path and normalized_target not in ['coverpage', 'index', 'cover', 'indexpage', 'cover page']:
+                        #     print(f"   ✍️ Stamping signature on: {sheet_name}", file=sys.stderr)
+                        #     stamped_path = get_stamped_pdf(filepath, signature_path)
+                        #     if stamped_path != filepath:
+                        #         final_path = stamped_path
+                        #         temp_files_to_cleanup.append(stamped_path)
                         
                         ordered_pdfs.append(final_path)
                         used_files.add(filename)
@@ -506,12 +582,13 @@ def merge_pdfs_with_order(pdfs_dir: str, output_path: str, template_name: str, s
                 normalized_extracted = normalize_sheet_name(extracted_name)
                 
                 final_path = filepath
-                if signature_path and normalized_extracted not in ['coverpage', 'index', 'cover', 'indexpage', 'cover page']:
-                    print(f"   ✍️ Stamping signature on unordered: {filename}", file=sys.stderr)
-                    stamped_path = get_stamped_pdf(filepath, signature_path)
-                    if stamped_path != filepath:
-                        final_path = stamped_path
-                        temp_files_to_cleanup.append(stamped_path)
+                # DISABLED SIGNATURES: User requested removal
+                # if signature_path and normalized_extracted not in ['coverpage', 'index', 'cover', 'indexpage', 'cover page']:
+                #     print(f"   ✍️ Stamping signature on unordered: {filename}", file=sys.stderr)
+                #     stamped_path = get_stamped_pdf(filepath, signature_path)
+                #     if stamped_path != filepath:
+                #         final_path = stamped_path
+                #         temp_files_to_cleanup.append(stamped_path)
                 
                 ordered_pdfs.append(final_path)
                 print(f"   + Added: {filename} (appended)", file=sys.stderr)
@@ -595,7 +672,7 @@ def regenerate_pdf_from_excel(
         result["error"] = f"Excel file not found: {excel_path}"
         return result
     
-    if not COM_AVAILABLE:
+    if not COM_AVAILABLE and USE_COM_INTERFACE:
         result["error"] = "Excel COM automation not available"
         return result
     

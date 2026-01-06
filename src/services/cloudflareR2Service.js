@@ -297,7 +297,8 @@ function extractKeyFromUrl(url) {
       pathParts.shift();
     }
     
-    const key = pathParts.join('/');
+    // Decode the key to remove %20 and other URL encodings
+    const key = decodeURIComponent(pathParts.join('/'));
     logger.info('Extracted R2 key from URL', { url, key });
     return key;
   } catch (error) {

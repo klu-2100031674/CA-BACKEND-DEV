@@ -603,20 +603,31 @@ class ExcelCalculationService {
         ...headerFields
       });
       
+      // Extract tenure for term loan templates (field varies by template)
+      // TERM_LOAN_CC uses i47, others use i46
+      let tenure = null;
+      if (normalizedTemplateId === 'TERM_LOAN_CC') {
+        tenure = cellData.i47 ? parseInt(cellData.i47, 10) : null;
+      } else {
+        tenure = cellData.i46 ? parseInt(cellData.i46, 10) : null;
+      }
+      
       const inputData = {
         updates,
         recalculate: false, // Let Excel handle automatic calculation
         skipPdf: true, // Optimization: Skip PDF generation for form application
+        indexSheet: this.getIndexSheetName(cellData.l41), // Get index sheet name based on loan amount in L41
         ...headerFields
       };
       logger.debug('Input data prepared for Python script', {
         operation: 'applyFormDataAndCalculate',
         templateId,
-        totalUpdates: updates.length
+        totalUpdates: updates.length,
+        tenure
       });
 
-      // Resolve template path (handle different naming conventions)
-      const templatePath = this.resolveTemplatePath(templateId);
+      // Resolve template path (handle different naming conventions and tenure-based folder selection)
+      const templatePath = this.resolveTemplatePath(templateId, tenure);
       logger.debug('Template path resolved', {
         operation: 'applyFormDataAndCalculate',
         templateId,
@@ -661,8 +672,25 @@ class ExcelCalculationService {
     }
   }
 
+  // Determine Index sheet name based on loan amount from L41
+  getIndexSheetName(loanAmountInLakhs) {
+    if (!loanAmountInLakhs || loanAmountInLakhs <= 0) {
+      return null; // No index sheet selection needed
+    }
+    
+    if (loanAmountInLakhs < 20) {
+      return 'Index < 20Lac';
+    } else if (loanAmountInLakhs >= 20 && loanAmountInLakhs <= 100) {
+      return 'Index 20L to 1 Cr';
+    } else if (loanAmountInLakhs > 100) {
+      return 'Index >1Cr';
+    }
+    
+    return null;
+  }
+
   // Resolve template path based on templateId (handle different naming conventions)
-  resolveTemplatePath(templateId) {
+  resolveTemplatePath(templateId, tenure = null) {
     // Map template IDs to actual file names
     const templateFileMap = {
       'CC1': 'format CC1.xlsx',
@@ -685,18 +713,122 @@ class ExcelCalculationService {
       'Format CC6': 'format CC6.xlsx',
       'TERM_LOAN_SERVICE_WITHOUT_STOCK': 'Term loan (Service sector without stock).xls',
       'TERM_LOAN_MANUFACTURING_SERVICE_WITH_STOCK': 'Term Loan (Manufacturing & Service Sector with stock).xls',
-      'TERM_LOAN_CC': 'Term Loan + CC Loan final.xls'
+      'TERM_LOAN_CC': 'Term Loan + CC Loan.xls'
     };
 
     const filename = templateFileMap[templateId] || `${templateId}.xlsx`;
-    const templatePath = path.join(this.templatesPath, filename);
     
-    // Check if file exists
-    if (!fs.existsSync(templatePath)) {
-      throw new Error(`Template file not found: ${filename} (templateId: ${templateId})`);
+    // Helper function to find file with flexible naming (handles "final" suffix variations)
+    const findFileInDirectory = (dirPath, baseFilename) => {
+      if (!fs.existsSync(dirPath)) {
+        return null;
+      }
+      
+      // Try exact filename first
+      const exactPath = path.join(dirPath, baseFilename);
+      if (fs.existsSync(exactPath)) {
+        return exactPath;
+      }
+      
+      // For Term Loan files, try variations (with/without "final" suffix)
+      if (baseFilename.includes('Term Loan') && baseFilename.includes('final')) {
+        const withoutFinal = baseFilename.replace(' final', '').replace('final.xls', '.xls');
+        const withoutFinalPath = path.join(dirPath, withoutFinal);
+        if (fs.existsSync(withoutFinalPath)) {
+          logger.debug('Found file without "final" suffix', {
+            method: 'findFileInDirectory',
+            requested: baseFilename,
+            found: withoutFinal
+          });
+          return withoutFinalPath;
+        }
+      }
+      
+      // List available files in directory for debugging
+      try {
+        const files = fs.readdirSync(dirPath);
+        logger.debug('Files in directory', {
+          method: 'findFileInDirectory',
+          dirPath,
+          files: files.slice(0, 10)
+        });
+      } catch (err) {
+        logger.warn('Could not list directory contents', {
+          method: 'findFileInDirectory',
+          dirPath,
+          error: err.message
+        });
+      }
+      
+      return null;
+    };
+    
+    // For Term Loan templates, check tenure-based folder selection
+    let templatePath;
+    const isTermLoanTemplate = 
+      templateId === 'TERM_LOAN_SERVICE_WITHOUT_STOCK' ||
+      templateId === 'TERM_LOAN_MANUFACTURING_SERVICE_WITH_STOCK' ||
+      templateId === 'TERM_LOAN_CC';
+    
+    if (isTermLoanTemplate && tenure !== null && tenure !== undefined) {
+      // Tenure-based folder selection for Term Loan
+      if (tenure <= 7) {
+        // Use "Term period 7 or less" folder
+        const tenureFolder = path.join(this.templatesPath, 'Term period 7 or less');
+        templatePath = findFileInDirectory(tenureFolder, filename);
+        
+        if (templatePath) {
+          logger.debug('Using Term period 7 or less template', {
+            method: 'resolveTemplatePath',
+            templateId,
+            tenure,
+            templatePath
+          });
+          return templatePath;
+        }
+      } else {
+        // For tenure > 7 years, use "Term period above 7" folder
+        const tenureFolder = path.join(this.templatesPath, 'Term period above 7');
+        templatePath = findFileInDirectory(tenureFolder, filename);
+        
+        if (templatePath) {
+          logger.debug('Using Term period above 7 template', {
+            method: 'resolveTemplatePath',
+            templateId,
+            tenure,
+            templatePath
+          });
+          return templatePath;
+        }
+      }
     }
     
-    return templatePath;
+    // Fallback to standard template path
+    templatePath = path.join(this.templatesPath, filename);
+    if (fs.existsSync(templatePath)) {
+      logger.debug('Using standard template path', {
+        method: 'resolveTemplatePath',
+        templateId,
+        tenure,
+        templatePath
+      });
+      return templatePath;
+    }
+    
+    // Try flexible matching in standard folder
+    const standardPath = findFileInDirectory(this.templatesPath, filename);
+    if (standardPath) {
+      logger.warn('Template not found in tenure-based folder, using standard folder with flexible matching', {
+        method: 'resolveTemplatePath',
+        templateId,
+        tenure,
+        templatePath: standardPath
+      });
+      return standardPath;
+    }
+    
+    // File not found anywhere
+    throw new Error(`Template file not found: ${filename} (templateId: ${templateId}, tenure: ${tenure}). Searched in: standard templates folder and tenure-based folders.`);
   }
 
   // Apply arbitrary updates across any sheets and calculate

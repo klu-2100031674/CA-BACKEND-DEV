@@ -3,6 +3,7 @@ const Wallet = require('../models/Wallet');
 const excelCalculationService = require('../services/excelCalculationService');
 const excelFileService = require('../services/excelFileService');
 const r2Service = require('../services/cloudflareR2Service');
+const reportQueueService = require('../services/reportQueueService');
 const fs = require('fs').promises;
 const path = require('path');
 const { spawn } = require('child_process');
@@ -11,6 +12,7 @@ const logger = require('../utils/logger');
 /**
  * Report Controller
  * Handles all report-related operations including Excel generation
+ * NOTE: All Excel operations are queued to prevent concurrent COM access issues
  */
 
 /**
@@ -29,10 +31,15 @@ exports.applyFormData = async (req, res, next) => {
       operation: 'applyFormData'
     });
 
-    // Apply form data and calculate using Excel service
-    const result = await excelCalculationService.applyFormDataAndCalculate(
-      templateId,
-      formData
+    // Queue the Excel operation to prevent concurrent COM access
+    const result = await reportQueueService.enqueue(
+      async () => {
+        return await excelCalculationService.applyFormDataAndCalculate(
+          templateId,
+          formData
+        );
+      },
+      { userId: req.user._id, templateId, operation: 'applyFormData' }
     );
 
     // Save Excel file to MongoDB
@@ -100,7 +107,13 @@ exports.applyFinalEdits = async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'No updates provided' });
     }
 
-    const result = await excelCalculationService.applyUpdatesAndCalculate(templateId, { updates, recalculate });
+    // Queue the Excel operation to prevent concurrent COM access
+    const result = await reportQueueService.enqueue(
+      async () => {
+        return await excelCalculationService.applyUpdatesAndCalculate(templateId, { updates, recalculate });
+      },
+      { userId: req.user._id, templateId, operation: 'applyFinalEdits' }
+    );
 
     res.json({
       success: true,
@@ -744,17 +757,22 @@ exports.downloadFullReport = async (req, res, next) => {
       await fs.writeFile(tempExcelPath, existingStaging.excel_data);
 
       // Generate full report using existing Excel file
-      result = await excelCalculationService.generateFullReportFromFile(
-        tempExcelPath,
-        templateId,
-        formData, // Still pass formData for any additional context
-        grokApiKey,
-        'grok',
-        { 
-          selectedSheets: normalizedSelectedSheets,
-          signaturePath: signatureLocalPath,
-          analysisOptions: analysisOptions // Pass analysis options
-        }
+      result = await reportQueueService.enqueue(
+        async () => {
+          return await excelCalculationService.generateFullReportFromFile(
+            tempExcelPath,
+            templateId,
+            formData, // Still pass formData for any additional context
+            grokApiKey,
+            'grok',
+            { 
+              selectedSheets: normalizedSelectedSheets,
+              signaturePath: signatureLocalPath,
+              analysisOptions: analysisOptions // Pass analysis options
+            }
+          );
+        },
+        { userId: req.user._id, templateId, operation: 'generateFullReportFromFile' }
       );
 
       usedExistingExcel = true;
@@ -777,15 +795,20 @@ exports.downloadFullReport = async (req, res, next) => {
         operation: 'downloadFullReport'
       });
 
-      result = await excelCalculationService.generateFullReport(
-        templateId,
-        formData,
-        grokApiKey,
-        { 
-          selectedSheets: normalizedSelectedSheets,
-          signaturePath: signatureLocalPath,
-          analysisOptions: analysisOptions // Pass analysis options
-        }
+      result = await reportQueueService.enqueue(
+        async () => {
+          return await excelCalculationService.generateFullReport(
+            templateId,
+            formData,
+            grokApiKey,
+            { 
+              selectedSheets: normalizedSelectedSheets,
+              signaturePath: signatureLocalPath,
+              analysisOptions: analysisOptions // Pass analysis options
+            }
+          );
+        },
+        { userId: req.user._id, templateId, operation: 'generateFullReport' }
       );
     }
 
@@ -941,5 +964,31 @@ exports.downloadFullReport = async (req, res, next) => {
   }
 };
 
-module.exports = exports;
+/**
+ * @route   GET /api/reports/queue/status
+ * @desc    Get current report generation queue status
+ * @access  Private (Admin)
+ */
+exports.getQueueStatus = async (req, res, next) => {
+  try {
+    const status = reportQueueService.getStatus();
+    const estimatedWait = reportQueueService.getEstimatedWaitTime();
+    
+    res.json({
+      success: true,
+      data: {
+        ...status,
+        estimatedWaitMs: estimatedWait,
+        estimatedWaitSeconds: Math.round(estimatedWait / 1000)
+      }
+    });
+  } catch (error) {
+    logger.error('Error getting queue status', {
+      error: error.message,
+      operation: 'getQueueStatus'
+    });
+    next(error);
+  }
+};
 
+module.exports = exports;

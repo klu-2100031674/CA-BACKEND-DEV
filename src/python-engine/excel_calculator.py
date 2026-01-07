@@ -4106,9 +4106,7 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
                 applied_updates = _collect_updates(workbook, input_data.get('updates', []))
                 workbook.save(output_path)
                 
-                # Recalculate formulas using xlcalculator if available
-                _recalculate_workbook_with_xlcalculator(output_path)
-                
+                              
                 try:
                     workbook.close()
                 except Exception:

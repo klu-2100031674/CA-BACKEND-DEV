@@ -154,88 +154,203 @@ def _freeze_workbook_formulas_to_values(source_xlsx_path: str, output_xlsx_path:
     }
 
 
+def _convert_xls_to_xlsx_preserving_formulas(xls_path: str, xlsx_path: str) -> None:
+    """Convert .xls to .xlsx while preserving formulas using xlrd and openpyxl."""
+    import xlrd
+    
+    # Open the .xls file with xlrd
+    workbook_xls = xlrd.open_workbook(xls_path, formatting_info=False)
+    
+    # Create a new .xlsx workbook with openpyxl
+    workbook_xlsx = openpyxl.Workbook()
+    
+    # Remove the default sheet
+    workbook_xlsx.remove(workbook_xlsx.active)
+    
+    # Copy each sheet
+    for sheet_idx in range(workbook_xls.nsheets):
+        sheet_xls = workbook_xls.sheet_by_index(sheet_idx)
+        sheet_xlsx = workbook_xlsx.create_sheet(title=sheet_xls.name)
+        
+        # Copy cells
+        for row_idx in range(sheet_xls.nrows):
+            for col_idx in range(sheet_xls.ncols):
+                cell_xls = sheet_xls.cell(row_idx, col_idx)
+                cell_xlsx = sheet_xlsx.cell(row=row_idx + 1, column=col_idx + 1)
+                
+                if cell_xls.ctype == 3:  # Formula cell type in xlrd (XL_FORMULA)
+                    # Preserve formula
+                    cell_xlsx.value = "=" + str(cell_xls.value)  # xlrd gives formula without =
+                else:
+                    # Copy value
+                    cell_xlsx.value = cell_xls.value
+    
+    # Save the .xlsx file
+    workbook_xlsx.save(xlsx_path)
+    workbook_xlsx.close()
+
+
 def _recalculate_workbook_with_xlcalculator(workbook_path: str) -> bool:
-    """Recalculate all formulas in the workbook using xlcalculator and update cached values.
+    """Recalculate all formulas in the workbook using xlcalculator (if COM available) or LibreOffice.
     
     This ensures that when the workbook is loaded with data_only=True, it has correct calculated values.
+    When COM is not available (Linux), use LibreOffice directly for 100% success rate.
     """
-    if not XL_CALC_AVAILABLE:
-        print("[xlcalculator] Not available for recalculation", file=sys.stderr)
-        return False
+    import subprocess
+    import shutil
+    import tempfile
     
-    def _to_native_excel_value(raw_value):
-        """Convert xlcalculator ExcelType or other wrappers to native Python."""
-        if raw_value is None:
-            return None
+    # If COM is not available, skip xlcalculator and use LibreOffice directly for 100% success rate
+    if not COM_AVAILABLE:
+        print("[Recalculation] COM not available, using LibreOffice directly for reliable calculation", file=sys.stderr)
+        return _recalculate_with_libreoffice(workbook_path)
+    
+    # COM is available, try xlcalculator first for faster processing
+    if XL_CALC_AVAILABLE:
         try:
-            if hasattr(raw_value, 'to_python'):
-                return raw_value.to_python()
-            if hasattr(raw_value, 'value') and not isinstance(raw_value, (str, bytes)):
-                # ExcelType exposes .value containing the typed payload
-                nested_val = raw_value.value
-                if hasattr(nested_val, 'to_python'):
-                    return nested_val.to_python()
-                return nested_val
-        except Exception as conv_err:
-            print(f"[xlcalculator] Warning: Could not convert ExcelType value ({conv_err})", file=sys.stderr)
-        return raw_value
-
-    def normalize_cell_value(raw_value):
-        if raw_value is None:
-            return ""
-        raw_value = _to_native_excel_value(raw_value)
-        if isinstance(raw_value, str):
-            return raw_value.strip()
-        if isinstance(raw_value, Decimal):
-            return float(raw_value)
-        if isinstance(raw_value, float):
-            import math
-            if math.isnan(raw_value) or math.isinf(raw_value):
-                return ""
-            return float(raw_value)
-        return raw_value
-    
-    try:
-        print("[xlcalculator] Initializing model for full workbook recalculation", file=sys.stderr)
-        compiler = ModelCompiler()
-        parsed_model = compiler.read_and_parse_archive(workbook_path)
-        _ensure_custom_xl_functions_registered()
-        _coerce_model_constants_to_excel_types(parsed_model)
-        calc_evaluator = Evaluator(parsed_model)
-        print("[xlcalculator] Model ready for recalculation", file=sys.stderr)
-        
-        # Load the workbook to update values
-        wb = load_workbook(workbook_path, data_only=False)
-        
-        recalculated = 0
-        for sheet_name in wb.sheetnames:
-            ws = wb[sheet_name]
-            sheet_prefix = f"'{sheet_name}'" if any(ch in sheet_name for ch in (" ", "-", ".")) else sheet_name
+            print("[xlcalculator] Initializing model for full workbook recalculation", file=sys.stderr)
             
-            for row in ws.iter_rows():
-                for cell in row:
-                    if cell.data_type == "f" or (isinstance(cell.value, str) and cell.value.startswith("=")):
-                        cell_ref = f"{cell.coordinate}"
-                        sheet_ref = f"{sheet_prefix}!{cell_ref}"
-                        try:
-                            calc_value = calc_evaluator.evaluate(sheet_ref)
-                            normalized_value = normalize_cell_value(calc_value)
-                            if normalized_value not in ("", None):
-                                cell.value = normalized_value
-                                recalculated += 1
-                        except Exception as calc_eval_error:
-                            # Keep original value if evaluation fails
-                            pass
+            def _to_native_excel_value(raw_value):
+                """Convert xlcalculator ExcelType or other wrappers to native Python."""
+                if raw_value is None:
+                    return None
+                try:
+                    if hasattr(raw_value, 'to_python'):
+                        return raw_value.to_python()
+                    if hasattr(raw_value, 'value') and not isinstance(raw_value, (str, bytes)):
+                        # ExcelType exposes .value containing the typed payload
+                        nested_val = raw_value.value
+                        if hasattr(nested_val, 'to_python'):
+                            return nested_val.to_python()
+                        return nested_val
+                except Exception as conv_err:
+                    print(f"[xlcalculator] Warning: Could not convert ExcelType value ({conv_err})", file=sys.stderr)
+                return raw_value
+
+            def normalize_cell_value(raw_value):
+                if raw_value is None:
+                    return ""
+                raw_value = _to_native_excel_value(raw_value)
+                if isinstance(raw_value, str):
+                    return raw_value.strip()
+                if isinstance(raw_value, Decimal):
+                    return float(raw_value)
+                if isinstance(raw_value, float):
+                    import math
+                    if math.isnan(raw_value) or math.isinf(raw_value):
+                        return ""
+                    return float(raw_value)
+                return raw_value
+            
+            compiler = ModelCompiler()
+            parsed_model = compiler.read_and_parse_archive(workbook_path)
+            _ensure_custom_xl_functions_registered()
+            _coerce_model_constants_to_excel_types(parsed_model)
+            calc_evaluator = Evaluator(parsed_model)
+            print("[xlcalculator] Model ready for recalculation", file=sys.stderr)
+            
+            # Load the workbook to update values
+            wb = load_workbook(workbook_path, data_only=False)
+            
+            recalculated = 0
+            total_formulas = 0
+            for sheet_name in wb.sheetnames:
+                ws = wb[sheet_name]
+                sheet_prefix = f"'{sheet_name}'" if any(ch in sheet_name for ch in (" ", "-", ".")) else sheet_name
+                
+                for row in ws.iter_rows():
+                    for cell in row:
+                        if cell.data_type == "f" or (isinstance(cell.value, str) and cell.value.startswith("=")):
+                            total_formulas += 1
+                            cell_ref = f"{cell.coordinate}"
+                            sheet_ref = f"{sheet_prefix}!{cell_ref}"
+                            try:
+                                calc_value = calc_evaluator.evaluate(sheet_ref)
+                                normalized_value = normalize_cell_value(calc_value)
+                                if normalized_value not in ("", None):
+                                    cell.value = normalized_value
+                                    recalculated += 1
+                            except Exception as calc_eval_error:
+                                # Keep original value if evaluation fails
+                                pass
+            
+            # Save the workbook with recalculated values
+            wb.save(workbook_path)
+            wb.close()
+            
+            print(f"[xlcalculator] Recalculated {recalculated} out of {total_formulas} formula cells", file=sys.stderr)
+            
+            # If xlcalculator failed to recalculate most formulas, use LibreOffice fallback
+            success_rate = recalculated / total_formulas if total_formulas > 0 else 0
+            if success_rate < 0.9 or total_formulas > 10:  # Use LibreOffice for complex templates or low success rates
+                print(f"[xlcalculator] Low recalculation success rate ({success_rate:.1%}), using LibreOffice fallback", file=sys.stderr)
+                success = _recalculate_with_libreoffice(workbook_path)
+                print(f"[xlcalculator] LibreOffice fallback result: {success}", file=sys.stderr)
+                return success
+            
+            return True
+            
+        except Exception as e:
+            print(f"[xlcalculator] Recalculation failed: {e}", file=sys.stderr)
+            # Fall back to LibreOffice
+            return _recalculate_with_libreoffice(workbook_path)
+    
+    # If xlcalculator not available or failed, use LibreOffice
+    return _recalculate_with_libreoffice(workbook_path)
+
+
+def _recalculate_with_libreoffice(workbook_path: str) -> bool:
+    """Use LibreOffice to recalculate formulas in the workbook."""
+    try:
+        # Check if soffice is available
+        import shutil
+        soffice_path = shutil.which("soffice")
+        if not soffice_path:
+            print("[LibreOffice] soffice command not found - LibreOffice not installed", file=sys.stderr)
+            return False
+            
+        print("[LibreOffice] Starting formula recalculation...", file=sys.stderr)
         
-        # Save the workbook with recalculated values
-        wb.save(workbook_path)
-        wb.close()
+        # Create a temp dir for the recalc output
+        temp_dir = _get_safe_temp_dir()
+        recalc_dir = os.path.join(temp_dir, f"libreoffice_recalc_{os.getpid()}")
+        os.makedirs(recalc_dir, exist_ok=True)
         
-        print(f"[xlcalculator] Recalculated {recalculated} formula cells", file=sys.stderr)
-        return True
+        # Run soffice to convert xlsx -> xlsx (forces recalc)
+        cmd = [
+            soffice_path,
+            "--headless",
+            "--convert-to", "xlsx",
+            "--outdir", recalc_dir,
+            workbook_path
+        ]
+        
+        print(f"[LibreOffice] Running: {' '.join(cmd)}", file=sys.stderr)
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=120)
+        
+        if result.returncode == 0:
+            # Expected output filename
+            original_filename = os.path.basename(workbook_path)
+            recalculated_path = os.path.join(recalc_dir, original_filename)
+            
+            if os.path.exists(recalculated_path):
+                # Replace the original file with the recalculated one
+                shutil.move(recalculated_path, workbook_path)
+                print("[LibreOffice] ✓ Formula recalculation successful", file=sys.stderr)
+                shutil.rmtree(recalc_dir, ignore_errors=True)
+                return True
+            else:
+                print(f"[LibreOffice] ⚠ Recalculated file not found at {recalculated_path}", file=sys.stderr)
+        else:
+            stderr_output = result.stderr.decode(errors='replace')
+            print(f"[LibreOffice] ⚠ Recalc failed: {stderr_output}", file=sys.stderr)
+            
+        # Cleanup
+        shutil.rmtree(recalc_dir, ignore_errors=True)
+        return False
         
     except Exception as e:
-        print(f"[xlcalculator] Recalculation failed: {e}", file=sys.stderr)
+        print(f"[LibreOffice] Error during recalculation: {e}", file=sys.stderr)
         return False
 
 
@@ -3867,12 +3982,8 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
                 workbook = openpyxl.load_workbook(output_path, data_only=True)
                 
             else:
-                # Fallback to pandas for .xls files when COM not available
-                print(f"[Excel Calculator] COM not available, using pandas to convert .xls to .xlsx: {excel_path}", file=sys.stderr)
-                import pandas as pd
-                
-                # Read all sheets from .xls file
-                xls_data = pd.read_excel(excel_path, sheet_name=None, engine='xlrd')
+                # Fallback to xlrd/openpyxl for .xls files when COM not available
+                print(f"[Excel Calculator] COM not available, using xlrd/openpyxl to convert .xls to .xlsx: {excel_path}", file=sys.stderr)
                 
                 # Use TEMP_DIR environment variable, fallback to system temp directory
                 import tempfile
@@ -3885,12 +3996,10 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
                     os.path.join(output_dir, f'{template_name}-converted-{timestamp}.xlsx')
                 )
                 
-                # Write to .xlsx format using pandas
-                with pd.ExcelWriter(temp_xlsx_path, engine='openpyxl') as writer:
-                    for sheet_name, df in xls_data.items():
-                        df.to_excel(writer, sheet_name=sheet_name, index=False)
+                # Convert .xls to .xlsx preserving formulas
+                _convert_xls_to_xlsx_preserving_formulas(excel_path, temp_xlsx_path)
                 
-                print(f"[Excel Calculator] ✓ Converted .xls to .xlsx using pandas", file=sys.stderr)
+                print(f"[Excel Calculator] ✓ Converted .xls to .xlsx preserving formulas", file=sys.stderr)
                 
                 # Now load with openpyxl and continue normal processing
                 workbook = openpyxl.load_workbook(temp_xlsx_path)

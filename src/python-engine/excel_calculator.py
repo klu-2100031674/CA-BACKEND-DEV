@@ -2685,7 +2685,7 @@ def generate_html_from_excel_sheet(excel_path: str, sheet_name: str, header_data
                     except Exception:
                         has_formula = False
 
-                    if calc_evaluator and (normalized_value in ("", None) or has_formula):
+                    if calc_evaluator and has_formula:
                         cell_ref = f"{get_column_letter(col_idx)}{row_idx}"
                         sheet_ref = f"{sheet_prefix}!{cell_ref}"
                         try:

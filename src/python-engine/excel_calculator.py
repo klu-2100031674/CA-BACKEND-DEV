@@ -2885,7 +2885,9 @@ def generate_html_from_excel_sheet(excel_path: str, sheet_name: str, header_data
                     except Exception:
                         has_formula = False
 
-                    if calc_evaluator and has_formula:
+                    if calc_evaluator and has_formula and COM_AVAILABLE:
+                        # Only use xlcalculator for formula evaluation when COM is available (Windows)
+                        # On Linux, LibreOffice has already calculated all formulas, so use the pre-calculated values
                         cell_ref = f"{get_column_letter(col_idx)}{row_idx}"
                         sheet_ref = f"{sheet_prefix}!{cell_ref}"
                         try:

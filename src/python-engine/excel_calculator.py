@@ -320,7 +320,7 @@ def _recalculate_with_libreoffice(workbook_path: str) -> bool:
         cmd = [
             soffice_path,
             "--headless",
-            "--convert-to", "xlsx",
+            "--convert-to", 'xlsx:"Calc MS Excel 2007 XML"',
             "--outdir", recalc_dir,
             workbook_path
         ]
@@ -334,6 +334,12 @@ def _recalculate_with_libreoffice(workbook_path: str) -> bool:
             recalculated_path = os.path.join(recalc_dir, original_filename)
             
             if os.path.exists(recalculated_path):
+                # Debug: check if the file size changed
+                import os
+                original_size = os.path.getsize(workbook_path)
+                new_size = os.path.getsize(recalculated_path)
+                print(f"[LibreOffice] File size: {original_size} -> {new_size}", file=sys.stderr)
+                
                 # Replace the original file with the recalculated one
                 shutil.move(recalculated_path, workbook_path)
                 print("[LibreOffice] ✓ Formula recalculation successful", file=sys.stderr)
@@ -341,6 +347,7 @@ def _recalculate_with_libreoffice(workbook_path: str) -> bool:
                 return True
             else:
                 print(f"[LibreOffice] ⚠ Recalculated file not found at {recalculated_path}", file=sys.stderr)
+                print(f"[LibreOffice] Files in recalc dir: {os.listdir(recalc_dir) if os.path.exists(recalc_dir) else 'dir not found'}", file=sys.stderr)
         else:
             stderr_output = result.stderr.decode(errors='replace')
             print(f"[LibreOffice] ⚠ Recalc failed: {stderr_output}", file=sys.stderr)
@@ -2839,7 +2846,9 @@ def generate_html_from_excel_sheet(excel_path: str, sheet_name: str, header_data
                 nature_of_business = extract_text_value(7, 2)
             
             calc_evaluator = None
-            if XL_CALC_AVAILABLE:
+            if XL_CALC_AVAILABLE and COM_AVAILABLE:
+                # Only initialize xlcalculator on Windows where COM is available
+                # On Linux, LibreOffice has already calculated all formulas
                 try:
                     print("[HTML Generator] Initializing xlcalculator model for formula evaluation", file=sys.stderr)
                     compiler = ModelCompiler()
@@ -2852,11 +2861,12 @@ def generate_html_from_excel_sheet(excel_path: str, sheet_name: str, header_data
                     calc_evaluator = None
                     print(f"[HTML Generator] Warning: xlcalculator unavailable ({calc_init_error})", file=sys.stderr)
             else:
-                print("[HTML Generator] xlcalculator package not available; complex formulas may remain blank", file=sys.stderr)
+                print("[HTML Generator] Skipping xlcalculator initialization (using pre-calculated LibreOffice values)", file=sys.stderr)
 
             sheet_matrix: List[List[Any]] = []
             non_empty_cells = 0
             calc_debug_count = 0
+            value_debug_count = 0
             sheet_prefix = (
                 f"'{actual_sheet_name}'" if any(ch in actual_sheet_name for ch in (" ", "-", "."))
                 else actual_sheet_name
@@ -2874,6 +2884,12 @@ def generate_html_from_excel_sheet(excel_path: str, sheet_name: str, header_data
                 for col_idx in range(1, max_col + 1):
                     raw_value = values_sheet.cell(row=row_idx, column=col_idx).value
                     normalized_value = normalize_cell_value(raw_value)
+                    
+                    # Debug: print some sample values
+                    if row_idx <= 10 and col_idx <= 10 and value_debug_count < 10:
+                        print(f"[HTML Generator] Cell R{row_idx}C{col_idx} raw_value: {raw_value} -> normalized: {normalized_value}", file=sys.stderr)
+                        value_debug_count += 1
+                    
                     structure_cell = sheet.cell(row=row_idx, column=col_idx)
                     cell_formula = structure_cell.value
                     has_formula = False

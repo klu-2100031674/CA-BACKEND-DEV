@@ -2846,7 +2846,7 @@ def generate_html_from_excel_sheet(excel_path: str, sheet_name: str, header_data
                 nature_of_business = extract_text_value(7, 2)
             
             calc_evaluator = None
-            if XL_CALC_AVAILABLE and COM_AVAILABLE:
+            if XL_CALC_AVAILABLE:
                 # Only initialize xlcalculator on Windows where COM is available
                 # On Linux, LibreOffice has already calculated all formulas
                 try:
@@ -2901,7 +2901,7 @@ def generate_html_from_excel_sheet(excel_path: str, sheet_name: str, header_data
                     except Exception:
                         has_formula = False
 
-                    if calc_evaluator and has_formula and COM_AVAILABLE:
+                    if calc_evaluator and has_formula:
                         # Only use xlcalculator for formula evaluation when COM is available (Windows)
                         # On Linux, LibreOffice has already calculated all formulas, so use the pre-calculated values
                         cell_ref = f"{get_column_letter(col_idx)}{row_idx}"
@@ -4122,6 +4122,7 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
                         # Create a temp dir for the recalc output
                         recalc_dir = os.path.join(output_dir, f"recalc_{unique_id}")
                         os.makedirs(recalc_dir, exist_ok=True)
+                        
                         
                         # Run soffice to convert xlsx -> xlsx (forces recalc)
                         cmd = [

@@ -154,6 +154,91 @@ def _freeze_workbook_formulas_to_values(source_xlsx_path: str, output_xlsx_path:
     }
 
 
+def _recalculate_workbook_with_xlcalculator(workbook_path: str) -> bool:
+    """Recalculate all formulas in the workbook using xlcalculator and update cached values.
+    
+    This ensures that when the workbook is loaded with data_only=True, it has correct calculated values.
+    """
+    if not XL_CALC_AVAILABLE:
+        print("[xlcalculator] Not available for recalculation", file=sys.stderr)
+        return False
+    
+    def _to_native_excel_value(raw_value):
+        """Convert xlcalculator ExcelType or other wrappers to native Python."""
+        if raw_value is None:
+            return None
+        try:
+            if hasattr(raw_value, 'to_python'):
+                return raw_value.to_python()
+            if hasattr(raw_value, 'value') and not isinstance(raw_value, (str, bytes)):
+                # ExcelType exposes .value containing the typed payload
+                nested_val = raw_value.value
+                if hasattr(nested_val, 'to_python'):
+                    return nested_val.to_python()
+                return nested_val
+        except Exception as conv_err:
+            print(f"[xlcalculator] Warning: Could not convert ExcelType value ({conv_err})", file=sys.stderr)
+        return raw_value
+
+    def normalize_cell_value(raw_value):
+        if raw_value is None:
+            return ""
+        raw_value = _to_native_excel_value(raw_value)
+        if isinstance(raw_value, str):
+            return raw_value.strip()
+        if isinstance(raw_value, Decimal):
+            return float(raw_value)
+        if isinstance(raw_value, float):
+            import math
+            if math.isnan(raw_value) or math.isinf(raw_value):
+                return ""
+            return float(raw_value)
+        return raw_value
+    
+    try:
+        print("[xlcalculator] Initializing model for full workbook recalculation", file=sys.stderr)
+        compiler = ModelCompiler()
+        parsed_model = compiler.read_and_parse_archive(workbook_path)
+        _ensure_custom_xl_functions_registered()
+        _coerce_model_constants_to_excel_types(parsed_model)
+        calc_evaluator = Evaluator(parsed_model)
+        print("[xlcalculator] Model ready for recalculation", file=sys.stderr)
+        
+        # Load the workbook to update values
+        wb = load_workbook(workbook_path, data_only=False)
+        
+        recalculated = 0
+        for sheet_name in wb.sheetnames:
+            ws = wb[sheet_name]
+            sheet_prefix = f"'{sheet_name}'" if any(ch in sheet_name for ch in (" ", "-", ".")) else sheet_name
+            
+            for row in ws.iter_rows():
+                for cell in row:
+                    if cell.data_type == "f" or (isinstance(cell.value, str) and cell.value.startswith("=")):
+                        cell_ref = f"{cell.coordinate}"
+                        sheet_ref = f"{sheet_prefix}!{cell_ref}"
+                        try:
+                            calc_value = calc_evaluator.evaluate(sheet_ref)
+                            normalized_value = normalize_cell_value(calc_value)
+                            if normalized_value not in ("", None):
+                                cell.value = normalized_value
+                                recalculated += 1
+                        except Exception as calc_eval_error:
+                            # Keep original value if evaluation fails
+                            pass
+        
+        # Save the workbook with recalculated values
+        wb.save(workbook_path)
+        wb.close()
+        
+        print(f"[xlcalculator] Recalculated {recalculated} formula cells", file=sys.stderr)
+        return True
+        
+    except Exception as e:
+        print(f"[xlcalculator] Recalculation failed: {e}", file=sys.stderr)
+        return False
+
+
 def _estimate_used_rows_and_cols(ws) -> tuple[int, int]:
     """Best-effort used range estimation for page-fitting decisions."""
     try:
@@ -3817,6 +3902,9 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
                 
                 workbook.save(output_path)
                 
+                # Recalculate formulas using xlcalculator if available
+                _recalculate_workbook_with_xlcalculator(output_path)
+                
                 # Try to recalculate formulas if COM becomes available
                 print(f"[Excel Calculator] Attempting formula recalculation...", file=sys.stderr)
                 try:
@@ -3890,6 +3978,10 @@ def calculate_excel(input_data: Dict[str, Any], excel_path: str) -> str:
                 workbook = openpyxl.load_workbook(excel_path)
                 applied_updates = _collect_updates(workbook, input_data.get('updates', []))
                 workbook.save(output_path)
+                
+                # Recalculate formulas using xlcalculator if available
+                _recalculate_workbook_with_xlcalculator(output_path)
+                
                 try:
                     workbook.close()
                 except Exception:
